@@ -27,17 +27,18 @@ Current LLMs (transformers) do the opposite: uniform architecture, random initia
 
 ## Architecture Overview
 
+The project has two layers: a reusable library (`neurogen/`) and a self-contained autoresearch harness inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch).
+
 ```
 ┌──────────────────────────────────────────────────────┐
-│                  AUTO-RESEARCH LOOP                   │
+│               AUTORESEARCH HARNESS                    │
+│         (AI researcher modifies train.py)             │
 │                                                      │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────────┐ │
-│  │ Experiment│──▶│  Runner  │──▶│  Analysis &      │ │
-│  │ Registry  │   │          │   │  Report Generator │ │
-│  └──────────┘   └──────────┘   └──────────────────┘ │
-│       ▲                              │               │
-│       └──────────────────────────────┘               │
-│              (next experiment)                        │
+│  prepare.py ──── Fixed data/eval harness             │
+│  train.py ────── Model + init + training (modifiable)│
+│  program.md ──── Agent instructions                  │
+│  results.tsv ─── Experiment log (append-only)        │
+│  git ─────────── Keep/discard workflow               │
 └──────────────────────────────────────────────────────┘
         │                    │
         ▼                    ▼
@@ -45,6 +46,11 @@ Current LLMs (transformers) do the opposite: uniform architecture, random initia
 │   MicroGPT    │   │  CA Weight Engine │
 │  (Karpathy)   │   │  (NeuroGen Core)  │
 └───────────────┘   └───────────────────┘
+
+The neurogen/ package is the tested, modular library.
+The autoresearch harness is self-contained — train.py
+does NOT import from neurogen/. Validated ideas get
+ported back into the library.
 ```
 
 ---
@@ -209,141 +215,53 @@ Each baseline must conform to the same interface: `def initialize(model: GPT) ->
 
 ---
 
-### 4. Auto-Research Engine (`research/engine.py`)
+### 4. Auto-Research System
 
-The systematic experiment runner that automates the research loop.
+NeuroGen uses a Karpathy-style autoresearch approach where an AI agent is the researcher. See `NEUROGEN_AUTORESEARCH.md` for the full specification.
 
-#### 4.1 Experiment Definition
+#### 4.1 Core Files
 
-```yaml
-# experiments/exp_001_baseline_sweep.yaml
-name: "Baseline Initialization Sweep"
-hypothesis: "Establish baseline convergence curves for all standard inits"
-model:
-  config: default_tiny
-dataset: shakespeare_char
-inits:
-  - xavier_uniform
-  - xavier_normal
-  - kaiming_normal
-  - orthogonal
-training:
-  max_steps: 5000
-  eval_interval: 250
-  lr: 3e-4
-  batch_size: 64
-metrics:
-  - train_loss
-  - val_loss
-  - gradient_norm
-  - weight_spectral_norm
-  - convergence_step_to_target  # steps to reach val_loss < X
-seeds: [42, 137, 256]  # statistical replicates
-```
+| File | Role | Modifiable? |
+|------|------|-------------|
+| `prepare.py` | Fixed evaluation harness — data loading, eval, device detection | No |
+| `train.py` | Self-contained model + init + training loop | Yes (AI modifies this) |
+| `program.md` | Instructions for the AI researcher | Rarely |
+| `results.tsv` | Tab-separated experiment log | Append-only |
 
-#### 4.2 Experiment Phases
+#### 4.2 The Research Loop
 
-The auto-research loop executes these phases in order:
+The AI researcher iterates:
+1. Read `results.tsv` to understand what's been tried
+2. Form a hypothesis about what to try next
+3. Modify `train.py` to implement the idea
+4. Commit with a descriptive message
+5. Run `python train.py` (fixed 2-minute budget)
+6. Append results to `results.tsv`
+7. Keep (tag) or discard (revert) based on val_loss
+8. Repeat
 
-**Phase 1: Baseline Characterization**
-- Run all standard inits on Shakespeare char-level
-- Record full loss curves, gradient stats, weight statistics over training
-- Establish target loss thresholds (e.g., best val_loss at 5K steps)
-- Output: baseline report with convergence curves
+#### 4.3 Research Phases
 
-**Phase 2: CA Development Validation**
-- Test each CA variant's ability to produce weight-shaped tensors
-- Verify: correct shapes, finite values, reasonable magnitudes
-- Measure: development time, genome size, compression ratio
-- Analyze: weight statistics (mean, std, spectral properties, rank)
-- Output: CA development report
+The AI researcher follows a phased agenda defined in `program.md`:
 
-**Phase 3: Random CA vs Random Init**
-- Use untrained CA genomes (random parameters) to initialize GPT
-- Compare training curves against standard random inits
-- Question: does CA *structure* alone (even random) help?
-- Output: structure-vs-random report
+| Phase | Question | Approach |
+|-------|----------|----------|
+| 1 | How do standard inits compare? | Sweep xavier, kaiming, orthogonal, etc. |
+| 2 | Can simple CAs produce useful weights? | Elementary CA, GoL-style, continuous CA |
+| 3 | Do structured CAs help more? | Block-diagonal, low-rank, spectral, multi-scale |
+| 4 | Does live CA during training help? | CA alongside gradient descent with decaying α |
+| 5 | Can we meta-learn the CA rule? | Evolve rules using training loss as fitness |
 
-**Phase 4: Hand-Designed CA Rules**
-- Implement hand-designed rules encoding known priors:
-  - Block-diagonal (modular) structure
-  - Low-rank + sparse composition
-  - Attention heads with different frequency biases
-  - FFN with gradually increasing receptive field across layers
-- Compare against baselines
-- Output: prior-knowledge report
+#### 4.4 Constraints
 
-**Phase 5: Meta-Learned CA (the big experiment)**
-- Outer loop: optimize CA genome parameters
-- Inner loop: train GPT from CA-developed weights, measure val_loss
-- Meta-objective: minimize val_loss at step N (or area under curve)
-- Methods:
-  - Evolution strategies (CMA-ES) on genome params — gradient-free
-  - MAML-style: differentiate through inner loop (expensive)
-  - Reptile-style: approximate meta-gradient
-- Output: meta-learning report
+- **Time budget**: 2 minutes per experiment (fixed in `prepare.py`)
+- **Single file**: All code in `train.py`, no external imports from `neurogen/`
+- **Fixed task**: Character-level Shakespeare, fixed eval protocol
+- **Self-contained**: Every experiment is reproducible from its git commit
 
-**Phase 6: Co-Evolution**
-- CA continues to apply weight perturbations during training
-- Test: CA applies every K steps with decaying magnitude
-- Compare: init-only vs init+periodic vs continuous
-- Output: co-evolution report
+#### 4.5 Legacy Research Infrastructure
 
-**Phase 7: Ablations & Analysis**
-- Vary: CA steps, genome size, seed pattern, neighborhood size
-- Visualize: developed weights (heatmaps, spectra, SVD)
-- Attention pattern analysis: do CA-init models learn different patterns?
-- Output: ablation report
-
-**Phase 8: Scale Transfer**
-- Train CA genome on tiny model
-- Apply to larger model (2x, 4x params)
-- Does the developmental program generalize?
-- Output: transfer report
-
-#### 4.3 Metrics & Logging
-
-Every experiment logs:
-
-```python
-metrics = {
-    # Training dynamics
-    "train_loss": [],          # per step
-    "val_loss": [],            # per eval interval
-    "gradient_norm": [],       # per step
-    "learning_rate": [],       # per step
-
-    # Weight analysis (per eval interval)
-    "weight_spectral_norms": {},    # per layer
-    "weight_effective_rank": {},    # per layer
-    "weight_sparsity": {},          # per layer
-    "weight_frobenius_norm": {},    # per layer
-
-    # Convergence
-    "steps_to_target_loss": None,   # first step where val_loss < target
-    "final_val_loss": None,
-    "best_val_loss": None,
-
-    # CA-specific
-    "genome_size": None,
-    "compression_ratio": None,
-    "development_time_ms": None,
-
-    # Compute
-    "total_train_time_s": None,
-    "peak_memory_mb": None,
-}
-```
-
-#### 4.4 Report Generator (`research/report.py`)
-
-After each phase, auto-generate a markdown report with:
-- Experiment configuration summary
-- Key results table
-- Loss curve plots (matplotlib → saved as PNG, embedded in markdown)
-- Statistical comparisons (mean ± std across seeds)
-- Weight visualization panels
-- Conclusions and next-step recommendations
+The `neurogen/` package also contains a full research infrastructure (`research/` directory) with YAML-driven experiment runner, report generator, and analysis tools. These are available for more controlled experiments but the primary research workflow is the autoresearch harness described above.
 
 ---
 
@@ -353,10 +271,15 @@ After each phase, auto-generate a markdown report with:
 neurogen/
 ├── README.md                    # Project overview and quick start
 ├── NEUROGEN_PROJECT.md          # This file — full specification
+├── NEUROGEN_AUTORESEARCH.md     # Autoresearch system specification
 ├── pyproject.toml               # Project metadata and dependencies
-├── requirements.txt             # Pinned dependencies
 │
-├── neurogen/                    # Core library
+├── prepare.py                   # AUTORESEARCH: Fixed eval harness (DO NOT MODIFY)
+├── train.py                     # AUTORESEARCH: Modifiable model + training
+├── program.md                   # AUTORESEARCH: AI researcher instructions
+├── results.tsv                  # AUTORESEARCH: Experiment log (append-only)
+│
+├── neurogen/                    # Core library (reusable, tested, modular)
 │   ├── __init__.py
 │   ├── config.py                # All configuration dataclasses
 │   ├── model/
@@ -371,7 +294,7 @@ neurogen/
 │   │   ├── spectral_ca.py       # Variant C
 │   │   ├── topo_ca.py           # Variant D
 │   │   ├── reaction_diffusion.py # Variant E
-│   │   ├── handcrafted.py       # Phase 4 hand-designed rules
+│   │   ├── handcrafted.py       # Hand-designed rules
 │   │   ├── genome.py            # CAGenome base class
 │   │   └── live/                # Live CA (operates during training)
 │   │       ├── __init__.py
@@ -389,86 +312,41 @@ neurogen/
 │   │   └── initializers.py      # All baseline init strategies
 │   ├── data/
 │   │   ├── __init__.py
-│   │   ├── shakespeare.py       # Shakespeare char-level dataset
-│   │   └── tinystories.py       # TinyStories dataset loader
+│   │   └── shakespeare.py       # Shakespeare char-level dataset
 │   ├── training/
 │   │   ├── __init__.py
 │   │   ├── trainer.py           # Training loop
 │   │   ├── evaluator.py         # Eval and metrics collection
-│   │   └── meta_trainer.py      # Meta-learning outer loop (Phase 5)
+│   │   ├── live_ca_trainer.py   # Live CA training loop
+│   │   └── meta_trainer.py      # Meta-learning outer loop
 │   └── analysis/
 │       ├── __init__.py
 │       ├── weight_analysis.py   # Spectral, rank, sparsity analysis
-│       ├── attention_analysis.py # Attention pattern visualization
 │       └── plotting.py          # All matplotlib plotting functions
 │
-├── exploration/                 # CA search space exploration
+├── research/                    # Legacy research infrastructure
 │   ├── __init__.py
-│   ├── stage1_survey.py         # Broad random+heuristic survey
-│   ├── stage2_focused.py        # Bayesian optimization (Optuna)
-│   ├── stage3_meta.py           # CMA-ES genome optimization
-│   ├── coevolution.py           # Co-evolutionary search
-│   ├── budget.py                # Compute budget estimation
-│   └── visualization.py         # Exploration-specific plots
-│
-├── research/                    # Auto-research engine
-│   ├── __init__.py
-│   ├── agenda.py                # ResearchAgenda/ResearchQuestion dataclasses
-│   ├── agenda.yaml              # Default research agenda (human-authored)
-│   ├── auto_research.py         # Main closed-loop runner
-│   ├── decision_engine.py       # Decides what experiment to run next
-│   ├── engine.py                # Experiment runner (executes single experiments)
-│   ├── experiment_generator.py  # Creates ExperimentConfig from strategy decisions
-│   ├── results_store.py         # SQLite-backed persistent results
-│   ├── registry.py              # Experiment status tracking
+│   ├── engine.py                # YAML experiment runner
 │   ├── report.py                # Markdown report generator
-│   ├── strategies/              # Per-question decision strategies
-│   │   ├── __init__.py
-│   │   ├── base.py              # QuestionStrategy ABC
-│   │   ├── baseline_sweep.py    # Q1: exhaustive sweep
-│   │   ├── viability.py         # Q2: broad explore, fast abandon
-│   │   ├── focused_optimization.py  # Q3: Bayesian optimization
-│   │   ├── live_ca_comparison.py    # Q4: live CA rule comparison
-│   │   ├── meta_learning.py     # Q5: CMA-ES with checkpointing
-│   │   └── transfer_validation.py   # Q6: scale-up validation
-│   └── experiments/             # (legacy) manual YAML experiments
-│       ├── phase1_baselines.yaml
-│       └── ...
+│   └── ...
 │
 ├── scripts/                     # CLI entry points
-│   ├── train.py                 # Single training run
-│   ├── develop_weights.py       # Run CA development standalone
-│   ├── run_experiment.py        # Run a single experiment from YAML
-│   ├── run_phase.py             # Run all experiments in a phase
-│   ├── run_all.py               # Full auto-research pipeline
-│   ├── run_benchmark.py         # Benchmark runner (BM1-BM8, suites)
-│   ├── analyze_weights.py       # Weight analysis CLI
-│   └── generate_report.py       # Report generation CLI
+│   ├── train.py                 # Single training run (uses neurogen/)
+│   ├── run_benchmark.py         # Benchmark runner (BM1-BM8)
+│   └── ...
 │
-├── .github/                     # CI/CD
-│   └── workflows/
-│       └── test.yml             # Tests, linting, quick benchmarks
+├── .github/workflows/test.yml   # CI: tests + linting
 │
-├── notebooks/                   # Jupyter notebooks for exploration
-│   ├── 01_ca_visualization.ipynb
-│   ├── 02_weight_comparison.ipynb
-│   └── 03_results_explorer.ipynb
-│
-├── tests/                       # Test suite
+├── tests/                       # Test suite (200+ tests)
+│   ├── conftest.py
 │   ├── test_model.py
 │   ├── test_ca_engine.py
 │   ├── test_baselines.py
-│   ├── test_trainer.py
-│   └── test_research_engine.py
+│   ├── test_live_ca.py
+│   └── ...
 │
 ├── outputs/                     # Generated outputs (gitignored)
-│   ├── checkpoints/
-│   ├── logs/
-│   ├── reports/
-│   └── figures/
-│
 └── data/                        # Data directory (gitignored)
-    └── shakespeare/
 ```
 
 ---
@@ -772,7 +650,8 @@ Even negative results are valuable if rigorously documented — they constrain t
 - **`NEUROGEN_TESTING.md`** — Complete test suite definitions (70+ test cases), 8 benchmark protocols (BM1-BM8), CI/CD workflows, sprint validation checklists, and benchmark runner configurations.
 - **`NEUROGEN_EXPLORATION.md`** — CA configuration space exploration strategy: three-stage funnel (broad survey → Bayesian optimization → CMA-ES meta-learning), search space taxonomy, budget planning for M1 Pro, and co-evolutionary search protocol.
 - **`NEUROGEN_LIVE_CA.md`** — Live CA specification: CA operating within training step-by-step alongside gradient descent. Five integration modes (additive, homeostatic, pruning, multi-timescale, CA-as-optimizer), five concrete CA rules, alpha schedules, per-layer scope configuration, CA-gradient alignment diagnostics, and biological motivation.
-- **`NEUROGEN_AUTORESEARCH.md`** — Auto-research engine: closed-loop experiment execution with decision engine, question strategies, results store, budget management, and CLI. Converts the manual phase-by-phase approach into an autonomous research loop.
+- **`NEUROGEN_AUTORESEARCH.md`** — Karpathy-style autoresearch system: AI-as-researcher with fixed eval harness (`prepare.py`), single modifiable file (`train.py`), agent instructions (`program.md`), and append-only results log (`results.tsv`). The LLM is the decision engine.
+- **`program.md`** — Instructions for the AI researcher: 5-phase research agenda, experiment loop protocol, results format, and scientific guidelines.
 - **`CLAUDE.md`** — Claude Code implementation instructions, coding conventions, and interface contracts.
 
 ## License

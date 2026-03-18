@@ -1,0 +1,2 @@
+experiment	val_loss	train_loss	steps	params	init_method	n_layer	n_head	n_embd	lr	batch_size	time	notes
+baseline_xavier	2.4967	2.6448	956	834432	xavier_normal	4	4	128	0.0003	64	121.0	first baseline run
