@@ -4,9 +4,13 @@ NeuroGen train.py — model + training loop + CA hooks.
 The AI researcher modifies this file to test CA initialization and live CA rules.
 Self-contained: does NOT import from any local package except prepare.py and ca_rules.py.
 
-Usage: uv run train.py
+Usage:
+    uv run train.py                  # default 2 min (autoresearch speed)
+    uv run train.py --minutes 10     # medium validation
+    uv run train.py --minutes 30     # long validation
 """
 
+import argparse
 import time
 import math
 
@@ -391,8 +395,17 @@ def get_lr(step, warmup_steps, max_steps, max_lr, min_lr):
 # Training
 # ---------------------------------------------------------------------------
 
-def train():
+def train(time_budget: float | None = None):
+    """Run training loop.
+
+    Args:
+        time_budget: Training time in seconds. Defaults to TIME_BUDGET from prepare.py.
+    """
+    if time_budget is None:
+        time_budget = TIME_BUDGET
+
     print(f"device: {DEVICE}")
+    print(f"time_budget: {time_budget:.0f}s ({time_budget/60:.1f} min)")
 
     train_data = load_data("train")
     val_data = load_data("val")
@@ -416,7 +429,7 @@ def train():
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 
-    # Training loop
+    # Training loop with periodic val_bpb evaluation
     model.train()
     step = 0
     warmup = 100
@@ -424,9 +437,12 @@ def train():
     min_lr = LR / 10
     t0 = time.time()
 
+    # Eval interval: ~10 checkpoints over the training run
+    eval_interval = max(50, int(time_budget / 0.4 / 10))  # ~0.4s per step
+
     while True:
         elapsed = time.time() - t0
-        if elapsed >= TIME_BUDGET:
+        if elapsed >= time_budget:
             break
 
         x, y = get_batch(train_data, BATCH_SIZE, block_size, DEVICE)
@@ -446,7 +462,13 @@ def train():
         # Live CA hook (agent injects CA rules here)
         ca_step(model, step)
 
-        if step % 100 == 0:
+        if step % eval_interval == 0:
+            # Periodic val_bpb for convergence tracking
+            val_bpb_ckpt = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
+            elapsed = time.time() - t0
+            print(f"step: {step}  train_loss: {loss.item():.4f}  val_bpb: {val_bpb_ckpt:.4f}  elapsed_s: {elapsed:.1f}")
+        elif step % 100 == 0:
+            elapsed = time.time() - t0
             print(f"step {step:5d} | loss {loss.item():.4f} | lr {lr:.2e} | {elapsed:.1f}s")
 
         step += 1
@@ -485,4 +507,11 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser(description="NeuroGen training")
+    parser.add_argument(
+        "--minutes", type=float, default=None,
+        help="Training time in minutes (default: use TIME_BUDGET from prepare.py)",
+    )
+    args = parser.parse_args()
+    budget = args.minutes * 60 if args.minutes is not None else None
+    train(time_budget=budget)

@@ -166,6 +166,19 @@ def apply_init(model: GPT, method: str) -> float:
                 layer_idx += 1
         return time.time() - t0
 
+    if method == "xavier+grid_ca":
+        from ca_rules import grid_ca_develop
+        seeds = ["center", "diagonal", "distributed", "random"]
+        for i, (name, p) in enumerate(model.named_parameters()):
+            if _is_ca_target(name, p):
+                nn.init.xavier_uniform_(p)
+                seed = seeds[i % len(seeds)]
+                ca_pattern = grid_ca_develop(
+                    p.shape, n_steps=64, seed=seed, target_std=p.std().item() * 0.1
+                )
+                p.data.add_(ca_pattern.to(p.device))
+        return time.time() - t0
+
     raise ValueError(f"Unknown init method: {method}")
 
 
@@ -247,8 +260,29 @@ def compute_quality(model: GPT) -> dict:
 # Single training run
 # ---------------------------------------------------------------------------
 
+def steps_to_target(loss_curve: list[tuple[int, float, float]], target_bpb: float) -> int | None:
+    """First step where val_bpb <= target. None if never reached.
+
+    Args:
+        loss_curve: List of (step, elapsed_s, val_bpb) tuples.
+        target_bpb: Target val_bpb to reach.
+    """
+    for step, elapsed_s, bpb in loss_curve:
+        if bpb <= target_bpb:
+            return step
+    return None
+
+
+def time_to_target(loss_curve: list[tuple[int, float, float]], target_bpb: float) -> float | None:
+    """Elapsed seconds when val_bpb first reaches target. None if never reached."""
+    for step, elapsed_s, bpb in loss_curve:
+        if bpb <= target_bpb:
+            return elapsed_s
+    return None
+
+
 def run_single(method: str, seed: int, minutes: float, eval_quality: bool = False) -> dict:
-    """Run one training experiment. Returns metrics dict."""
+    """Run one training experiment. Returns metrics dict including loss_curve."""
     torch.manual_seed(seed)
 
     train_data = load_data("train")
@@ -282,6 +316,12 @@ def run_single(method: str, seed: int, minutes: float, eval_quality: bool = Fals
     min_lr = LR / 10
     t0 = time.time()
 
+    # Loss curve: eval at ~10 checkpoints over training
+    eval_interval = max(50, int(train_budget / 0.4 / 10))
+    loss_curve: list[tuple[int, float, float]] = []
+    # Record init point
+    loss_curve.append((0, 0.0, init_bpb))
+
     while time.time() - t0 < train_budget:
         x, y = get_batch(train_data, BATCH_SIZE, block_size, DEVICE)
         lr = get_lr(step, warmup, max_steps, LR, min_lr)
@@ -294,8 +334,16 @@ def run_single(method: str, seed: int, minutes: float, eval_quality: bool = Fals
         optimizer.step()
         step += 1
 
+        # Periodic val_bpb for convergence tracking
+        if step % eval_interval == 0:
+            ckpt_bpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
+            elapsed = time.time() - t0
+            loss_curve.append((step, elapsed, ckpt_bpb))
+            model.train()
+
     train_wall_time = time.time() - t0
     val_bpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
+    loss_curve.append((step, train_wall_time, val_bpb))
     peak_mem = get_peak_memory_mb()
 
     # FLOPs accounting
@@ -326,6 +374,7 @@ def run_single(method: str, seed: int, minutes: float, eval_quality: bool = Fals
         "repetition_3gram": 0.0,
         "unique_token_ratio": 0.0,
         "self_perplexity": 0.0,
+        "loss_curve": loss_curve,
     }
 
     if eval_quality:
@@ -568,6 +617,110 @@ def generate_report(
                 f"| {uniq:.3f}+/-{uniq_std:.3f} | {ppl:.1f}+/-{ppl_std:.1f} |"
             )
 
+    # Steps-to-target analysis
+    # Use best baseline's final val_bpb as target
+    baseline_method = "xavier" if "xavier" in methods else methods[0]
+    baseline_runs = [r for r in all_results if r["method"] == baseline_method]
+    if baseline_runs and baseline_runs[0].get("loss_curve"):
+        target_bpb = statistics.mean([r["val_bpb"] for r in baseline_runs])
+        lines += ["", "## Steps to Target", ""]
+        lines.append(f"**Target:** {target_bpb:.4f} val_bpb ({baseline_method} final average)")
+        lines.append("")
+        lines.append("| Method | Steps | Time (s) | vs baseline |")
+        lines.append("|--------|-------|----------|-------------|")
+        baseline_steps_list = []
+        baseline_time_list = []
+        for r in baseline_runs:
+            curve = r.get("loss_curve", [])
+            s = steps_to_target(curve, target_bpb)
+            t = time_to_target(curve, target_bpb)
+            if s is not None:
+                baseline_steps_list.append(s)
+            if t is not None:
+                baseline_time_list.append(t)
+        avg_baseline_steps = statistics.mean(baseline_steps_list) if baseline_steps_list else None
+        avg_baseline_time = statistics.mean(baseline_time_list) if baseline_time_list else None
+        if avg_baseline_steps is not None:
+            lines.append(f"| {baseline_method} | {avg_baseline_steps:.0f} | {avg_baseline_time:.1f} | — |")
+
+        for m in methods:
+            if m == baseline_method:
+                continue
+            runs = [r for r in all_results if r["method"] == m]
+            m_steps, m_times = [], []
+            for r in runs:
+                curve = r.get("loss_curve", [])
+                s = steps_to_target(curve, target_bpb)
+                t = time_to_target(curve, target_bpb)
+                if s is not None:
+                    m_steps.append(s)
+                if t is not None:
+                    m_times.append(t)
+            if m_steps:
+                avg_s = statistics.mean(m_steps)
+                avg_t = statistics.mean(m_times)
+                if avg_baseline_steps and avg_baseline_steps > 0:
+                    pct_fewer = (1 - avg_s / avg_baseline_steps) * 100
+                    lines.append(f"| {m} | {avg_s:.0f} | {avg_t:.1f} | {pct_fewer:+.0f}% fewer steps |")
+                else:
+                    lines.append(f"| {m} | {avg_s:.0f} | {avg_t:.1f} | — |")
+            else:
+                lines.append(f"| {m} | never | — | — |")
+
+    return "\n".join(lines) + "\n"
+
+
+def generate_convergence_report(
+    all_results: list[dict], methods: list[str], horizons: list[float],
+) -> str:
+    """Generate convergence comparison across multiple training horizons.
+
+    Args:
+        all_results: All results across all horizons.
+        methods: List of methods compared.
+        horizons: List of training minutes used.
+    """
+    lines = [
+        "", "## Convergence Comparison", "",
+        "| Method |" + " | ".join(f"{h:.0f} min" for h in horizons) + " |",
+        "|--------" + "|----------" * len(horizons) + "|",
+    ]
+
+    method_by_horizon: dict[str, dict[float, list[float]]] = {}
+    for m in methods:
+        method_by_horizon[m] = {}
+        for h in horizons:
+            runs = [r for r in all_results
+                    if r["method"] == m and abs(r.get("minutes", 2.0) - h) < 0.1]
+            method_by_horizon[m][h] = [r["val_bpb"] for r in runs]
+
+    for m in methods:
+        cells = []
+        for h in horizons:
+            bpbs = method_by_horizon[m].get(h, [])
+            if bpbs:
+                mean = statistics.mean(bpbs)
+                std = statistics.stdev(bpbs) if len(bpbs) > 1 else 0.0
+                cells.append(f"{mean:.4f} +/- {std:.4f}")
+            else:
+                cells.append("—")
+        lines.append(f"| {m} | " + " | ".join(cells) + " |")
+
+    # Improvement row (first method vs last)
+    if len(methods) >= 2:
+        cells = []
+        for h in horizons:
+            bpbs_0 = method_by_horizon[methods[0]].get(h, [])
+            bpbs_1 = method_by_horizon[methods[1]].get(h, [])
+            if bpbs_0 and bpbs_1:
+                m0 = statistics.mean(bpbs_0)
+                m1 = statistics.mean(bpbs_1)
+                pct = vs_baseline_pct(m1, m0)
+                cells.append(f"{pct:+.1f}%")
+            else:
+                cells.append("—")
+        lines.append(f"| improvement | " + " | ".join(cells) + " |")
+
     return "\n".join(lines) + "\n"
 
 
@@ -583,6 +736,11 @@ def main():
     )
     parser.add_argument("--seeds", type=int, default=5, help="Number of seeds per method")
     parser.add_argument("--minutes", type=float, default=2.0, help="Minutes per run")
+    parser.add_argument(
+        "--horizon", type=str, default=None,
+        help="Comma-separated training horizons in minutes (e.g. '2,10,30'). "
+             "Runs each method at all horizons and produces convergence comparison.",
+    )
     parser.add_argument(
         "--baseline", action="store_true",
         help="Run xavier baseline and save as reference for this config",
@@ -622,7 +780,70 @@ def main():
         if not args.compare:
             return
 
-    # --compare mode
+    # --horizon mode: multi-horizon convergence comparison
+    if args.horizon and args.compare:
+        horizons = [float(h.strip()) for h in args.horizon.split(",")]
+        methods = [m.strip() for m in args.compare.split(",")]
+        n_seeds = args.seeds
+        total_runs = len(methods) * n_seeds * len(horizons)
+
+        print(f"Multi-horizon benchmark: {len(methods)} methods x {n_seeds} seeds x {len(horizons)} horizons = {total_runs} runs")
+        print(f"Methods: {methods}")
+        print(f"Horizons: {horizons} min")
+        print()
+
+        OUTPUTS_DIR.mkdir(exist_ok=True)
+        all_results = []
+
+        for hi, horizon_min in enumerate(horizons):
+            print(f"\n=== Horizon: {horizon_min:.0f} min ===\n")
+            for mi, method in enumerate(methods):
+                for si in range(n_seeds):
+                    run_id = hi * len(methods) * n_seeds + mi * n_seeds + si + 1
+                    seed = 42 + si
+                    print(f"[{run_id}/{total_runs}] {method} seed={seed} {horizon_min:.0f}min ...",
+                          end=" ", flush=True)
+                    result = run_single(method, seed, horizon_min, eval_quality=args.quality)
+                    result["minutes"] = horizon_min
+
+                    # Look up baseline for this horizon
+                    h_ref_key = get_reference_key(horizon_min)
+                    if h_ref_key in refs:
+                        result["vs_baseline_pct"] = vs_baseline_pct(
+                            result["val_bpb"], refs[h_ref_key]["mean"]
+                        )
+                    all_results.append(result)
+                    print(f"val_bpb={result['val_bpb']:.4f} ({result['total_steps']} steps)")
+
+        # Save raw data
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        csv_path = OUTPUTS_DIR / f"convergence_{ts}.csv"
+        # Exclude loss_curve from CSV (it's a list of tuples)
+        csv_results = [{k: v for k, v in r.items() if k != "loss_curve"} for r in all_results]
+        with open(csv_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=csv_results[0].keys())
+            writer.writeheader()
+            writer.writerows(csv_results)
+        print(f"\nRaw data saved to {csv_path}")
+
+        # Generate convergence report
+        report = generate_convergence_report(all_results, methods, horizons)
+        # Also generate per-horizon reports
+        for h in horizons:
+            h_results = [r for r in all_results if abs(r.get("minutes", 2.0) - h) < 0.1]
+            h_ref_key = get_reference_key(h)
+            h_baseline = refs.get(h_ref_key, {}).get("mean")
+            report += "\n---\n"
+            report += generate_report(h_results, methods, n_seeds, h, h_baseline)
+
+        md_path = OUTPUTS_DIR / f"convergence_{ts}.md"
+        md_path.write_text(report)
+        print(f"Report saved to {md_path}")
+        print()
+        print(report)
+        return
+
+    # --compare mode (single horizon)
     methods = [m.strip() for m in args.compare.split(",")]
     n_seeds = args.seeds
     total_runs = len(methods) * n_seeds
@@ -659,14 +880,24 @@ def main():
             all_results.append(result)
             print(f"val_bpb={result['val_bpb']:.4f}{vs_str} ({result['total_steps']} steps)")
 
-    # Save raw CSV
+    # Save raw CSV (exclude loss_curve)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_path = OUTPUTS_DIR / f"benchmark_{ts}.csv"
+    csv_results = [{k: v for k, v in r.items() if k != "loss_curve"} for r in all_results]
     with open(csv_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=all_results[0].keys())
+        writer = csv.DictWriter(f, fieldnames=csv_results[0].keys())
         writer.writeheader()
-        writer.writerows(all_results)
+        writer.writerows(csv_results)
     print(f"\nRaw data saved to {csv_path}")
+
+    # Save loss curves as JSON for plotting
+    curves_data = {}
+    for r in all_results:
+        key = f"{r['method']}_s{r['seed']}"
+        curves_data[key] = r.get("loss_curve", [])
+    curves_path = OUTPUTS_DIR / f"loss_curves_{ts}.json"
+    curves_path.write_text(json.dumps(curves_data, indent=2) + "\n")
+    print(f"Loss curves saved to {curves_path}")
 
     # Generate and save report
     report = generate_report(all_results, methods, n_seeds, args.minutes, baseline_bpb)

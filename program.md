@@ -98,6 +98,51 @@ Only if earlier phases show promise:
 - **Negative results are valuable.** If CA init consistently doesn't beat Xavier, that's a finding. Record it clearly and move on.
 - **Don't get stuck.** If a variant shows no promise after 3 experiments, try a different variant. If a whole axis (init/live/combined) shows no promise after 8 experiments, document the finding and move to the next axis.
 
+## Validation Protocol
+
+The autoresearch loop uses 2-minute experiments for fast iteration. Before
+declaring any result real, validate at longer horizons:
+
+**Quick check (during autoresearch):** 2 min, 1 seed. Keep/discard decision.
+
+**Short validation (after finding a promising variant):** 2 min, 3 seeds via
+benchmark.py. Statistical significance check.
+
+**Medium validation (before moving to next phase):** 10 min, 3 seeds via
+benchmark.py. Does the advantage hold at 5x training time?
+
+**Long validation (before declaring a finding):** 30 min, 3 seeds via
+benchmark.py. Does the advantage hold at 15x training time?
+
+A result that holds at 2 min but vanishes at 10 min is a "head start" finding
+(still interesting but weaker). A result that holds at 30 min is a "structural
+benefit" finding (the publishable kind).
+
+Run quality evaluation (evaluate_quality.py) at each horizon to check if
+generation quality follows the same pattern as val_bpb.
+
+### Multi-horizon benchmark commands
+
+```bash
+# Quick validation (default, used during autoresearch)
+uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --minutes 2
+
+# Medium — catches early-advantage-that-vanishes
+uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --minutes 10
+
+# Long — catches slow degradation and late advantages
+uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --minutes 30
+
+# All horizons at once — convergence comparison
+uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --horizon "2,10,30"
+```
+
+### Interpreting convergence results
+
+- Improvement **holds or grows** with time → CA provides lasting structural benefit (strong claim)
+- Improvement **decreases** with time → CA gives a head start only (still useful but weaker claim)
+- Improvement **reverses** → CA is actually harmful long-term (kill the variant)
+
 ## Notes for M1 Pro / MPS
 
 - Use `float32` everywhere (MPS has inconsistent float64/bfloat16 support)
