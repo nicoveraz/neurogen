@@ -1,0 +1,22 @@
+name: "Phase 3: Random CA vs Random Init"
+hypothesis: "CA structure alone (random genome) may help compared to standard random init"
+model:
+  config: default_tiny
+dataset: shakespeare_char
+inits:
+  - xavier_normal
+  - grid_ca
+  - neural_ca
+  - reaction_diffusion
+training:
+  max_steps: 5000
+  eval_interval: 250
+  eval_steps: 20
+  lr: 3.0e-4
+  batch_size: 64
+  log_interval: 50
+metrics:
+  - train_loss
+  - val_loss
+  - gradient_norm
+seeds: [42, 137, 256]

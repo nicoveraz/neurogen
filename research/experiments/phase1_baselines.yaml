@@ -1,0 +1,27 @@
+name: "Phase 1: Baseline Initialization Sweep"
+hypothesis: "Establish baseline convergence curves for all standard inits"
+model:
+  config: default_tiny
+dataset: shakespeare_char
+inits:
+  - xavier_uniform
+  - xavier_normal
+  - kaiming_uniform
+  - kaiming_normal
+  - orthogonal
+  - sparse
+  - fixup
+  - mimetic
+  - spectral_delta
+training:
+  max_steps: 5000
+  eval_interval: 250
+  eval_steps: 20
+  lr: 3.0e-4
+  batch_size: 64
+  log_interval: 50
+metrics:
+  - train_loss
+  - val_loss
+  - gradient_norm
+seeds: [42, 137, 256]
