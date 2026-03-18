@@ -1,78 +1,86 @@
-"""Evaluation and metrics collection utilities."""
+"""Quick evaluation utilities for model assessment."""
+
+from typing import Any, Callable
 
 import torch
 
-from neurogen.model.gpt import GPT
+from neurogen.config import TrainConfig, get_device
 from neurogen.data.shakespeare import ShakespeareDataset
+from neurogen.model.gpt import GPT
+from neurogen.training.trainer import evaluate, train
 
 
-@torch.no_grad()
 def quick_evaluate(
     model: GPT,
     dataset: ShakespeareDataset,
+    config: TrainConfig,
+    device: str,
     n_batches: int = 10,
-    batch_size: int = 32,
-    device: str = "cpu",
 ) -> float:
-    """Quick evaluation: average val loss over n_batches.
+    """Run a quick evaluation on the validation set.
+
+    A lightweight wrapper around evaluate() with a smaller default batch count,
+    useful for rapid checks during development.
 
     Args:
-        model: The model to evaluate.
-        dataset: The dataset.
-        n_batches: Number of batches to average.
-        batch_size: Batch size.
-        device: Device.
+        model: The GPT model to evaluate.
+        dataset: The dataset providing validation batches.
+        config: Training config (for batch_size).
+        device: Device string.
+        n_batches: Number of batches to average over.
 
     Returns:
         Average validation loss.
     """
-    model.eval()
-    total_loss = 0.0
-    for _ in range(n_batches):
-        x, y = dataset.get_batch("val", batch_size, model.config.block_size, device)
-        _, loss = model(x, y)
-        total_loss += loss.item()
-    model.train()
-    return total_loss / n_batches
+    return evaluate(model, dataset, config, device, n_batches=n_batches)
 
 
 def train_and_evaluate(
     model: GPT,
     dataset: ShakespeareDataset,
-    steps: int = 500,
-    batch_size: int = 32,
-    lr: float = 3e-4,
-    device: str = "cpu",
-) -> float:
-    """Train for N steps and return final val loss.
+    train_config: TrainConfig,
+    device: str,
+    init_fn: Callable[[GPT], dict[str, torch.Tensor]] | None = None,
+) -> dict[str, Any]:
+    """Train a model and return comprehensive evaluation metrics.
 
-    Lightweight version for meta-learning inner loops.
+    Runs the full training loop with optional custom initialization, then
+    computes final validation loss and gathers all metrics.
 
     Args:
-        model: The model.
-        dataset: The dataset.
-        steps: Training steps.
-        batch_size: Batch size.
-        lr: Learning rate.
-        device: Device.
+        model: The GPT model to train and evaluate.
+        dataset: The dataset providing batches.
+        train_config: Training configuration.
+        device: Device string.
+        init_fn: Optional initialization function.
 
     Returns:
-        Final validation loss.
+        Dictionary containing:
+            - train_losses: List of per-step training losses.
+            - val_losses: List of validation losses at eval intervals.
+            - best_val_loss: Best validation loss seen during training.
+            - final_train_loss: Loss on the last training step.
+            - final_val_loss: Validation loss after training completes.
+            - total_time: Wall-clock training time in seconds.
+            - steps_per_sec: Training throughput.
+            - post_train_val_loss: Fresh validation evaluation after training.
     """
-    model.to(device)
-    model.train()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    metrics = train(
+        model=model,
+        dataset=dataset,
+        config=train_config,
+        init_fn=init_fn,
+        device=device,
+    )
 
-    for step in range(steps):
-        x, y = dataset.get_batch("train", batch_size, model.config.block_size, device)
-        _, loss = model(x, y)
+    # Run a fresh evaluation after training
+    post_val_loss = evaluate(
+        model=model,
+        dataset=dataset,
+        config=train_config,
+        device=device,
+        n_batches=20,
+    )
+    metrics["post_train_val_loss"] = post_val_loss
 
-        if torch.isnan(loss) or torch.isinf(loss):
-            return 100.0  # penalty for diverged training
-
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-
-    return quick_evaluate(model, dataset, n_batches=5, batch_size=batch_size, device=device)
+    return metrics

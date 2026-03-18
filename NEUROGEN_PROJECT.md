@@ -21,6 +21,7 @@ Current LLMs (transformers) do the opposite: uniform architecture, random initia
 3. **H3 — Compression**: The CA rule set is orders of magnitude smaller than the weight matrices it generates (genomic compression).
 4. **H4 — Co-evolution**: Allowing the CA to continue shaping weights *during* training (not just at init) produces further improvements.
 5. **H5 — Transferability**: A CA rule learned on a small model/dataset transfers beneficially to a larger model/dataset.
+6. **H6 — Live dual-process**: A CA operating at every training step alongside gradient descent produces training dynamics qualitatively different from (and better than) either process alone. The CA-gradient alignment shifts from low (independent agendas) to high (cooperative) over training.
 
 ---
 
@@ -371,7 +372,18 @@ neurogen/
 │   │   ├── topo_ca.py           # Variant D
 │   │   ├── reaction_diffusion.py # Variant E
 │   │   ├── handcrafted.py       # Phase 4 hand-designed rules
-│   │   └── genome.py            # CAGenome base class
+│   │   ├── genome.py            # CAGenome base class
+│   │   └── live/                # Live CA (operates during training)
+│   │       ├── __init__.py
+│   │       ├── base.py          # LiveCA base class and interface
+│   │       ├── local_norm.py    # Homeostatic weight normalization
+│   │       ├── modularity.py    # Block-diagonal structure enforcer
+│   │       ├── pruning.py       # Gradient-aware dynamic pruning
+│   │       ├── competition.py   # Lateral inhibition / winner-take-all
+│   │       ├── learned.py       # Learned CA rule (meta-optimizable genome)
+│   │       ├── multi_timescale.py # Multiple CAs at different frequencies
+│   │       ├── ca_optimizer.py  # CA as learned optimizer (replaces Adam)
+│   │       └── alpha_schedule.py # Developmental influence schedules
 │   ├── baselines/
 │   │   ├── __init__.py
 │   │   └── initializers.py      # All baseline init strategies
@@ -401,18 +413,27 @@ neurogen/
 │
 ├── research/                    # Auto-research engine
 │   ├── __init__.py
-│   ├── engine.py                # Experiment runner
-│   ├── registry.py              # Experiment registry and status
+│   ├── agenda.py                # ResearchAgenda/ResearchQuestion dataclasses
+│   ├── agenda.yaml              # Default research agenda (human-authored)
+│   ├── auto_research.py         # Main closed-loop runner
+│   ├── decision_engine.py       # Decides what experiment to run next
+│   ├── engine.py                # Experiment runner (executes single experiments)
+│   ├── experiment_generator.py  # Creates ExperimentConfig from strategy decisions
+│   ├── results_store.py         # SQLite-backed persistent results
+│   ├── registry.py              # Experiment status tracking
 │   ├── report.py                # Markdown report generator
-│   └── experiments/             # Experiment YAML definitions
+│   ├── strategies/              # Per-question decision strategies
+│   │   ├── __init__.py
+│   │   ├── base.py              # QuestionStrategy ABC
+│   │   ├── baseline_sweep.py    # Q1: exhaustive sweep
+│   │   ├── viability.py         # Q2: broad explore, fast abandon
+│   │   ├── focused_optimization.py  # Q3: Bayesian optimization
+│   │   ├── live_ca_comparison.py    # Q4: live CA rule comparison
+│   │   ├── meta_learning.py     # Q5: CMA-ES with checkpointing
+│   │   └── transfer_validation.py   # Q6: scale-up validation
+│   └── experiments/             # (legacy) manual YAML experiments
 │       ├── phase1_baselines.yaml
-│       ├── phase2_ca_validation.yaml
-│       ├── phase3_random_ca.yaml
-│       ├── phase4_handcrafted.yaml
-│       ├── phase5_meta_learning.yaml
-│       ├── phase6_coevolution.yaml
-│       ├── phase7_ablations.yaml
-│       └── phase8_transfer.yaml
+│       └── ...
 │
 ├── scripts/                     # CLI entry points
 │   ├── train.py                 # Single training run
@@ -676,12 +697,28 @@ When building this project with Claude Code, follow this implementation order. E
 
 **Checkpoint:** Full exploration pipeline runs Stage 1 → Stage 2 → Stage 3 and produces ranked results.
 
-### Sprint 6: Polish & Documentation
+### Sprint 6: Live CA (dual-process training)
 
-22. **Tests** — Full test suite for all modules.
-23. **`README.md`** — Quick start, results summary, contributing guide.
-24. **Notebooks** — Interactive exploration and visualization.
-25. **CI** — GitHub Actions for tests and linting.
+25. **`neurogen/ca/live/base.py`** — LiveCA base class with `step(W, grad_W) -> delta_W` interface. See `NEUROGEN_LIVE_CA.md` for full specification.
+
+26. **`neurogen/ca/live/local_norm.py`**, **`modularity.py`**, **`pruning.py`**, **`competition.py`** — Four hand-designed live CA rules. Each must produce bounded, finite deltas.
+
+27. **`neurogen/ca/live/alpha_schedule.py`** — Developmental influence schedules (exponential decay, cosine, phased, adaptive, cyclic).
+
+28. **`neurogen/training/live_ca_trainer.py`** — Modified training loop integrating CA step after each gradient step. Logs CA-gradient alignment and contribution ratio.
+
+29. **`neurogen/ca/live/learned.py`** — Learned CA rule with meta-optimizable genome. Same CMA-ES outer loop as Sprint 5 but optimizing the live rule.
+
+30. **`neurogen/ca/live/multi_timescale.py`** — Multiple CA rules at different frequencies (fast/medium/slow).
+
+**Checkpoint:** Can train with live CA and measure CA-gradient alignment. Fixed rules produce measurably different training dynamics than baseline.
+
+### Sprint 7: Polish & Documentation
+
+31. **Tests** — Full test suite for all modules including live CA.
+32. **`README.md`** — Quick start, results summary, contributing guide.
+33. **Notebooks** — Interactive exploration and visualization.
+34. **CI** — GitHub Actions for tests and linting.
 
 ---
 
@@ -734,6 +771,8 @@ Even negative results are valuable if rigorously documented — they constrain t
 
 - **`NEUROGEN_TESTING.md`** — Complete test suite definitions (70+ test cases), 8 benchmark protocols (BM1-BM8), CI/CD workflows, sprint validation checklists, and benchmark runner configurations.
 - **`NEUROGEN_EXPLORATION.md`** — CA configuration space exploration strategy: three-stage funnel (broad survey → Bayesian optimization → CMA-ES meta-learning), search space taxonomy, budget planning for M1 Pro, and co-evolutionary search protocol.
+- **`NEUROGEN_LIVE_CA.md`** — Live CA specification: CA operating within training step-by-step alongside gradient descent. Five integration modes (additive, homeostatic, pruning, multi-timescale, CA-as-optimizer), five concrete CA rules, alpha schedules, per-layer scope configuration, CA-gradient alignment diagnostics, and biological motivation.
+- **`NEUROGEN_AUTORESEARCH.md`** — Auto-research engine: closed-loop experiment execution with decision engine, question strategies, results store, budget management, and CLI. Converts the manual phase-by-phase approach into an autonomous research loop.
 - **`CLAUDE.md`** — Claude Code implementation instructions, coding conventions, and interface contracts.
 
 ## License

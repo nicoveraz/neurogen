@@ -1,7 +1,11 @@
 name: "Phase 2: CA Development Validation"
-hypothesis: "CA variants can produce valid weight tensors with reasonable properties"
+hypothesis: "CA variants produce valid weight tensors with measurable structure"
 model:
-  config: default_tiny
+  block_size: 256
+  n_layer: 6
+  n_head: 6
+  n_embd: 384
+  dropout: 0.2
 dataset: shakespeare_char
 inits:
   - grid_ca
@@ -10,14 +14,13 @@ inits:
   - topo_ca
   - reaction_diffusion
 training:
-  max_steps: 2000
+  max_steps: 5000
   eval_interval: 250
-  eval_steps: 20
-  lr: 3.0e-4
+  lr: 3e-4
   batch_size: 64
-  log_interval: 50
 metrics:
   - train_loss
   - val_loss
-  - gradient_norm
-seeds: [42, 137]
+  - weight_spectral_norm
+  - weight_effective_rank
+seeds: [42, 137, 256]

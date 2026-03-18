@@ -1,31 +1,34 @@
-# Data and outputs
-data/
-outputs/
-*.pt
-*.pth
-*.ckpt
-
 # Python
 __pycache__/
+*.py[cod]
+*$py.class
 *.egg-info/
 dist/
 build/
+*.egg
 .eggs/
-*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
 
 # IDE
 .vscode/
 .idea/
 *.swp
-
-# OS
+*.swo
 .DS_Store
-Thumbs.db
+
+# Project-specific
+/data/
+outputs/
+*.pt
+*.pth
+*.ckpt
+wandb/
+runs/
+*.log
 
 # Jupyter
 .ipynb_checkpoints/
-
-# Env
-.env
-.venv/
-venv/

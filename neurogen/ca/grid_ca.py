@@ -1,210 +1,190 @@
-"""Variant A: Classic Grid CA — treats weight matrix as 2D grid of cells.
+"""Grid-based Cellular Automaton genome for weight development.
 
-Each cell is updated based on its neighborhood statistics using a small MLP.
+Classic 2D grid CA where each cell is updated based on its Moore neighborhood
+using a small shared MLP (the genome). The MLP processes per-cell features
+(center value, neighborhood statistics, step fraction) and outputs a delta
+that is added to the cell value.
 """
+
+from __future__ import annotations
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 
 from neurogen.ca.genome import CAGenome
 
 
 class GridCAGenome(CAGenome):
-    """Grid-based cellular automaton genome.
+    """Grid CA genome with a small MLP update rule.
 
-    Update rule: w[i,j] = f(neighborhood_mean, neighborhood_std, current_value, step_frac)
-    where f is a small MLP shared across all cells.
+    The update rule (genome) is a shared MLP that processes local features
+    for each cell and produces a per-cell delta. Features include the center
+    value, neighborhood mean/std/max/min, and the current step fraction.
+
+    Uses Moore neighborhood (3x3) with circular boundary padding and
+    unfold-based neighborhood extraction for efficiency.
 
     Args:
-        hidden_dim: Width of the update MLP hidden layers.
-        n_layers: Number of hidden layers in the update MLP.
-        neighborhood: Type of neighborhood ("moore_3x3", "moore_5x5", "von_neumann").
-        boundary: Boundary condition ("periodic", "zero_pad").
-        seed_pattern: Initial seed pattern type.
+        hidden_dim: Hidden dimension of the update MLP.
+        seed_pattern: How to seed the initial grid ("center" or "random").
+        device: Device string.
     """
+
+    # Number of input features per cell for the MLP
+    N_FEATURES: int = 6
 
     def __init__(
         self,
         hidden_dim: int = 64,
-        n_layers: int = 2,
-        neighborhood: str = "moore_3x3",
-        boundary: str = "periodic",
-        seed_pattern: str = "center_block",
+        seed_pattern: str = "center",
+        device: str = "cpu",
     ) -> None:
-        super().__init__()
+        """Initialize the GridCAGenome.
+
+        Args:
+            hidden_dim: Hidden dimension for the update MLP.
+            seed_pattern: Seed initialization pattern ("center" or "random").
+            device: Device string ("cpu", "cuda", or "mps").
+        """
+        super().__init__(device=device)
         self.hidden_dim = hidden_dim
-        self.n_layers = n_layers
-        self.neighborhood = neighborhood
-        self.boundary = boundary
         self.seed_pattern = seed_pattern
 
-        # Input: (neighborhood_mean, neighborhood_std, current_value, step_fraction)
-        input_dim = 4
-        layers: list[nn.Module] = []
-        in_dim = input_dim
-        for _ in range(n_layers):
-            layers.append(nn.Linear(in_dim, hidden_dim))
-            layers.append(nn.GELU())
-            in_dim = hidden_dim
-        layers.append(nn.Linear(in_dim, 1))
-        layers.append(nn.Tanh())  # bound output
-        self.update_mlp = nn.Sequential(*layers)
+        # Small MLP: 6 input features -> hidden -> hidden -> 1 delta
+        self.update_mlp = nn.Sequential(
+            nn.Linear(self.N_FEATURES, hidden_dim, dtype=torch.float32),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim, dtype=torch.float32),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1, dtype=torch.float32),
+        )
 
-        # Initialize with small weights for stable development
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.zeros_(m.bias)
+        # Initialize with small weights for stable CA dynamics
+        for layer in self.update_mlp:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight, gain=0.1)
+                nn.init.zeros_(layer.bias)
 
-    def _get_kernel_size(self) -> int:
-        if self.neighborhood == "moore_3x3":
-            return 3
-        elif self.neighborhood == "moore_5x5":
-            return 5
-        elif self.neighborhood == "von_neumann":
-            return 3
-        else:
-            return 3
+        self.to(device)
 
-    def _get_neighborhood_stats(
-        self, grid: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Compute neighborhood mean and std for each cell.
+    def _extract_neighborhood_features(
+        self, grid: Tensor, step_fraction: float
+    ) -> Tensor:
+        """Extract per-cell features from the grid using Moore neighborhood.
+
+        Uses circular padding and unfold to efficiently gather 3x3
+        neighborhood values for all cells simultaneously.
 
         Args:
-            grid: 2D grid of cell values, shape (H, W).
+            grid: 2D grid of shape (H, W).
+            step_fraction: Current step / total steps, in [0, 1].
 
         Returns:
-            Tuple of (neighborhood_mean, neighborhood_std), each shape (H, W).
+            Feature tensor of shape (H*W, N_FEATURES).
         """
-        k = self._get_kernel_size()
-        pad = k // 2
+        h, w = grid.shape
 
-        # Add batch and channel dims for conv2d
-        g = grid.unsqueeze(0).unsqueeze(0)
+        # Circular padding for boundary handling: pad 1 on each side
+        padded = F.pad(
+            grid.unsqueeze(0).unsqueeze(0),  # (1, 1, H, W)
+            (1, 1, 1, 1),
+            mode="circular",
+        )  # (1, 1, H+2, W+2)
 
-        if self.boundary == "periodic":
-            g = F.pad(g, (pad, pad, pad, pad), mode="circular")
-        else:
-            g = F.pad(g, (pad, pad, pad, pad), mode="constant", value=0)
+        # Extract 3x3 patches using unfold
+        # unfold(dim, size, step) -> patches along that dim
+        patches = padded.squeeze(0).squeeze(0)  # (H+2, W+2)
+        patches = patches.unfold(0, 3, 1).unfold(1, 3, 1)  # (H, W, 3, 3)
+        patches = patches.reshape(h * w, 9)  # (H*W, 9)
 
-        # Create averaging kernel
-        if self.neighborhood == "von_neumann":
-            kernel = torch.zeros(1, 1, k, k, device=grid.device)
-            kernel[0, 0, 1, 0] = 1  # up
-            kernel[0, 0, 1, 2] = 1  # down
-            kernel[0, 0, 0, 1] = 1  # left
-            kernel[0, 0, 2, 1] = 1  # right
-            kernel[0, 0, 1, 1] = 1  # center
-            n_neighbors = 5.0
-        else:
-            kernel = torch.ones(1, 1, k, k, device=grid.device)
-            n_neighbors = float(k * k)
+        # Center value is index 4 in a 3x3 flattened patch
+        center = patches[:, 4:5]  # (H*W, 1)
 
-        # Mean
-        mean = F.conv2d(g, kernel)[0, 0] / n_neighbors
+        # Neighborhood = all 9 cells (including center for statistics)
+        neigh_mean = patches.mean(dim=1, keepdim=True)
+        neigh_std = patches.std(dim=1, keepdim=True).clamp(min=1e-8)
+        neigh_max = patches.max(dim=1, keepdim=True).values
+        neigh_min = patches.min(dim=1, keepdim=True).values
 
-        # Variance (E[X^2] - E[X]^2)
-        sq_mean = F.conv2d(g**2, kernel)[0, 0] / n_neighbors
-        var = (sq_mean - mean**2).clamp(min=0)
-        std = var.sqrt()
+        # Step fraction broadcast to all cells
+        step_feat = torch.full(
+            (h * w, 1), step_fraction,
+            dtype=torch.float32, device=grid.device
+        )
 
-        return mean, std
+        # Concatenate features: (H*W, 6)
+        features = torch.cat(
+            [center, neigh_mean, neigh_std, neigh_max, neigh_min, step_feat],
+            dim=1,
+        )
+        return features
 
-    def _create_seed(
-        self, target_shape: tuple[int, int], device: torch.device
-    ) -> torch.Tensor:
-        """Create initial seed tensor.
+    def develop(
+        self, seed: Tensor, target_shape: tuple[int, ...], n_steps: int = 64
+    ) -> Tensor:
+        """Run the grid CA for n_steps to develop a weight matrix.
+
+        Creates a seed grid, then iteratively applies the update MLP to
+        compute per-cell deltas and evolve the grid. Returns the final
+        grid as the developed weight matrix.
 
         Args:
-            target_shape: Shape of the target weight matrix.
-            device: Device to create tensor on.
+            seed: Seed tensor of shape target_shape (H, W).
+            target_shape: Shape of the output weight matrix (H, W).
+            n_steps: Number of CA iteration steps.
 
         Returns:
-            Seed tensor of target_shape.
+            Developed weight matrix of shape (H, W).
         """
-        H, W = target_shape
-        # Add small random noise to make seeds depend on torch random state
-        grid = torch.randn(H, W, device=device) * 0.001
+        assert len(target_shape) == 2, (
+            f"GridCA expects 2D target shape, got {target_shape}"
+        )
+        h, w = target_shape
 
-        if self.seed_pattern == "center_block":
-            ch, cw = H // 2, W // 2
-            size = max(1, min(H, W) // 8)
-            grid[ch - size : ch + size, cw - size : cw + size] += 0.1
-        elif self.seed_pattern == "diagonal":
-            min_dim = min(H, W)
-            for i in range(min_dim):
-                grid[i, i] += 0.1
-        elif self.seed_pattern == "random_sparse":
-            mask = torch.rand(H, W, device=device) < 0.05
-            grid[mask] += torch.randn(mask.sum().item(), device=device) * 0.1
-        elif self.seed_pattern == "identity_like":
-            min_dim = min(H, W)
-            for i in range(min_dim):
-                grid[i, i] += 1.0 / min_dim
-        else:
-            ch, cw = H // 2, W // 2
-            grid[ch, cw] += 0.1
+        # Ensure seed matches target shape
+        if seed.shape != target_shape:
+            seed = self.create_seed(
+                target_shape, self.seed_pattern, noise_scale=0.001
+            )
+
+        grid = seed.clone()
+
+        for step in range(n_steps):
+            step_fraction = step / max(n_steps - 1, 1)
+
+            # Extract per-cell features
+            features = self._extract_neighborhood_features(
+                grid, step_fraction
+            )
+
+            # Apply update MLP to get per-cell deltas
+            delta = self.update_mlp(features)  # (H*W, 1)
+            delta = delta.reshape(h, w)
+
+            # Apply delta with a small step size for stability
+            grid = grid + delta * 0.1
+
+        # Scale output to reasonable weight magnitude (~std 0.02)
+        grid_std = grid.std().clamp(min=1e-8)
+        grid = grid * (0.02 / grid_std)
 
         return grid
 
-    def develop(
-        self,
-        seed: torch.Tensor | None = None,
-        target_shape: tuple[int, int] = (64, 64),
-        n_steps: int = 64,
-    ) -> torch.Tensor:
-        """Run the grid CA for n_steps to develop a weight matrix.
+    def forward(
+        self, target_shape: tuple[int, ...], n_steps: int = 64
+    ) -> Tensor:
+        """Convenience forward pass that creates seed and develops.
 
         Args:
-            seed: Optional initial seed tensor. If None, creates one from seed_pattern.
-            target_shape: Desired output shape.
-            n_steps: Number of development steps.
+            target_shape: Shape of the output weight matrix (H, W).
+            n_steps: Number of CA development steps.
 
         Returns:
             Developed weight matrix.
         """
-        device = next(self.parameters()).device
-
-        if seed is None:
-            grid = self._create_seed(target_shape, device)
-        else:
-            grid = seed.to(device)
-            if grid.shape != target_shape:
-                grid = F.interpolate(
-                    grid.unsqueeze(0).unsqueeze(0),
-                    size=target_shape,
-                    mode="bilinear",
-                    align_corners=False,
-                )[0, 0]
-
-        for step in range(n_steps):
-            step_frac = torch.tensor(
-                step / max(1, n_steps - 1), device=device, dtype=torch.float32
-            )
-
-            mean, std = self._get_neighborhood_stats(grid)
-
-            # Stack features: (H, W, 4)
-            features = torch.stack(
-                [
-                    mean,
-                    std,
-                    grid,
-                    step_frac.expand_as(grid),
-                ],
-                dim=-1,
-            )
-
-            # Apply update MLP to all cells
-            delta = self.update_mlp(features).squeeze(-1)
-
-            # Residual update with scaling for stability
-            grid = grid + delta * 0.1
-
-        # Scale output to reasonable initialization range
-        if grid.std() > 1e-8:
-            grid = grid / grid.std() * 0.02
-
-        return grid
+        seed = self.create_seed(
+            target_shape, self.seed_pattern, noise_scale=0.001
+        )
+        return self.develop(seed, target_shape, n_steps)

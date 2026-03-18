@@ -1,22 +1,27 @@
 name: "Phase 3: Random CA vs Random Init"
-hypothesis: "CA structure alone (random genome) may help compared to standard random init"
+hypothesis: "CA structure alone (with random genome parameters) may provide useful inductive bias even without optimization"
 model:
-  config: default_tiny
+  block_size: 256
+  n_layer: 6
+  n_head: 6
+  n_embd: 384
+  dropout: 0.2
 dataset: shakespeare_char
 inits:
-  - xavier_normal
   - grid_ca
   - neural_ca
-  - reaction_diffusion
+  - xavier_uniform
+  - xavier_normal
+  - kaiming_normal
 training:
   max_steps: 5000
   eval_interval: 250
-  eval_steps: 20
-  lr: 3.0e-4
+  lr: 3e-4
   batch_size: 64
-  log_interval: 50
 metrics:
   - train_loss
   - val_loss
+  - weight_spectral_norm
+  - weight_effective_rank
   - gradient_norm
 seeds: [42, 137, 256]

@@ -446,6 +446,98 @@ test_hardware_profile_loading
     Assert: profile exists for "cpu_only"
 ```
 
+#### `tests/test_live_ca.py` — Live CA Rules
+
+```
+test_live_ca_base_interface
+    All live CA rules implement step(W, grad_W) -> delta_W
+    Assert: output shape == input shape
+    Assert: output is finite
+
+test_live_ca_delta_bounded
+    For each live CA rule:
+        delta = rule.step(random_weights, random_grads)
+        Assert: delta.abs().max() < 1.0  (bounded)
+        Assert: delta.abs().mean() < 0.1  (small corrections)
+
+test_local_norm_reduces_outliers
+    Create weight matrix with one extreme outlier
+    delta = LocalNormCA().step(W)
+    Assert: delta at outlier position pushes toward local mean
+    Assert: delta at normal positions is small
+
+test_modularity_ca_structure
+    W = random weights
+    delta = ModularityCA(n_blocks=4).step(W)
+    Assert: on-diagonal block deltas are positive (reinforce)
+    Assert: off-diagonal block deltas are negative (suppress)
+
+test_pruning_ca_needs_gradients
+    delta = PruningCA().step(W, grad_W=None)
+    Assert: raises or returns zero (needs gradient info)
+    delta = PruningCA().step(W, grad_W=grad)
+    Assert: returns non-zero delta
+
+test_pruning_ca_suppresses_unimportant
+    W with some near-zero weights + near-zero gradients
+    delta = PruningCA().step(W, grad_W)
+    Assert: delta pushes unimportant weights further toward zero
+
+test_competition_ca_winner_take_all
+    W with one clear local maximum
+    delta = CompetitionCA().step(W)
+    Assert: winner gets positive delta (strengthened)
+    Assert: neighbors get negative delta (suppressed)
+
+test_learned_ca_gradient_flow
+    rule = LearnedCA()
+    W = torch.randn(64, 64, requires_grad=True)
+    delta = rule.step(W)
+    delta.sum().backward()
+    Assert: W.grad is not None
+    Assert: rule.rule_net parameters have gradients
+
+test_multi_timescale_frequency
+    ca = MultiTimescaleCA(fast_interval=1, medium_interval=100, slow_interval=1000)
+    Assert: at step 1, only fast CA fires
+    Assert: at step 100, fast + medium fire
+    Assert: at step 1000, all three fire
+
+test_alpha_schedule_decay
+    For each schedule type (exponential, cosine, phased, cyclic):
+        alphas = [schedule.get_alpha(t) for t in range(5000)]
+        Assert: all finite and non-negative
+        Assert: exponential/cosine → monotonically non-increasing overall
+
+test_alpha_schedule_adaptive
+    schedule = AlphaSchedule(mode="adaptive")
+    Assert: stagnating loss → higher alpha
+    Assert: improving loss → lower alpha
+
+test_live_ca_trainer_integration
+    Train 100 steps with LiveCATrainer + LocalNormCA
+    Assert: loss decreases
+    Assert: ca_delta metrics are logged
+    Assert: ca_gradient_alignment is logged
+
+test_live_ca_trainer_no_nan
+    Train 200 steps with each live CA rule
+    Assert: no NaN in weights at any point
+    Assert: no NaN in loss
+
+test_live_ca_scope_config
+    Configure different CA rules for different layers
+    Train 50 steps
+    Assert: attention weights get CompetitionCA deltas
+    Assert: FFN weights get PruningCA deltas
+    Assert: embedding weights get LocalNormCA deltas
+
+test_ca_gradient_alignment_metric
+    Known parallel vectors → alignment = 1.0
+    Known anti-parallel → alignment = -1.0
+    Known orthogonal → alignment ≈ 0.0
+```
+
 ---
 
 ### Test Configuration
@@ -695,6 +787,49 @@ Benchmarks answer the research questions. They are separate from tests — they 
 
 ---
 
+#### BM9: Live CA Training Dynamics Benchmark
+
+**Question:** How does a live CA change training dynamics compared to standard training?
+
+**Protocol:**
+1. For each live CA rule (LocalNorm, Modularity, Pruning, Competition, Learned):
+   - Train for 5000 steps with live CA active, 3 seeds
+   - Record per-step:
+     - CA delta magnitude (||Δw_ca||)
+     - Gradient delta magnitude (||Δw_grad||)
+     - CA contribution ratio: ||Δw_ca|| / (||Δw_ca|| + ||Δw_grad||)
+     - CA-gradient alignment (cosine similarity)
+   - Record per-eval-interval:
+     - Weight structure scores (modularity, sparsity, spectral)
+     - Attention head specialization (entropy diversity)
+2. Compare against:
+   - Standard training (no CA)
+   - Init-only CA (same rule at init, then standard training)
+3. Test each alpha schedule (exponential, cosine, phased, adaptive, cyclic)
+   with the best-performing CA rule
+
+**Output:** `outputs/benchmarks/bm9_live_ca_dynamics.md` with alignment curves, contribution ratio plots, structure evolution timelines
+
+---
+
+#### BM10: Live CA vs Init-Only CA Benchmark
+
+**Question:** Is it better to use a CA only at initialization, or to keep it active during training?
+
+**Protocol:**
+1. For the top 3 CA variants from exploration Stage 2:
+   - **Condition A:** CA at init only → standard training 5000 steps
+   - **Condition B:** Random init → live CA during training 5000 steps
+   - **Condition C:** CA at init → same CA live during training 5000 steps
+   - **Condition D:** CA at init → different CA live during training 5000 steps
+   - **Baseline:** Xavier init → standard training 5000 steps
+2. 3 seeds per condition, default model
+3. Compare: convergence speed, final loss, weight structure, generation quality
+
+**Output:** `outputs/benchmarks/bm10_live_vs_init.md` with head-to-head loss curves and summary statistics
+
+---
+
 ### Benchmark Configurations
 
 ```python
@@ -859,6 +994,16 @@ Before marking any sprint as complete, verify:
 - [ ] At least one CA variant shows measurable difference from baselines
 
 ### Sprint 6 Checklist
+- [ ] `pytest tests/test_live_ca.py` — all pass
+- [ ] All 5 live CA rules produce bounded, finite deltas
+- [ ] LiveCATrainer trains without NaN for 1000+ steps with each rule
+- [ ] CA-gradient alignment metric is logged and visualizable
+- [ ] Multi-timescale CA fires at correct intervals
+- [ ] Scope-differentiated CA applies correct rules to correct layers
+- [ ] BM9 benchmark produces training dynamics report
+- [ ] BM10 benchmark shows head-to-head live-vs-init comparison
+
+### Sprint 7 Checklist
 - [ ] `pytest tests/` — 100% pass
 - [ ] `python scripts/run_benchmark.py --suite standard` — all benchmarks produce reports
 - [ ] README has results summary with key figures

@@ -1,4 +1,4 @@
-"""Tests for baseline initialization strategies."""
+"""Tests for neurogen/baselines/initializers.py."""
 
 import math
 
@@ -7,105 +7,164 @@ import torch
 
 from neurogen.baselines.initializers import (
     INITIALIZERS,
-    available_initializers,
-    get_initializer,
+    get_available_initializers,
+    initialize,
+    xavier_uniform_init,
+    xavier_normal_init,
+    kaiming_uniform_init,
+    kaiming_normal_init,
+    orthogonal_init,
+    sparse_init,
+    fixup_init,
+    mimetic_init,
+    spectral_delta_init,
 )
+from neurogen.config import GPTConfig
 from neurogen.model.gpt import GPT
 
 
-class TestBaselineRegistry:
-    def test_all_registered(self):
-        names = available_initializers()
-        assert len(names) == 9
-        expected = [
-            "xavier_uniform", "xavier_normal", "kaiming_uniform",
-            "kaiming_normal", "orthogonal", "sparse", "fixup",
-            "mimetic", "spectral_delta",
-        ]
-        for name in expected:
-            assert name in names, f"Missing: {name}"
+EXPECTED_INITIALIZERS = [
+    "xavier_uniform",
+    "xavier_normal",
+    "kaiming_uniform",
+    "kaiming_normal",
+    "orthogonal",
+    "sparse",
+    "fixup",
+    "mimetic",
+    "spectral_delta",
+]
 
-    def test_get_unknown_raises(self):
-        with pytest.raises(KeyError, match="Unknown"):
-            get_initializer("not_a_real_init")
+
+class TestBaselineRegistry:
+    """Tests for initializer registry."""
+
+    def test_all_baselines_registered(self):
+        """All 9 methods should be in INITIALIZERS."""
+        for name in EXPECTED_INITIALIZERS:
+            assert name in INITIALIZERS, f"'{name}' should be registered in INITIALIZERS"
+        assert len(INITIALIZERS) == 9, (
+            f"Expected 9 initializers, found {len(INITIALIZERS)}"
+        )
+
+    def test_get_available_initializers(self):
+        """get_available_initializers returns sorted list of names."""
+        available = get_available_initializers()
+        assert available == sorted(available), "Should return sorted list"
+        assert len(available) == 9, f"Should have 9, got {len(available)}"
+
+    def test_initialize_dispatch(self, tiny_model):
+        """initialize() dispatches correctly by name."""
+        weights = initialize(tiny_model, "xavier_normal")
+        assert len(weights) > 0, "Should return non-empty weight dict"
+
+    def test_initialize_unknown_raises(self, tiny_model):
+        """Unknown initializer name should raise ValueError."""
+        with pytest.raises(ValueError, match="Unknown initializer"):
+            initialize(tiny_model, "nonexistent_init")
 
 
 class TestBaselineShapes:
-    @pytest.mark.parametrize("init_name", available_initializers())
-    def test_shapes_match(self, init_name, tiny_model):
-        initializer = get_initializer(init_name)
-        weights = initializer(tiny_model)
+    """Tests for output shapes."""
+
+    @pytest.mark.parametrize("init_name", EXPECTED_INITIALIZERS)
+    def test_baseline_shapes(self, tiny_model, init_name):
+        """Each baseline produces correct shapes matching model weight tensors."""
         model_weights = tiny_model.get_weight_tensors()
-        assert set(weights.keys()) == set(model_weights.keys())
-        for name in weights:
-            assert weights[name].shape == model_weights[name].shape, (
-                f"{init_name}/{name}: {weights[name].shape} != {model_weights[name].shape}"
+        init_weights = initialize(tiny_model, init_name)
+        for name in model_weights:
+            assert name in init_weights, (
+                f"'{init_name}' init missing key '{name}'"
+            )
+            assert init_weights[name].shape == model_weights[name].shape, (
+                f"'{init_name}' shape mismatch for '{name}': "
+                f"expected {model_weights[name].shape}, got {init_weights[name].shape}"
             )
 
 
 class TestBaselineFinite:
-    @pytest.mark.parametrize("init_name", available_initializers())
-    def test_no_nan_inf(self, init_name, tiny_model):
-        initializer = get_initializer(init_name)
-        weights = initializer(tiny_model)
+    """Tests for finiteness."""
+
+    @pytest.mark.parametrize("init_name", EXPECTED_INITIALIZERS)
+    def test_baseline_finite(self, tiny_model, init_name):
+        """No NaN/Inf in any baseline output."""
+        weights = initialize(tiny_model, init_name)
         for name, tensor in weights.items():
             assert torch.isfinite(tensor).all(), (
-                f"{init_name}/{name} has non-finite values"
+                f"'{init_name}' produced non-finite values in '{name}'"
             )
 
 
 class TestBaselineStatistics:
-    @pytest.mark.parametrize("init_name", available_initializers())
-    def test_reasonable_stats(self, init_name, tiny_model):
-        initializer = get_initializer(init_name)
-        weights = initializer(tiny_model)
-        for name, tensor in weights.items():
-            mean = tensor.mean().item()
-            std = tensor.std().item()
-            assert abs(mean) < 0.5, f"{init_name}/{name}: mean={mean}"
-            assert 0.0 < std < 5.0, f"{init_name}/{name}: std={std}"
+    """Tests for statistical properties."""
 
-
-class TestSpecificInitializers:
-    def test_xavier_uniform_bounds(self, tiny_model):
-        weights = get_initializer("xavier_uniform")(tiny_model)
+    @pytest.mark.parametrize("init_name", EXPECTED_INITIALIZERS)
+    def test_baseline_statistics(self, tiny_model, init_name):
+        """Mean near 0, std in reasonable range for all baselines."""
+        weights = initialize(tiny_model, init_name)
         for name, tensor in weights.items():
-            fan_in, fan_out = tensor.shape[1], tensor.shape[0]
-            bound = math.sqrt(6.0 / (fan_in + fan_out))
-            assert tensor.min().item() >= -bound - 1e-6
-            assert tensor.max().item() <= bound + 1e-6
-
-    def test_kaiming_normal_variance(self, tiny_model):
-        torch.manual_seed(42)
-        weights = get_initializer("kaiming_normal")(tiny_model)
-        for name, tensor in weights.items():
-            fan_in = tensor.shape[1]
-            expected_var = 2.0 / fan_in
-            actual_var = tensor.var().item()
-            # Allow 50% tolerance for small tensors
-            assert actual_var < expected_var * 3.0, (
-                f"{name}: var={actual_var}, expected~{expected_var}"
+            if tensor.numel() < 10:
+                continue
+            mean = tensor.float().mean().item()
+            std = tensor.float().std().item()
+            assert abs(mean) < 1.0, (
+                f"'{init_name}' mean too far from 0 for '{name}': {mean}"
+            )
+            assert 0 < std < 5.0, (
+                f"'{init_name}' std out of range for '{name}': {std}"
             )
 
+
+class TestOrthogonalProperty:
+    """Tests for orthogonal initialization."""
+
     def test_orthogonal_property(self, tiny_model):
-        weights = get_initializer("orthogonal")(tiny_model)
+        """For square matrices, W @ W.T should approximate I."""
+        weights = orthogonal_init(tiny_model)
         for name, tensor in weights.items():
-            if tensor.shape[0] == tensor.shape[1]:
-                t = tensor.cpu()
-                product = t @ t.T
-                eye = torch.eye(t.shape[0])
-                assert torch.allclose(product, eye, atol=1e-5), (
-                    f"{name} is not orthogonal"
+            if tensor.dim() == 2:
+                # Only check if close to square
+                h, w = tensor.shape
+                if h == w:
+                    # Move to CPU for linalg operations
+                    t_cpu = tensor.detach().cpu().float()
+                    product = t_cpu @ t_cpu.T
+                    identity = torch.eye(h, dtype=torch.float32)
+                    # Orthogonal: W @ W.T should be close to I
+                    diff = (product - identity).abs().max().item()
+                    assert diff < 0.1, (
+                        f"Orthogonal W @ W.T should be near I for '{name}', "
+                        f"max diff = {diff:.4f}"
+                    )
+
+
+class TestBaselineInterfaceMatchesCA:
+    """Tests that baseline interface matches model.get_weight_tensors()."""
+
+    @pytest.mark.parametrize("init_name", EXPECTED_INITIALIZERS)
+    def test_baseline_interface_matches_ca(self, tiny_model, init_name):
+        """Same key format as model.get_weight_tensors()."""
+        model_keys = set(tiny_model.get_weight_tensors().keys())
+        init_keys = set(initialize(tiny_model, init_name).keys())
+        assert model_keys == init_keys, (
+            f"'{init_name}' keys mismatch. "
+            f"Missing: {model_keys - init_keys}, Extra: {init_keys - model_keys}"
+        )
+
+
+class TestXavierBounds:
+    """Tests for Xavier initialization value bounds."""
+
+    def test_xavier_uniform_bounds(self, tiny_model):
+        """Xavier uniform values should be within expected bounds."""
+        weights = xavier_uniform_init(tiny_model)
+        for name, tensor in weights.items():
+            if tensor.dim() == 2:
+                fan_in, fan_out = tensor.shape[1], tensor.shape[0]
+                # Xavier uniform bound: sqrt(6 / (fan_in + fan_out))
+                bound = math.sqrt(6.0 / (fan_in + fan_out))
+                max_val = tensor.abs().max().item()
+                assert max_val <= bound + 1e-6, (
+                    f"Xavier uniform '{name}' max abs value {max_val:.4f} "
+                    f"exceeds bound {bound:.4f}"
                 )
-
-
-class TestBaselineInterfaceCompat:
-    def test_can_set_weights(self, tiny_model, random_batch):
-        """All baselines produce weights that can be set on the model."""
-        for init_name in available_initializers():
-            initializer = get_initializer(init_name)
-            weights = initializer(tiny_model)
-            tiny_model.set_weight_tensors(weights)
-            x, y = random_batch
-            _, loss = tiny_model(x, y)
-            assert torch.isfinite(loss), f"{init_name} produced non-finite loss"

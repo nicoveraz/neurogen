@@ -1,21 +1,28 @@
-"""CAWeightEngine: dispatches to CA variants and handles full model initialization."""
+"""CA Weight Engine: dispatches to CA variants and handles full model initialization.
+
+Provides the CAWeightEngine class that creates CA-developed weight tensors
+for all weight matrices in a GPT model, using any registered CA variant.
+"""
+
+from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from typing import Any
 
 import torch
+import torch.nn as nn
+from torch import Tensor
 
 from neurogen.ca.genome import CAGenome
 from neurogen.ca.grid_ca import GridCAGenome
 from neurogen.ca.neural_ca import NeuralCAGenome
-from neurogen.ca.reaction_diffusion import ReactionDiffusionGenome
 from neurogen.ca.spectral_ca import SpectralCAGenome
 from neurogen.ca.topo_ca import TopologicalCAGenome
-from neurogen.config import CAConfig
-from neurogen.model.gpt import GPT
+from neurogen.ca.reaction_diffusion import ReactionDiffusionGenome
+from neurogen.config import get_device
 
 
-# Registry of CA variants
+# Registry mapping variant name to genome class
 CA_VARIANTS: dict[str, type[CAGenome]] = {
     "grid_ca": GridCAGenome,
     "neural_ca": NeuralCAGenome,
@@ -24,149 +31,215 @@ CA_VARIANTS: dict[str, type[CAGenome]] = {
     "reaction_diffusion": ReactionDiffusionGenome,
 }
 
-
-def _genome_kwargs(variant: str, config: CAConfig) -> dict:
-    """Extract variant-specific kwargs from a CAConfig."""
-    if variant == "grid_ca":
-        return {
-            "hidden_dim": config.hidden_dim,
-            "neighborhood": config.neighborhood,
-            "boundary": config.boundary,
-            "seed_pattern": config.seed_pattern,
-        }
-    elif variant == "neural_ca":
-        return {
-            "n_channels": config.n_channels,
-            "hidden_dim": config.hidden_dim,
-            "stochastic_rate": config.stochastic_rate,
-        }
-    elif variant == "spectral_ca":
-        return {"hidden_dim": config.hidden_dim}
-    elif variant == "topo_ca":
-        return {"hidden_dim": config.hidden_dim}
-    elif variant == "reaction_diffusion":
-        return {}
-    return {}
+# Default configs for each variant
+_DEFAULT_CONFIGS: dict[str, dict[str, Any]] = {
+    "grid_ca": {
+        "hidden_dim": 64,
+        "seed_pattern": "center",
+    },
+    "neural_ca": {
+        "n_channels": 16,
+        "hidden_dim": 64,
+        "seed_pattern": "center",
+        "p_update": 0.5,
+    },
+    "spectral_ca": {
+        "n_freq": 16,
+        "hidden_dim": 64,
+        "seed_pattern": "center",
+    },
+    "topo_ca": {
+        "hidden_dim": 64,
+        "topology": "small_world",
+        "seed_pattern": "center",
+    },
+    "reaction_diffusion": {
+        "model_type": "gray_scott",
+        "dt": 0.5,
+        "seed_pattern": "center",
+    },
+}
 
 
 class CAWeightEngine:
-    """Engine for developing weight matrices using cellular automata.
+    """Engine that uses CA genomes to develop weight matrices for a GPT model.
+
+    Creates a CA genome of the specified variant, then develops weight
+    matrices for all weight parameters in the model. Tracks development
+    time and provides compression ratio statistics.
+
+    This is the main entry point for CA-based weight initialization.
+    It can be used interchangeably with baseline initializers via the
+    initialize() method.
 
     Args:
-        variant: Name of the CA variant to use.
-        config: CA configuration. Can be a CAConfig or a dict.
-        device: Device to run development on.
+        variant: CA variant name (e.g. "grid_ca", "neural_ca").
+        genome_config: Configuration dict passed to the genome constructor.
+        device: Device string. Auto-detected if None.
+
+    Raises:
+        ValueError: If variant is not recognized.
     """
 
     def __init__(
         self,
         variant: str = "grid_ca",
-        config: CAConfig | dict | None = None,
-        device: str = "cpu",
+        genome_config: dict[str, Any] | None = None,
+        device: str | None = None,
     ) -> None:
+        """Initialize the CAWeightEngine.
+
+        Args:
+            variant: CA variant name.
+            genome_config: Optional config dict for the genome constructor.
+            device: Device string override. Auto-detected if None.
+
+        Raises:
+            ValueError: If variant is not in CA_VARIANTS.
+        """
         if variant not in CA_VARIANTS:
-            available = ", ".join(sorted(CA_VARIANTS.keys()))
             raise ValueError(
-                f"Unknown CA variant '{variant}'. Available: {available}"
+                f"Unknown CA variant '{variant}'. "
+                f"Available: {sorted(CA_VARIANTS.keys())}"
             )
 
         self.variant = variant
+        self.device = device or get_device()
+        self._genome_config = genome_config or {}
+        self._last_develop_time_ms: float = 0.0
 
-        if config is None:
-            config = CAConfig(variant=variant)
-        if isinstance(config, dict):
-            ca_config = CAConfig(variant=variant)
-            for k, v in config.items():
-                if hasattr(ca_config, k):
-                    setattr(ca_config, k, v)
-            config = ca_config
-
-        self.config = config
-        self.device = device
+        # Merge user config with defaults
+        config = dict(_DEFAULT_CONFIGS.get(variant, {}))
+        config.update(self._genome_config)
+        config["device"] = self.device
 
         # Create genome
-        kwargs = _genome_kwargs(variant, config)
-        self.genome: CAGenome = CA_VARIANTS[variant](**kwargs)
-        self.genome = self.genome.to(device)
+        genome_cls = CA_VARIANTS[variant]
+        self.genome: CAGenome = genome_cls(**config)
 
-    @staticmethod
-    def available_variants() -> list[str]:
-        """Return list of available CA variant names."""
+    @classmethod
+    def available_variants(cls) -> list[str]:
+        """Return list of all registered CA variant names.
+
+        Returns:
+            Sorted list of variant name strings.
+        """
         return sorted(CA_VARIANTS.keys())
 
     def develop_weights(
         self,
-        model: GPT,
-        seed: int | None = None,
-    ) -> dict[str, torch.Tensor]:
-        """Generate all weight matrices for the model.
+        model: nn.Module,
+        n_steps: int = 64,
+        seed_pattern: str = "center",
+    ) -> dict[str, Tensor]:
+        """Generate all weight matrices for the model using the CA genome.
+
+        Iterates over model.get_weight_tensors() and develops each weight
+        matrix using the CA genome. Each weight gets its own seed but
+        shares the same genome (developmental program). Tracks total
+        development time.
 
         Args:
-            model: The GPT model whose weight shapes to target.
-            seed: Optional random seed for reproducibility.
+            model: A GPT model with get_weight_tensors() method.
+            n_steps: Number of CA development steps per weight.
+            seed_pattern: Seed initialization pattern.
 
         Returns:
-            Dict mapping weight names to developed tensors.
+            Dictionary mapping parameter names to developed weight tensors.
         """
-        if seed is not None:
-            torch.manual_seed(seed)
-
         target_weights = model.get_weight_tensors()
-        developed = {}
+        developed: dict[str, Tensor] = {}
+
+        start_time = time.time()
 
         for name, param in target_weights.items():
             shape = param.shape
-            assert len(shape) == 2, f"Expected 2D weight, got {len(shape)}D for {name}"
-            w = self.genome.develop(
-                seed=None,
-                target_shape=(shape[0], shape[1]),
-                n_steps=self.config.n_steps,
+
+            if len(shape) != 2:
+                # Non-matrix weights: use small random init
+                developed[name] = torch.randn(
+                    shape, dtype=torch.float32, device=self.device
+                ) * 0.02
+                continue
+
+            seed = self.genome.create_seed(
+                shape, pattern=seed_pattern, noise_scale=0.001
             )
-            developed[name] = w.to(param.device)
+            weight = self.genome.develop(seed, shape, n_steps=n_steps)
+
+            # Ensure output is on the correct device
+            developed[name] = weight.to(
+                device=param.device, dtype=torch.float32
+            )
+
+        elapsed_ms = (time.time() - start_time) * 1000.0
+        self._last_develop_time_ms = elapsed_ms
 
         return developed
 
     def genome_size(self) -> int:
-        """Total parameters in the developmental program."""
+        """Total number of learnable parameters in the genome.
+
+        Returns:
+            Integer count of genome parameters.
+        """
         return self.genome.genome_size()
 
-    def compression_ratio(self, model: GPT) -> float:
-        """Ratio: model_weight_params / genome_params."""
-        model_params = sum(
-            p.numel() for p in model.get_weight_tensors().values()
-        )
+    def compression_ratio(self, model: nn.Module) -> float:
+        """Compute compression ratio: model_params / genome_params.
+
+        This measures how much the genome compresses the weight
+        specification. A ratio of 1000 means the genome is 1000x
+        smaller than the weights it generates.
+
+        Args:
+            model: A model with get_weight_tensors() method.
+
+        Returns:
+            Compression ratio as a float. Higher means more compression.
+            Returns float('inf') if genome has 0 parameters.
+        """
         genome_params = self.genome_size()
         if genome_params == 0:
             return float("inf")
-        return model_params / genome_params
 
-    def get_genome_params(self) -> torch.Tensor:
-        """Get genome parameters as a flat numpy-compatible vector."""
-        return self.genome.get_params_flat().detach().cpu()
+        # Count only the weight tensor params (not biases, LN, etc.)
+        model_weight_params = sum(
+            p.numel() for p in model.get_weight_tensors().values()
+        )
+        return model_weight_params / genome_params
 
-    def set_genome_params(self, params: torch.Tensor) -> None:
-        """Set genome parameters from a flat vector."""
-        self.genome.set_params_flat(params.to(self.device))
+    @property
+    def last_develop_time_ms(self) -> float:
+        """Wall-clock time of the last develop_weights() call in ms."""
+        return self._last_develop_time_ms
 
+    def initialize(self, model: nn.Module) -> dict[str, Tensor]:
+        """Conforming initializer interface: initialize(model) -> weights.
 
-def initialize_with_ca(
-    model: GPT,
-    variant: str = "grid_ca",
-    config: CAConfig | dict | None = None,
-    device: str = "cpu",
-    seed: int | None = None,
-) -> dict[str, torch.Tensor]:
-    """Convenience function matching the baseline initializer interface.
+        This allows the CAWeightEngine to be used interchangeably with
+        baseline initializers that follow the same interface.
 
-    Args:
-        model: The GPT model.
-        variant: CA variant name.
-        config: CA configuration.
-        device: Device for CA development.
-        seed: Random seed.
+        Args:
+            model: The model to initialize.
 
-    Returns:
-        Dict of developed weight tensors.
-    """
-    engine = CAWeightEngine(variant=variant, config=config, device=device)
-    return engine.develop_weights(model, seed=seed)
+        Returns:
+            Dictionary of developed weight tensors.
+        """
+        return self.develop_weights(model)
+
+    def get_genome(self) -> CAGenome:
+        """Get the underlying CA genome module.
+
+        Returns:
+            The CAGenome instance used by this engine.
+        """
+        return self.genome
+
+    def __repr__(self) -> str:
+        """String representation of the engine."""
+        return (
+            f"CAWeightEngine(variant='{self.variant}', "
+            f"genome_size={self.genome_size()}, "
+            f"device='{self.device}')"
+        )

@@ -1,203 +1,207 @@
-"""Baseline initialization strategies for transformer weight matrices.
+"""Baseline weight initialization strategies for MicroGPT.
 
-Each initializer conforms to the interface:
-    def initialize(model: GPT, **kwargs) -> dict[str, torch.Tensor]
+Provides 9 initialization methods conforming to the standard interface:
+    def initialize(model, config=None) -> dict[str, torch.Tensor]
+
+Each initializer generates weight tensors matching the keys from
+model.get_weight_tensors() and returns them on the same device as
+the model parameters.
 """
 
 import math
+from typing import Callable
 
 import torch
 import torch.nn as nn
 
-from neurogen.model.gpt import GPT
+
+def _get_model_info(model: nn.Module) -> tuple[dict[str, torch.Tensor], int, str]:
+    """Extract weight tensors, layer count, and device from a model."""
+    weights = model.get_weight_tensors()
+    n_layers = model.config.n_layer
+    device = next(model.parameters()).device
+    return weights, n_layers, str(device)
 
 
-def _get_fan(tensor: torch.Tensor) -> tuple[int, int]:
-    """Compute fan_in and fan_out for a weight tensor."""
-    if tensor.dim() < 2:
-        raise ValueError(f"Cannot compute fan for {tensor.dim()}D tensor")
-    fan_in = tensor.shape[1]
-    fan_out = tensor.shape[0]
-    return fan_in, fan_out
+def _simple_init(
+    model: nn.Module, init_fn: Callable, **kwargs: object
+) -> dict[str, torch.Tensor]:
+    """Apply a torch.nn.init function to all weight tensors."""
+    weights, _, _ = _get_model_info(model)
+    result: dict[str, torch.Tensor] = {}
+    for name, param in weights.items():
+        new_w = torch.empty_like(param)
+        init_fn(new_w, **kwargs)
+        result[name] = new_w
+    return result
 
 
-def xavier_uniform(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """Glorot uniform initialization."""
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, fan_out = _get_fan(param)
-        bound = math.sqrt(6.0 / (fan_in + fan_out))
-        weights[name] = torch.empty_like(param).uniform_(-bound, bound)
-    return weights
+def xavier_uniform_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Glorot uniform: U(-a, a), a = gain * sqrt(6 / (fan_in + fan_out))."""
+    return _simple_init(model, nn.init.xavier_uniform_)
 
 
-def xavier_normal(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """Glorot normal initialization."""
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, fan_out = _get_fan(param)
-        std = math.sqrt(2.0 / (fan_in + fan_out))
-        weights[name] = torch.empty_like(param).normal_(0, std)
-    return weights
+def xavier_normal_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Glorot normal: N(0, gain * sqrt(2 / (fan_in + fan_out)))."""
+    return _simple_init(model, nn.init.xavier_normal_)
 
 
-def kaiming_uniform(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """He uniform initialization (ReLU-aware)."""
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, _ = _get_fan(param)
-        bound = math.sqrt(6.0 / fan_in)
-        weights[name] = torch.empty_like(param).uniform_(-bound, bound)
-    return weights
+def kaiming_uniform_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """He uniform for ReLU/GELU layers."""
+    return _simple_init(model, nn.init.kaiming_uniform_, a=math.sqrt(5))
 
 
-def kaiming_normal(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """He normal initialization."""
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, _ = _get_fan(param)
-        std = math.sqrt(2.0 / fan_in)
-        weights[name] = torch.empty_like(param).normal_(0, std)
-    return weights
+def kaiming_normal_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """He normal for ReLU/GELU layers."""
+    return _simple_init(
+        model, nn.init.kaiming_normal_, a=0, mode="fan_in", nonlinearity="relu"
+    )
 
 
-def orthogonal(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """Orthogonal initialization (uses CPU for QR decomposition, MPS-safe)."""
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        # QR decomposition not supported on MPS, compute on CPU
-        w = torch.empty(param.shape, dtype=param.dtype, device="cpu")
-        nn.init.orthogonal_(w)
-        weights[name] = w.to(param.device)
-    return weights
+def orthogonal_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Orthogonal matrices via QR decomposition (computed on CPU for MPS)."""
+    weights, _, device = _get_model_info(model)
+    result: dict[str, torch.Tensor] = {}
+    for name, param in weights.items():
+        cpu_w = torch.empty(param.shape, dtype=torch.float32, device="cpu")
+        nn.init.orthogonal_(cpu_w)
+        result[name] = cpu_w.to(device)
+    return result
 
 
-def sparse_init(model: GPT, sparsity: float = 0.9, **kwargs) -> dict[str, torch.Tensor]:
-    """Sparse initialization."""
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, fan_out = _get_fan(param)
-        std = 1.0 / math.sqrt(fan_in)
-        w = torch.empty_like(param).normal_(0, std)
-        mask = torch.rand_like(w) > sparsity
-        weights[name] = w * mask
-    return weights
+def sparse_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Sparse init: 90% zeros, non-zero entries ~ N(0, 0.01)."""
+    weights, _, device = _get_model_info(model)
+    result: dict[str, torch.Tensor] = {}
+    for name, param in weights.items():
+        new_w = torch.randn(param.shape, dtype=torch.float32, device=device) * 0.01
+        mask = (torch.rand(param.shape, device=device) > 0.9).float()
+        result[name] = new_w * mask
+    return result
 
 
-def fixup(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """Fixup initialization (residual-aware scaling).
-
-    Scales residual branch weights by 1/sqrt(2*n_layer) to prevent
-    signal explosion in deep residual networks.
-    """
-    n_layer = model.config.n_layer
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, fan_out = _get_fan(param)
-        std = math.sqrt(2.0 / (fan_in + fan_out))
-        w = torch.empty_like(param).normal_(0, std)
-        # Scale output projections
+def fixup_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Fixup: Xavier normal, with c_proj layers scaled by 1/sqrt(n_layers)."""
+    weights, n_layers, _ = _get_model_info(model)
+    scale = 1.0 / math.sqrt(n_layers)
+    result: dict[str, torch.Tensor] = {}
+    for name, param in weights.items():
+        new_w = torch.empty_like(param)
+        nn.init.xavier_normal_(new_w)
         if "c_proj" in name:
-            w *= 1.0 / math.sqrt(2 * n_layer)
-        weights[name] = w
-    return weights
+            new_w.mul_(scale)
+        result[name] = new_w
+    return result
 
 
-def mimetic(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """Mimetic initialization (identity-preserving for attention).
+def mimetic_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Identity-like init for attention, small random for FFN.
 
-    Initializes attention weights to approximate identity mapping and
-    FFN weights with scaled normal initialization.
+    c_attn gets Q/K/V identity blocks + noise, c_proj near-zero,
+    c_fc and embeddings get small random values.
     """
-    n_layer = model.config.n_layer
+    weights, _, device = _get_model_info(model)
     n_embd = model.config.n_embd
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, fan_out = _get_fan(param)
+    result: dict[str, torch.Tensor] = {}
+    for name, param in weights.items():
+        shape = param.shape
         if "c_attn" in name:
-            # Initialize Q, K, V projections with small values
-            # so attention starts near uniform
-            std = 0.02 / math.sqrt(n_layer)
-            w = torch.empty_like(param).normal_(0, std)
-        elif "c_proj" in name and "attn" in name:
-            # Attention output projection: near-identity for residual
-            w = torch.zeros_like(param)
-            min_dim = min(fan_in, fan_out)
-            w[:min_dim, :min_dim] = torch.eye(min_dim) * (1.0 / n_layer)
-        elif "c_fc" in name:
-            # FFN up-projection
-            std = math.sqrt(2.0 / fan_in)
-            w = torch.empty_like(param).normal_(0, std)
-        elif "c_proj" in name and "mlp" in name:
-            # FFN down-projection: scaled for residual
-            std = 0.02 / math.sqrt(2 * n_layer)
-            w = torch.empty_like(param).normal_(0, std)
+            new_w = torch.zeros(shape, dtype=torch.float32, device=device)
+            eye = torch.eye(n_embd, dtype=torch.float32, device=device)
+            rows = min(shape[0], n_embd)
+            cols = min(shape[1], n_embd)
+            for i in range(3):  # Q, K, V blocks
+                off = i * n_embd
+                if off + rows <= shape[0]:
+                    new_w[off : off + rows, :cols] = eye[:rows, :cols]
+            new_w += torch.randn_like(new_w) * 0.01
+        elif "c_proj" in name:
+            new_w = torch.randn(shape, dtype=torch.float32, device=device) * 0.001
         else:
-            std = 0.02
-            w = torch.empty_like(param).normal_(0, std)
-        weights[name] = w
-    return weights
+            new_w = torch.randn(shape, dtype=torch.float32, device=device) * 0.02
+        result[name] = new_w
+    return result
 
 
-def spectral_delta(model: GPT, **kwargs) -> dict[str, torch.Tensor]:
-    """Identity-like initialization with spectral scaling.
-
-    Creates near-identity matrices for square weights, and scaled
-    random matrices for non-square weights, with controlled spectral norm.
-    All computation done on CPU for MPS compatibility, then moved to device.
-    """
-    weights = {}
-    for name, param in model.get_weight_tensors().items():
-        fan_in, fan_out = _get_fan(param)
-        if fan_in == fan_out:
-            w = torch.eye(fan_in, dtype=param.dtype) + torch.empty(
-                param.shape, dtype=param.dtype
-            ).normal_(0, 0.01)
-        else:
-            w = torch.empty(param.shape, dtype=param.dtype).normal_(
-                0, 1.0 / math.sqrt(max(fan_in, fan_out))
-            )
-        # Normalize spectral norm to ~1
-        with torch.no_grad():
-            s = torch.linalg.svdvals(w.float())[0].item()
-            if s > 0:
-                w = w / s
-        weights[name] = w.to(param.device)
-    return weights
+def spectral_delta_init(
+    model: nn.Module, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Identity + small perturbation, scaled by spectral norm (CPU for MPS)."""
+    weights, _, device = _get_model_info(model)
+    result: dict[str, torch.Tensor] = {}
+    for name, param in weights.items():
+        r, c = param.shape[0], param.shape[1]
+        # Build truncated identity + perturbation on CPU
+        cpu_w = torch.zeros(r, c, dtype=torch.float32, device="cpu")
+        min_dim = min(r, c)
+        cpu_w[:min_dim, :min_dim] = torch.eye(min_dim, dtype=torch.float32)
+        cpu_w += torch.randn(r, c, dtype=torch.float32) * 0.01
+        # Normalize by spectral norm
+        if r >= 2 and c >= 2:
+            sigma = float(torch.linalg.svdvals(cpu_w)[0])
+            if sigma > 0:
+                cpu_w = cpu_w / sigma
+        result[name] = cpu_w.to(device)
+    return result
 
 
-# Registry of all initializers
-INITIALIZERS: dict[str, callable] = {
-    "xavier_uniform": xavier_uniform,
-    "xavier_normal": xavier_normal,
-    "kaiming_uniform": kaiming_uniform,
-    "kaiming_normal": kaiming_normal,
-    "orthogonal": orthogonal,
+# ---------------------------------------------------------------------------
+# Registry
+# ---------------------------------------------------------------------------
+
+INITIALIZERS: dict[str, Callable[..., dict[str, torch.Tensor]]] = {
+    "xavier_uniform": xavier_uniform_init,
+    "xavier_normal": xavier_normal_init,
+    "kaiming_uniform": kaiming_uniform_init,
+    "kaiming_normal": kaiming_normal_init,
+    "orthogonal": orthogonal_init,
     "sparse": sparse_init,
-    "fixup": fixup,
-    "mimetic": mimetic,
-    "spectral_delta": spectral_delta,
+    "fixup": fixup_init,
+    "mimetic": mimetic_init,
+    "spectral_delta": spectral_delta_init,
 }
 
 
-def get_initializer(name: str) -> callable:
-    """Get an initialization function by name.
+def get_available_initializers() -> list[str]:
+    """Return sorted list of available initialization method names."""
+    return sorted(INITIALIZERS.keys())
+
+
+def initialize(
+    model: nn.Module, method_name: str, config: str | None = None
+) -> dict[str, torch.Tensor]:
+    """Dispatch to a named initialization method.
 
     Args:
-        name: Name of the initialization strategy.
+        model: GPT model with get_weight_tensors() interface.
+        method_name: Name of the initialization strategy.
+        config: Optional configuration passed to the initializer.
 
     Returns:
-        The initializer function.
+        Dictionary mapping parameter names to initialized tensors.
 
     Raises:
-        KeyError: If the name is not recognized.
+        ValueError: If method_name is not a registered initializer.
     """
-    if name not in INITIALIZERS:
-        available = ", ".join(sorted(INITIALIZERS.keys()))
-        raise KeyError(f"Unknown initializer '{name}'. Available: {available}")
-    return INITIALIZERS[name]
-
-
-def available_initializers() -> list[str]:
-    """Return list of available initializer names."""
-    return sorted(INITIALIZERS.keys())
+    if method_name not in INITIALIZERS:
+        available = ", ".join(get_available_initializers())
+        raise ValueError(
+            f"Unknown initializer '{method_name}'. Available: {available}"
+        )
+    return INITIALIZERS[method_name](model, config)

@@ -1,171 +1,195 @@
-"""Tests for MicroGPT model."""
+"""Tests for neurogen/model/gpt.py."""
 
 import pytest
 import torch
-
 from neurogen.config import GPTConfig
 from neurogen.model.gpt import GPT
 
 
 class TestGPTInstantiation:
-    def test_creates_without_error(self, tiny_config):
-        model = GPT(tiny_config)
-        assert model is not None
+    """Tests for GPT model creation."""
 
-    def test_parameter_count(self, tiny_config):
-        model = GPT(tiny_config)
-        count = model.count_parameters()
-        assert count > 0
-        # Rough check: should be in a reasonable range for this config
-        assert count < 10_000_000  # tiny config shouldn't be huge
+    def test_gpt_instantiation(self, tiny_config, device):
+        """Model creates without error using tiny_config."""
+        model = GPT(tiny_config).to(device)
+        assert model is not None, "Model should be instantiated"
+        assert model.config is tiny_config, "Model should store its config"
 
-    def test_requires_vocab_size(self):
-        config = GPTConfig(vocab_size=0, n_layer=2, n_head=2, n_embd=64)
-        with pytest.raises(AssertionError):
-            GPT(config)
-
-    def test_n_embd_divisible_by_n_head(self):
-        with pytest.raises(ValueError, match="divisible"):
-            GPTConfig(vocab_size=256, n_layer=2, n_head=3, n_embd=64)
+    def test_gpt_parameter_count(self, tiny_model):
+        """Model has a positive number of trainable parameters."""
+        n_params = tiny_model.count_parameters()
+        assert n_params > 0, "Model should have trainable parameters"
 
 
 class TestGPTForward:
-    def test_forward_shape(self, tiny_model, random_batch, tiny_config):
-        x, y = random_batch
-        logits, loss = tiny_model(x, y)
-        assert logits.shape == (4, tiny_config.block_size, tiny_config.vocab_size)
-        assert loss is not None
-        assert loss.dim() == 0  # scalar
+    """Tests for the forward pass."""
 
-    def test_forward_no_targets(self, tiny_model, random_batch):
+    def test_gpt_forward_shape_no_targets(self, tiny_model, random_batch, tiny_config):
+        """Logits shape == (batch, seq_len, vocab_size), loss is None without targets."""
         x, _ = random_batch
         logits, loss = tiny_model(x)
-        assert logits is not None
-        assert loss is None
+        assert logits.shape == (4, tiny_config.block_size, tiny_config.vocab_size), (
+            f"Expected logits shape (4, {tiny_config.block_size}, {tiny_config.vocab_size}), "
+            f"got {logits.shape}"
+        )
+        assert loss is None, "Loss should be None when no targets are provided"
 
-    def test_backward(self, tiny_model, random_batch):
+    def test_gpt_forward_shape_with_targets(self, tiny_model, random_batch, tiny_config):
+        """Loss is a scalar when targets are provided."""
+        x, y = random_batch
+        logits, loss = tiny_model(x, y)
+        assert logits.shape == (4, tiny_config.block_size, tiny_config.vocab_size), (
+            f"Expected logits shape (4, {tiny_config.block_size}, {tiny_config.vocab_size}), "
+            f"got {logits.shape}"
+        )
+        assert loss is not None, "Loss should not be None when targets are provided"
+        assert loss.dim() == 0, "Loss should be a scalar"
+        assert torch.isfinite(loss), "Loss should be finite"
+
+
+class TestGPTBackward:
+    """Tests for backward pass."""
+
+    def test_gpt_backward(self, tiny_model, random_batch):
+        """Forward + backward: all params have non-None finite gradients."""
         x, y = random_batch
         _, loss = tiny_model(x, y)
         loss.backward()
         for name, param in tiny_model.named_parameters():
             if param.requires_grad:
-                assert param.grad is not None, f"No gradient for {name}"
-                assert not torch.isnan(param.grad).any(), f"NaN gradient in {name}"
-                assert not torch.isinf(param.grad).any(), f"Inf gradient in {name}"
+                assert param.grad is not None, (
+                    f"Gradient for '{name}' should not be None after backward"
+                )
+                assert torch.isfinite(param.grad).all(), (
+                    f"Gradient for '{name}' should be finite"
+                )
 
 
 class TestGPTGenerate:
-    def test_generate_shape(self, tiny_model, device):
-        prompt = torch.zeros((1, 1), dtype=torch.long, device=device)
-        output = tiny_model.generate(prompt, max_new_tokens=50)
-        assert output.shape == (1, 51)  # 1 prompt + 50 generated
+    """Tests for token generation."""
 
-    def test_generate_valid_tokens(self, tiny_model, tiny_config, device):
-        prompt = torch.zeros((1, 1), dtype=torch.long, device=device)
-        output = tiny_model.generate(prompt, max_new_tokens=50)
-        assert (output >= 0).all()
-        assert (output < tiny_config.vocab_size).all()
+    def test_gpt_generate(self, tiny_model, tiny_config, device):
+        """Generate 20 tokens: correct shape, all tokens in valid range."""
+        prompt = torch.randint(0, tiny_config.vocab_size, (1, 5)).to(device)
+        max_new_tokens = 20
+        output = tiny_model.generate(prompt, max_new_tokens=max_new_tokens)
+        assert output.shape == (1, 5 + max_new_tokens), (
+            f"Expected shape (1, {5 + max_new_tokens}), got {output.shape}"
+        )
+        assert (output >= 0).all() and (output < tiny_config.vocab_size).all(), (
+            "All generated tokens should be in [0, vocab_size)"
+        )
 
 
 class TestGPTWeightInterface:
-    def test_get_weight_tensors(self, tiny_model):
+    """Tests for get_weight_tensors / set_weight_tensors."""
+
+    def test_gpt_weight_interface_get(self, tiny_model):
+        """Keys include attn and ffn weights, no bias/LN, all require_grad."""
         weights = tiny_model.get_weight_tensors()
-        assert isinstance(weights, dict)
-        assert len(weights) > 0
+        assert len(weights) > 0, "Should return at least one weight tensor"
         for name, tensor in weights.items():
-            assert isinstance(tensor, torch.Tensor)
-            assert tensor.requires_grad
+            assert "bias" not in name, f"'{name}' should not contain bias"
+            assert "ln_" not in name, f"'{name}' should not contain LayerNorm"
+            assert "pos_emb" not in name, f"'{name}' should not contain pos_emb"
+            assert "lm_head" not in name, f"'{name}' should not contain lm_head (tied)"
+        # Check some expected weight patterns exist
+        names_str = " ".join(weights.keys())
+        assert "attn" in names_str or "c_attn" in names_str, (
+            "Should include attention weights"
+        )
+        assert "c_fc" in names_str or "ffn" in names_str, (
+            "Should include FFN weights"
+        )
 
-    def test_get_excludes_bias_and_layernorm(self, tiny_model):
+    def test_gpt_weight_interface_set(self, tiny_model):
+        """Fill one tensor with zeros, verify it took effect."""
         weights = tiny_model.get_weight_tensors()
-        for name in weights:
-            assert "bias" not in name
-            assert "ln_" not in name
+        first_key = list(weights.keys())[0]
+        zero_weights = {first_key: torch.zeros_like(weights[first_key])}
+        tiny_model.set_weight_tensors(zero_weights)
 
-    def test_get_includes_attn_and_ffn(self, tiny_model):
+        updated_weights = tiny_model.get_weight_tensors()
+        assert torch.all(updated_weights[first_key] == 0), (
+            f"Weight '{first_key}' should be all zeros after set"
+        )
+
+    def test_gpt_weight_interface_roundtrip(self, tiny_model, random_batch):
+        """Get then set unchanged weights -> identical output."""
+        x, _ = random_batch
+        with torch.no_grad():
+            logits_before, _ = tiny_model(x)
+
         weights = tiny_model.get_weight_tensors()
-        names = list(weights.keys())
-        # Should have attention weights and FFN weights for each layer
-        has_attn = any("c_attn" in n for n in names)
-        has_ffn = any("c_fc" in n for n in names)
-        assert has_attn, f"No attention weights found in {names}"
-        assert has_ffn, f"No FFN weights found in {names}"
+        # Make copies of the weight data
+        weight_copies = {k: v.clone() for k, v in weights.items()}
+        tiny_model.set_weight_tensors(weight_copies)
 
-    def test_set_weight_tensors(self, tiny_model, device):
-        weights = tiny_model.get_weight_tensors()
-        # Modify one tensor
-        key = list(weights.keys())[0]
-        weights[key] = torch.zeros_like(weights[key])
-        tiny_model.set_weight_tensors(weights)
-        # Verify it took effect
-        new_weights = tiny_model.get_weight_tensors()
-        assert (new_weights[key] == 0).all()
+        with torch.no_grad():
+            logits_after, _ = tiny_model(x)
 
-    def test_set_preserves_forward(self, tiny_model, random_batch):
-        weights = tiny_model.get_weight_tensors()
-        tiny_model.set_weight_tensors(weights)
-        x, y = random_batch
-        logits, loss = tiny_model(x, y)
-        assert not torch.isnan(loss)
+        assert torch.allclose(logits_before, logits_after, atol=1e-6), (
+            "Output should be identical after setting unchanged weights"
+        )
 
-    def test_roundtrip(self, tiny_model, random_batch, device):
-        x, y = random_batch
-        _, loss_before = tiny_model(x, y)
-        weights = tiny_model.get_weight_tensors()
-        tiny_model.set_weight_tensors(weights)
-        _, loss_after = tiny_model(x, y)
-        assert torch.allclose(loss_before, loss_after)
 
-    def test_weight_tying(self, tiny_model):
-        """Token embedding and LM head should share the same weight."""
-        wte = tiny_model.transformer.wte.weight
-        lm_head = tiny_model.lm_head.weight
-        assert wte.data_ptr() == lm_head.data_ptr()
+class TestGPTWeightTying:
+    """Tests for embedding weight tying."""
 
-    def test_no_duplicate_tied_weight(self, tiny_model):
-        """Tied weight (wte/lm_head) should not appear in weight tensors.
-
-        Since wte and lm_head share the same parameter, and both are
-        excluded from get_weight_tensors (wte explicitly, lm_head via
-        weight tying deduplication), neither should appear.
-        """
-        weights = tiny_model.get_weight_tensors()
-        names = list(weights.keys())
-        assert not any("wte" in n for n in names), "wte should be excluded (tied)"
-        # Due to weight tying, lm_head.weight is the same object as wte.weight
-        # and named_parameters() deduplicates, so it won't appear separately
-        # This is correct — the embedding is not a target for CA initialization
-        data_ptrs = [p.data_ptr() for p in weights.values()]
-        assert len(data_ptrs) == len(set(data_ptrs)), "No duplicate tensors"
+    def test_gpt_weight_tying(self, tiny_model):
+        """tok_emb and lm_head share the same data_ptr."""
+        assert tiny_model.tok_emb.weight.data_ptr() == tiny_model.lm_head.weight.data_ptr(), (
+            "tok_emb.weight and lm_head.weight should share the same data"
+        )
 
 
 class TestGPTConfigs:
-    @pytest.mark.parametrize(
-        "n_layer,n_head,n_embd",
-        [(1, 1, 32), (2, 2, 64), (4, 4, 128), (3, 3, 96)],
-    )
-    def test_various_configs(self, n_layer, n_head, n_embd):
-        config = GPTConfig(
-            block_size=32,
-            vocab_size=256,
-            n_layer=n_layer,
-            n_head=n_head,
-            n_embd=n_embd,
-            dropout=0.0,
+    """Tests for various model configurations."""
+
+    def test_gpt_valid_configs(self, device):
+        """Several valid configs should work."""
+        configs = [
+            GPTConfig(block_size=16, vocab_size=50, n_layer=1, n_head=1, n_embd=32, dropout=0.0),
+            GPTConfig(block_size=64, vocab_size=100, n_layer=4, n_head=4, n_embd=128, dropout=0.1),
+            GPTConfig(block_size=32, vocab_size=256, n_layer=2, n_head=2, n_embd=64, dropout=0.0),
+        ]
+        for cfg in configs:
+            model = GPT(cfg).to(device)
+            x = torch.randint(0, cfg.vocab_size, (2, cfg.block_size)).to(device)
+            logits, _ = model(x)
+            assert logits.shape == (2, cfg.block_size, cfg.vocab_size), (
+                f"Config {cfg} should produce correct output shape"
+            )
+
+    def test_gpt_non_divisible_n_embd_n_head(self):
+        """Non-divisible n_embd/n_head should raise an error."""
+        cfg = GPTConfig(
+            block_size=32, vocab_size=100, n_layer=2,
+            n_head=3, n_embd=64, dropout=0.0,
         )
-        model = GPT(config)
-        x = torch.randint(0, 256, (2, 32))
-        logits, _ = model(x)
-        assert logits.shape == (2, 32, 256)
+        with pytest.raises(AssertionError, match="divisible"):
+            GPT(cfg)
 
 
 class TestGPTDeterminism:
-    def test_deterministic_forward(self, tiny_config, device):
-        torch.manual_seed(42)
-        model = GPT(tiny_config).to(device)
-        x = torch.randint(0, 256, (2, 32), device=device)
+    """Tests for deterministic behavior."""
 
-        model.eval()
-        logits1, _ = model(x)
-        logits2, _ = model(x)
-        assert torch.allclose(logits1, logits2)
+    def test_gpt_determinism(self, tiny_config, device):
+        """Same seed -> same output."""
+        x = torch.randint(0, tiny_config.vocab_size, (2, tiny_config.block_size)).to(device)
+
+        torch.manual_seed(42)
+        model1 = GPT(tiny_config).to(device)
+        model1.eval()
+        with torch.no_grad():
+            out1, _ = model1(x)
+
+        torch.manual_seed(42)
+        model2 = GPT(tiny_config).to(device)
+        model2.eval()
+        with torch.no_grad():
+            out2, _ = model2(x)
+
+        assert torch.allclose(out1, out2, atol=1e-6), (
+            "Same seed should produce identical outputs"
+        )

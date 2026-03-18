@@ -1,6 +1,4 @@
-"""MicroGPT: Minimal GPT implementation following Karpathy's nanoGPT style."""
-
-import math
+"""MicroGPT: A minimal character-level GPT implementation."""
 
 import torch
 import torch.nn as nn
@@ -11,13 +9,14 @@ from neurogen.model.components import Block
 
 
 class GPT(nn.Module):
-    """Minimal GPT language model.
+    """Minimal GPT for character-level language modeling.
 
-    Features:
-    - Configurable layers, heads, embedding dimension
-    - Pre-norm transformer blocks
-    - Weight tying between token embedding and LM head
-    - get/set weight tensor interface for CA initialization
+    A decoder-only transformer with token embeddings, positional embeddings,
+    a stack of transformer blocks, and a language modeling head. Uses weight
+    tying between the token embedding and the LM head.
+
+    Args:
+        config: GPT model configuration.
     """
 
     def __init__(self, config: GPTConfig) -> None:
@@ -25,77 +24,120 @@ class GPT(nn.Module):
         assert config.vocab_size > 0, "vocab_size must be set before creating model"
         self.config = config
 
-        self.transformer = nn.ModuleDict(
-            {
-                "wte": nn.Embedding(config.vocab_size, config.n_embd),
-                "wpe": nn.Embedding(config.block_size, config.n_embd),
-                "drop": nn.Dropout(config.dropout),
-                "h": nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-                "ln_f": nn.LayerNorm(config.n_embd),
-            }
-        )
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd, dtype=torch.float32)
+        self.pos_emb = nn.Embedding(config.block_size, config.n_embd, dtype=torch.float32)
+        self.drop = nn.Dropout(config.dropout)
+        self.blocks = nn.ModuleList([Block(config) for _ in range(config.n_layer)])
+        self.ln_f = nn.LayerNorm(config.n_embd, dtype=torch.float32)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False, dtype=torch.float32)
 
         # Weight tying
-        self.transformer.wte.weight = self.lm_head.weight
+        self.lm_head.weight = self.tok_emb.weight
 
         # Initialize weights
         self.apply(self._init_weights)
-        # Apply scaled init to output projections per GPT-2
-        for pn, p in self.named_parameters():
-            if pn.endswith("c_proj.weight"):
-                nn.init.normal_(
-                    p, mean=0.0, std=0.02 / math.sqrt(2 * config.n_layer)
-                )
 
     def _init_weights(self, module: nn.Module) -> None:
-        """Default weight initialization (GPT-2 style)."""
+        """Apply default initialization to module parameters.
+
+        Args:
+            module: The module to initialize.
+        """
         if isinstance(module, nn.Linear):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
+            nn.init.ones_(module.weight)
+            nn.init.zeros_(module.bias)
 
     def forward(
-        self,
-        idx: torch.Tensor,
-        targets: torch.Tensor | None = None,
+        self, idx: torch.Tensor, targets: torch.Tensor | None = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
-        """Forward pass.
+        """Forward pass through the model.
 
         Args:
-            idx: Token indices, shape (B, T).
-            targets: Target token indices, shape (B, T). If None, no loss computed.
+            idx: Input token indices of shape (B, T).
+            targets: Target token indices of shape (B, T), or None.
 
         Returns:
-            Tuple of (logits, loss). Loss is None if targets not provided.
+            Tuple of (logits, loss). Loss is None if targets is None.
         """
-        device = idx.device
         B, T = idx.size()
         assert T <= self.config.block_size, (
             f"Sequence length {T} exceeds block_size {self.config.block_size}"
         )
 
-        pos = torch.arange(0, T, dtype=torch.long, device=device)
+        pos = torch.arange(0, T, dtype=torch.long, device=idx.device)
+        tok = self.tok_emb(idx)
+        positional = self.pos_emb(pos)
+        x = self.drop(tok + positional)
 
-        tok_emb = self.transformer.wte(idx)
-        pos_emb = self.transformer.wpe(pos)
-        x = self.transformer.drop(tok_emb + pos_emb)
-
-        for block in self.transformer.h:
+        for block in self.blocks:
             x = block(x)
 
-        x = self.transformer.ln_f(x)
+        x = self.ln_f(x)
         logits = self.lm_head(x)
 
         loss = None
         if targets is not None:
             loss = F.cross_entropy(
-                logits.view(-1, logits.size(-1)), targets.view(-1)
+                logits.view(-1, logits.size(-1)),
+                targets.view(-1),
             )
 
         return logits, loss
+
+    def get_weight_tensors(self) -> dict[str, torch.Tensor]:
+        """Extract trainable weight matrices (not biases, LayerNorm, or pos emb).
+
+        Returns a dict mapping parameter names to their tensors. Due to weight
+        tying, lm_head.weight is not included separately (it is the same tensor
+        as tok_emb.weight).
+
+        Returns:
+            Dictionary of {name: tensor} for trainable weight matrices.
+        """
+        weights: dict[str, torch.Tensor] = {}
+        for name, param in self.named_parameters():
+            # Skip biases
+            if "bias" in name:
+                continue
+            # Skip LayerNorm parameters
+            if "ln_" in name:
+                continue
+            # Skip positional embeddings
+            if "pos_emb" in name:
+                continue
+            # Skip lm_head (tied to tok_emb)
+            if "lm_head" in name:
+                continue
+            # Skip dropout (not a parameter, but be safe)
+            if "drop" in name:
+                continue
+            weights[name] = param.data
+        return weights
+
+    def set_weight_tensors(self, weights: dict[str, torch.Tensor]) -> None:
+        """Inject weight tensors into the model.
+
+        Args:
+            weights: Dictionary of {name: tensor} matching get_weight_tensors keys.
+        """
+        state = dict(self.named_parameters())
+        for name, tensor in weights.items():
+            if name in state:
+                state[name].data.copy_(tensor)
+
+    def count_parameters(self) -> int:
+        """Count total number of trainable parameters.
+
+        Returns:
+            Number of trainable parameters.
+        """
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
     @torch.no_grad()
     def generate(
@@ -108,88 +150,32 @@ class GPT(nn.Module):
         """Generate new tokens autoregressively.
 
         Args:
-            idx: Conditioning token indices, shape (B, T).
-            max_new_tokens: Number of tokens to generate.
-            temperature: Sampling temperature.
-            top_k: If set, only sample from top-k logits.
+            idx: Conditioning token indices of shape (B, T).
+            max_new_tokens: Number of new tokens to generate.
+            temperature: Sampling temperature (higher = more random).
+            top_k: If set, only sample from the top k most likely tokens.
 
         Returns:
-            Extended token sequence, shape (B, T + max_new_tokens).
+            Token indices of shape (B, T + max_new_tokens).
         """
         for _ in range(max_new_tokens):
-            # Crop to block_size
-            idx_cond = idx[:, -self.config.block_size :]
+            idx_cond = idx[:, -self.config.block_size:]
             logits, _ = self(idx_cond)
             logits = logits[:, -1, :] / temperature
 
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-                logits[logits < v[:, [-1]]] = -float("inf")
+                logits[logits < v[:, [-1]]] = float("-inf")
 
             probs = F.softmax(logits, dim=-1)
 
-            # MPS-safe multinomial sampling
+            # MPS fallback for multinomial
             try:
                 idx_next = torch.multinomial(probs, num_samples=1)
             except RuntimeError:
-                # Fallback to CPU for multinomial on MPS
-                idx_next = torch.multinomial(
-                    probs.cpu(), num_samples=1
-                ).to(idx.device)
+                probs_cpu = probs.cpu()
+                idx_next = torch.multinomial(probs_cpu, num_samples=1).to(idx.device)
 
-            idx = torch.cat((idx, idx_next), dim=1)
+            idx = torch.cat([idx, idx_next], dim=1)
 
         return idx
-
-    def get_weight_tensors(self) -> dict[str, torch.Tensor]:
-        """Get all trainable weight matrices (no biases, no LayerNorm).
-
-        Returns dict mapping parameter names to weight tensors.
-        The token embedding (wte) is excluded since it's tied to lm_head.
-        """
-        weights = {}
-        for name, param in self.named_parameters():
-            # Skip biases
-            if "bias" in name:
-                continue
-            # Skip LayerNorm parameters
-            if "ln_" in name:
-                continue
-            # Skip wte (tied to lm_head)
-            if "wte" in name:
-                continue
-            # Skip positional embedding (not a weight matrix in the CA sense)
-            if "wpe" in name:
-                continue
-            # Skip dropout (not a parameter)
-            weights[name] = param
-        return weights
-
-    def set_weight_tensors(self, weights: dict[str, torch.Tensor]) -> None:
-        """Inject weight tensors into the model.
-
-        Args:
-            weights: Dict mapping parameter names to new weight tensors.
-                     Names must match those from get_weight_tensors().
-        """
-        current_weights = self.get_weight_tensors()
-        for name, tensor in weights.items():
-            if name not in current_weights:
-                raise KeyError(f"Unknown weight tensor: {name}")
-            expected_shape = current_weights[name].shape
-            if tensor.shape != expected_shape:
-                raise ValueError(
-                    f"Shape mismatch for {name}: "
-                    f"expected {expected_shape}, got {tensor.shape}"
-                )
-            # Navigate to the actual parameter and set its data
-            parts = name.split(".")
-            module = self
-            for part in parts[:-1]:
-                module = getattr(module, part)
-            param = getattr(module, parts[-1])
-            param.data.copy_(tensor)
-
-    def count_parameters(self) -> int:
-        """Count total trainable parameters."""
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
