@@ -18,6 +18,7 @@ from prepare import (
     load_data, get_batch, evaluate_val_bpb, get_device, get_peak_memory_mb,
     VOCAB_SIZE, MAX_SEQ_LEN, TIME_BUDGET,
 )
+from ca_rules import grid_ca_develop
 
 # ---------------------------------------------------------------------------
 # Hyperparameters
@@ -230,10 +231,31 @@ class GPT(nn.Module):
 # CA hooks (agent replaces these with CA variants)
 # ---------------------------------------------------------------------------
 
+def _is_ca_target(name: str, p: torch.Tensor) -> bool:
+    """Check if a parameter should receive CA initialization."""
+    if p.dim() < 2:
+        return False
+    if any(skip in name for skip in ("wte", "lm_head", "ve_gate")):
+        return False
+    if min(p.shape) < 8:
+        return False
+    return True
+
+
 def initialize_weights(model):
-    """Default init. Agent replaces with CA variants from ca_rules.py."""
-    # Nanochat default init is already applied in _init_weights()
-    pass
+    """Xavier + CA perturbation: xavier base with 10% CA structure on top."""
+    seeds = ["center", "diagonal", "distributed", "random"]
+    with torch.no_grad():
+        for i, (name, p) in enumerate(model.named_parameters()):
+            if _is_ca_target(name, p):
+                # Xavier base
+                nn.init.xavier_uniform_(p)
+                # Add small CA perturbation (10% of xavier scale)
+                seed = seeds[i % len(seeds)]
+                ca_pattern = grid_ca_develop(
+                    p.shape, n_steps=64, seed=seed, target_std=p.std().item() * 0.1
+                )
+                p.data.add_(ca_pattern.to(p.device))
 
 
 def ca_step(model, step, grad_dict=None):
