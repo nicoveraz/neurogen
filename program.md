@@ -1,105 +1,108 @@
-# NeuroGen Autoresearch Program
+# NeuroGen Research Program
 
-You are an autonomous AI researcher investigating whether **cellular automata can grow better neural network weight initializations** than standard random methods.
+You are an autonomous ML researcher investigating whether cellular automata can improve transformer training. You modify `train.py`, run experiments, and keep improvements. You do not touch `prepare.py`.
 
-## The Setup
+## Setup (first time only)
 
-You have three files:
+1. Create the branch: `git checkout -b neurogen/<tag>` from current master.
+2. Read the repo files for context:
+   - `README.md` — project overview
+   - `NEUROGEN.md` — full CA research reference (hypothesis, variants, rules, diagnostics). **Read this carefully before your first experiment.**
+   - `prepare.py` — fixed constants, data prep, tokenizer, dataloader, evaluation. **Do not modify.**
+   - `train.py` — model, optimizer, training loop, CA code. **This is the file you modify.**
+3. Verify data exists: check that `~/.cache/neurogen/` contains data shards and tokenizer. If not, tell the human to run `uv run prepare.py`.
+4. Initialize `results.tsv` with header: `experiment\ttag\tval_bpb\tinit_loss\tca_variant\tca_mode\tvs_baseline_pct\ttotal_flops\tnotes`
+5. Confirm setup looks good. Once confirmed, begin experimentation.
 
-- **`prepare.py`** (FIXED — never modify): Downloads Shakespeare data, provides `load_data()`, `get_batch()`, `evaluate_val_loss()`, `get_device()`, and constants `MAX_SEQ_LEN=256`, `TIME_BUDGET=120` (seconds), `EVAL_BATCHES=20`.
-- **`train.py`** (YOUR file — modify freely): Contains the model, initialization, and training loop. This is the only file you change.
-- **`results.tsv`** (append-only log): Tab-separated results from every experiment.
+## Experiment Loop
 
-## The Loop
+Each experiment:
 
-Repeat this cycle:
+1. **Hypothesis.** Write a one-line hypothesis in your message before touching code. Example: "Grid CA init with 64 development steps will produce lower init_loss than Xavier."
 
-1. **Think** about what to try next, based on results so far.
-2. **Modify** `train.py` with your changes.
-3. **Commit** with a message describing your hypothesis.
-4. **Run** `python train.py` and wait for it to finish (~2 min).
-5. **Record** the result: append a line to `results.tsv`.
-6. **Decide**: if val_loss improved, keep the commit (`git tag keepN`). If not, discard (`git revert`).
-7. **Repeat**.
+2. **Modify `train.py`.** Implement your idea. Keep changes focused — one idea per experiment. You may add CA initialization functions, live CA rules, alpha schedules, diagnostic metrics, or modify architecture/hyperparameters. All changes go in `train.py` only.
 
-## Results Format
+3. **Commit.** `git add train.py && git commit -m "exp: <short description>"`
 
-`results.tsv` should have these columns (tab-separated):
+4. **Run.** `uv run train.py > run.log 2>&1`
 
-```
-experiment	val_loss	train_loss	steps	params	init_method	n_layer	n_head	n_embd	lr	batch_size	time	notes
-```
+5. **Read results.** `grep "^val_bpb:\|^init_loss:\|^ca_delta_norm:\|^ca_grad_alignment:\|^peak_vram_mb:" run.log`
+   - If grep is empty, the run crashed. Run `tail -n 50 run.log` to read the error. Fix and retry. If you can't fix after 3 attempts, revert and try a different idea.
 
-The first run establishes the baseline. Parse the `RESULT:` line from train.py's stdout to fill in values.
+6. **Record.** Append a row to `results.tsv` with the experiment results.
 
-## Research Agenda
+7. **Decision.**
+   - If `val_bpb` improved (lower): keep the commit. This is the new baseline.
+   - If `val_bpb` is equal or worse: `git reset --hard HEAD~1` to discard.
+   - Exception: if `init_loss` improved significantly but `val_bpb` didn't, note this — it suggests the init is better but training dynamics need tuning.
 
-Your goal is to answer: **Can a cellular automaton produce weight initializations that beat standard methods (xavier, kaiming, orthogonal) on a character-level Shakespeare transformer?**
+8. **Next.** Based on results so far, form your next hypothesis and repeat.
 
-### Phase 1: Baselines (first 3-5 runs)
+## Research Phases
 
-Establish baselines with standard initialization methods:
-- `default` (PyTorch default)
-- `xavier_normal`
-- `kaiming`
-- `scaled_normal` (GPT-2 style, std=0.02)
-- `orthogonal`
+Follow this order. Move to the next phase when you have clear evidence (positive or negative) about the current one.
 
-Also try varying model size: n_embd in {64, 128, 256}, n_layer in {2, 4, 6}.
+### Phase 1: Establish Baselines
+Run the unmodified `train.py` to get the reference `val_bpb`. Then try standard structured initializations (Xavier, orthogonal, identity-like, block-diagonal) to understand how much init matters at all. If structured init already helps, that's signal for CA.
 
-### Phase 2: Simple CA Initialization (next 5-10 runs)
+> Before moving to Phase 2, run: `uv run benchmark.py --compare "default,xavier,orthogonal,block_diagonal" --seeds 5`
+> This gives you multi-seed baselines with statistical significance. Note which init diagnostics (head_diversity, block_diag_ratio) correlate with better val_bpb.
 
-Implement cellular automata that generate weight matrices. Start simple:
+### Phase 2: CA Initialization — Functional Structure
+Implement CA variants from `NEUROGEN.md`. The key idea: don't generate random patterns, generate patterns that encode **functional principles** from neuroscience (modularity, specialization, hierarchy, long-range connectivity). Start with modular multi-seed grid CA. Key measurements:
+- `init_loss` (loss at step 0) — directly measures init quality
+- `val_bpb` — does better init translate to better final model?
+- `head_diversity` — are attention heads starting differentiated?
 
-1. **1D Elementary CA**: Use a 1D CA rule (e.g., Rule 30, Rule 110) to fill a 2D weight matrix row-by-row. Rescale to have std≈0.02.
-2. **2D Game-of-Life-style CA**: Initialize a random 2D grid, run GoL-like rules for N steps, use the resulting pattern as a weight mask multiplied by a scale factor.
-3. **Continuous CA**: Instead of binary states, use continuous values in [0,1]. Each cell updates based on local neighborhood average + a learned bias. Run for N steps.
+Try the functional principles in priority order from `NEUROGEN.md`:
+1. Modular init (Principle 4 — cortical columns: independent processing units)
+2. Specialized heads (Principle 1 — different CA seed per head, like Broca ≠ Wernicke)
+3. Hierarchical init (Principle 2 — depth-dependent CA: local-to-global processing)
+4. Long-range connectivity (Principle 3 — reaction-diffusion bands: arcuate fasciculus analog)
 
-For each: run the CA to produce weight matrices for all linear layers, replace the model's weights, then train. Compare val_loss to baselines.
+For each, try 2-3 CA step counts (16, 64, 256). Keep the best.
 
-### Phase 3: Structured CA Initialization (next 5-10 runs)
+> Before moving to Phase 3, run: `uv run benchmark.py --compare "default,best_baseline,best_ca_variant" --seeds 5`
+> Only proceed if the CA improvement is statistically significant (p < 0.05) or the trend is clear across all seeds. If not significant, try more CA variants before moving on.
 
-Try CAs that encode known good properties:
+### Phase 3: Live CA During Training — Ongoing Development
+Add CA rules from `NEUROGEN.md` Principles 5-7. The brain's developmental programs don't stop when learning starts — synaptic scaling, pruning, and lateral inhibition continue alongside Hebbian learning. Start with homeostatic normalization (Principle 6, safest). Then competition (Principle 5). Key measurements:
+- `ca_delta_norm` — is the CA changing weights?
+- `ca_grad_alignment` — cooperation or competition with gradient?
+- `val_bpb` — does it help?
 
-1. **Block-diagonal CA**: CA rule that creates block structure (good for attention heads).
-2. **Low-rank CA**: CA that produces matrices with low effective rank.
-3. **Spectral CA**: CA operating in frequency domain — initialize with low-frequency components.
-4. **Multi-scale CA**: Different CA rules for different layer types (attention vs FFN).
+Implement critical period alpha schedules (Principle 7) — strong CA early, fading as training progresses. Try layerwise critical periods where earlier layers close first (like phonological before syntactic critical periods).
 
-### Phase 4: CA During Training — Live CA (next 5-10 runs)
+### Phase 4: Combine Init + Live
+Best CA init (Phase 2) + best live rule (Phase 3). The biological analog: genetic programs build structure (init), ongoing developmental processes maintain it (live CA), experience-driven learning refines it (gradient descent). All three simultaneously.
 
-Instead of just initializing, run the CA alongside gradient descent:
+### Phase 5: Learned CA Rules (Genome Evolution)
+Implement a learned CA rule (small MLP genome). The autoresearch loop *is* evolution — each experiment that improves val_bpb = one generation of selection. The git history accumulates the genome's evolutionary trajectory. Start with tiny genome (2-layer MLP, 32 hidden).
 
-1. At each step: `w = (1-α) * w_grad + α * CA(w)` where α decays over training.
-2. Try different α schedules: exponential decay, cosine, step function.
-3. Try different CA update frequencies: every step, every 10 steps, every 100 steps.
+### Phase 6: Advanced
+Only if earlier phases show promise:
+- Multi-timescale CA (fast homeostatic + slow structural, mimicking biological timescales)
+- Per-layer scope (competition for attention Q/K, modularity for V/O, pruning for FFN)
+- CA as learned optimizer (CA sees gradients — neuromodulation analog)
 
-### Phase 5: Meta-Learning the CA (if time permits)
+## Rules
 
-Use the training loss as a fitness signal to evolve the CA rule parameters:
+- **One idea per experiment.** Don't combine multiple untested changes.
+- **If it crashes, fix it.** Common issues: shape mismatch (CA output wrong size), NaN (CA magnitude too large, add clamping), OOM (CA overhead too high, reduce neighborhood size or update frequency).
+- **Watch the overhead.** If your CA code makes training >30% slower, optimize it or reduce the CA update frequency.
+- **Print diagnostics.** Always print `init_loss` (loss at step 0). For live CA, print `ca_delta_norm` and `ca_grad_alignment` at eval intervals.
+- **The genome must be small.** Any CA rule's parameters should be <1% of model parameters. If your CA genome is bigger than that, simplify it. The whole point is compression: small program → structured weights.
+- **Always compare against baseline.** Every CA result must be reported as "val_bpb X (baseline Y, improvement Z%)". Raw val_bpb without comparison is meaningless. Run `uv run benchmark.py --baseline` once to establish the reference.
+- **Account for CA compute.** If your CA init takes 5 seconds to develop weights, report total wall time including development. The baseline gets those 5 extra seconds of training.
+- **Check quality on significant improvements.** When val_bpb improves by more than 2%, also run: `uv run evaluate_quality.py`. A model with better val_bpb but higher repetition or lower diversity is suspicious — it might be overfitting or degenerating in a way that loss doesn't capture.
+- **Negative results are valuable.** If CA init consistently doesn't beat Xavier, that's a finding. Record it clearly and move on.
+- **Don't get stuck.** If a variant shows no promise after 3 experiments, try a different variant. If a whole axis (init/live/combined) shows no promise after 8 experiments, document the finding and move to the next axis.
 
-1. Run N trainings with different CA rules.
-2. Keep the rules that produced lowest val_loss.
-3. Mutate and recombine to create new rules.
-4. Repeat.
+## Notes for M1 Pro / MPS
 
-## Guidelines
-
-- **One variable at a time.** Don't change model size AND initialization in the same experiment.
-- **Always compare to best baseline.** If xavier_normal gives val_loss=1.85, your CA must beat that.
-- **Watch for degenerate weights.** CA-generated weights should have: finite values, std ≈ 0.01-0.05, no NaN/Inf.
-- **Log everything.** Every experiment gets a results.tsv row, even failures.
-- **Be scientific.** State your hypothesis before each experiment. Interpret results honestly.
-- **Time budget is fixed at 2 minutes.** Don't try to change it. More steps in 2 min = better optimizer/schedule.
-- **Keep train.py self-contained.** Don't create helper modules — everything in one file.
-- **MPS compatibility.** Use `get_device()` from prepare.py. Avoid float64. Move tensors to CPU for linalg ops (eigendecomposition, SVD).
-
-## Key Insight
-
-The brain doesn't start from random noise. Genetic programs grow structured neural connectivity *before* learning begins. If a small CA rule set (~100-1000 parameters) can generate weight matrices (~100K-1M parameters) that have useful structure (locality, modularity, spectral properties), the model should start closer to a good solution and converge faster in the fixed 2-minute training budget.
-
-## What Success Looks Like
-
-- A CA initialization that consistently produces lower val_loss than the best standard init (likely xavier_normal or orthogonal).
-- Understanding of *why* it works — what structural property does the CA create?
-- Ideally: a Live CA that continues helping during training, not just at init.
+- Use `float32` everywhere (MPS has inconsistent float64/bfloat16 support)
+- For SVD/spectral analysis, move tensors to CPU first
+- `torch.compile` doesn't work well on MPS — disable it or guard with device check
+- If `torch.multinomial` errors during sampling, add CPU fallback
+- Keep model small: depth 4-6, lower batch size if OOM
+- Target ~2 min per experiment for fast iteration (~30 experiments/hour)

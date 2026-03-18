@@ -2,79 +2,205 @@
 
 ## What This Project Is
 
-NeuroGen is a research project testing whether cellular automata can generate better weight initializations for transformers than random initialization. Read `NEUROGEN_PROJECT.md` for the full specification.
+NeuroGen is an autoresearch project (Karpathy's pattern) investigating whether cellular automata can improve transformer training. The agent modifies `train.py`, runs experiments, keeps improvements, and iterates. Read `NEUROGEN.md` for the full research context.
 
-## How to Work on This Project
+## Project Structure
 
-### Always follow the sprint order in NEUROGEN_PROJECT.md
-Do not skip ahead. Each sprint depends on the previous one. A working `train.py` matters more than a fancy CA.
-
-### Code style
-- Python 3.11+, type hints everywhere
-- Use `dataclasses` for configs, not dicts
-- Docstrings on all public functions (Google style)
-- Keep files under 300 lines — split if larger
-- Format with `black`, lint with `ruff`
-
-### Testing approach
-- Read `NEUROGEN_TESTING.md` for the full test and benchmark specification
-- Every module gets a test file in `tests/`
-- Test with tiny configs (n_layer=2, n_embd=64, block_size=32) so tests run in seconds
-- Use `pytest` with fixtures for model and data setup (see conftest.py spec in NEUROGEN_TESTING.md)
-- Smoke tests first, correctness tests second
-- Use markers: `@pytest.mark.slow` for >30s tests, `@pytest.mark.gpu` for CUDA tests
-- Run fast tests: `pytest tests/ -v -m "not slow"`
-- Each sprint has a validation checklist in NEUROGEN_TESTING.md — verify before marking complete
-
-### Benchmarking approach
-- Benchmarks (BM1-BM8) are separate from tests — they measure research questions, not correctness
-- Each benchmark has a defined protocol, output format, and report template
-- Quick suite (~5 min CPU) runs on every PR via CI
-- Standard suite (~2-4h GPU) runs for milestone validations
-- All benchmark results go to `outputs/benchmarks/` with raw data, figures, and markdown reports
-
-### Key interfaces (do not break these)
-```python
-# Model weight interface
-model.get_weight_tensors() -> dict[str, torch.Tensor]
-model.set_weight_tensors(weights: dict[str, torch.Tensor]) -> None
-
-# Initializer interface (baselines and CA must both follow this)
-def initialize(model: GPT, config: dict) -> dict[str, torch.Tensor]
-
-# CA genome interface
-genome.develop(seed, target_shape, n_steps) -> torch.Tensor
-
-# Device detection (ALWAYS use this, never hardcode devices)
-get_device() -> str  # returns "cuda", "mps", or "cpu"
+```
+neurogen/
+├── program.md      # Agent research instructions (human edits this)
+├── prepare.py      # Data prep, tokenizer, dataloader, eval (DO NOT MODIFY)
+├── train.py        # Model + CA + training loop (agent modifies this)
+├── ca_rules.py     # CA rule library (agent can import from here)
+├── results.tsv     # Experiment log (append-only, do not commit)
+├── analysis.ipynb  # Results visualization notebook
+├── NEUROGEN.md     # Research reference (hypothesis, CA variants, diagnostics)
+├── CLAUDE.md       # This file
+├── README.md       # Project overview
+└── pyproject.toml  # Dependencies
 ```
 
-### Device handling (critical for Apple Silicon)
-- **NEVER** write `torch.device("cuda")` or `.cuda()` directly in any module
-- **ALWAYS** use `get_device()` from `neurogen/config.py`
-- Analysis functions (SVD, spectral norm, eigendecomposition) must move tensors to CPU before computing — MPS doesn't support all linalg ops
-- Use `float32` everywhere, never `float64` (MPS has inconsistent float64 support)
-- `torch.compile()` should be gated behind `if device == "cuda"` — it's limited on MPS
-- For `torch.multinomial` in text generation, add a try/except that falls back to CPU
-- All tests should run on any device — use the `device` fixture from conftest.py
-- Every CLI script must accept `--device` flag to override auto-detection
+## First Task: Build the Foundation
 
-### When implementing CA variants
-1. Start with the simplest version that produces valid weight tensors
-2. Verify: correct shape, finite values, reasonable magnitude (std ~0.02)
-3. Visualize the developed weights as heatmaps before training with them
-4. Only then integrate with the training pipeline
+Build these files in order. Each must work before moving to the next.
 
-### Experiment YAML format
-Follow the schema in NEUROGEN_PROJECT.md Phase 4.1. Every experiment must specify: name, hypothesis, model config, dataset, init method, training config, metrics, and random seeds.
+### Step 1: `prepare.py`
 
-### Git workflow
-- Feature branches: `sprint-N/description`
-- Commit messages: `[sprint-N] description`
-- Tag working checkpoints: `v0.1-sprint1-complete`
+Adapt from nanochat/autoresearch pattern for Apple Silicon (MPS).
 
-### When in doubt
-- Simpler is better
-- Match Karpathy's nanoGPT conventions where applicable
-- CPU-runnable defaults with GPU as opt-in
-- Log more than you think you need
+**Data:** Use TinyStories dataset (`karpathy/tinystories-gpt4-clean` on HuggingFace) for fast iteration on M1 Pro. Narrower scope than FineWeb means small models produce meaningful results.
+
+**Key constants:**
+```python
+VOCAB_SIZE = 4096           # smaller than nanochat default for M1 Pro
+MAX_SEQ_LEN = 256           # short for fast iteration
+EVAL_TOKENS = 100_000       # enough for stable eval, not too slow
+DATA_DIR = "~/.cache/neurogen"
+```
+
+**Must include:**
+- Download and cache TinyStories shards
+- Train a BPE tokenizer (tiktoken or sentencepiece) or use byte-level (256 vocab)
+- DataLoader that yields (x, y) batches from shards
+- `evaluate(model)` function that computes `val_bpb` on held-out data
+- Device auto-detection: CUDA → MPS → CPU
+
+**This file is frozen after creation.** The agent never modifies it.
+
+### Step 2: `train.py`
+
+The single mutable file. Start with a clean baseline GPT (nanochat-style) that trains and produces a val_bpb score.
+
+**Model (start simple, agent will evolve it):**
+```python
+DEPTH = 4                   # 4 layers for M1 Pro
+# Width, heads, etc. derived from depth (nanochat pattern)
+CHANNELS = DEPTH * 64       # 256 for depth 4
+N_HEADS = DEPTH             # 4 heads
+```
+
+**Must include:**
+- GPT model: token embeddings, positional embeddings, transformer blocks, LM head
+- Weight initialization (default: standard init — the agent will replace this with CA)
+- Optimizer: AdamW (Muon is CUDA-only, skip for MPS compatibility)
+- Training loop with fixed time budget (2 minutes default for M1 Pro)
+- Print `val_bpb` at the end (the metric autoresearch optimizes)
+- Print `init_loss` (loss at step 0, before any training)
+- Print `peak_vram_mb` (or equivalent memory metric)
+
+**Hooks for CA (agent will use these):**
+```python
+# Placeholder — agent replaces this with CA init
+def initialize_weights(model):
+    """Default init. Agent replaces with CA variants."""
+    for p in model.parameters():
+        if p.dim() >= 2:
+            nn.init.xavier_normal_(p)
+
+# Placeholder — agent adds live CA here
+def ca_step(model, step, grad_dict=None):
+    """Called after each optimizer step. Default: no-op."""
+    pass
+```
+
+The training loop should call `ca_step(model, step)` after each optimizer step so the agent can inject live CA without restructuring the loop.
+
+### Step 3: `ca_rules.py`
+
+A library of CA rules the agent can import into `train.py`. This file is also editable by the agent but keeps CA code organized.
+
+A library of CA rules organized by functional principle (see `NEUROGEN.md`). The agent imports from here into `train.py`. This file is also editable by the agent.
+
+**Start with:**
+```python
+# === CA Initialization (Principles 1-4) ===
+
+# Principle 1: Functional specialization — different seeds per head
+def specialized_heads_init(n_heads, head_dim, n_steps=32): ...
+
+# Principle 2: Hierarchical processing — depth-dependent CA
+def hierarchical_init_for_layer(shape, layer_idx, n_layers, n_steps=48): ...
+
+# Principle 3: Long-range connectivity — reaction-diffusion bands
+def reaction_diffusion_init(shape, feed=0.04, kill=0.06, n_steps=200): ...
+
+# Principle 4: Modular organization — multi-seed block structure
+def modular_init(shape, n_modules=4, n_steps=48): ...
+
+# General CA development engine
+def grid_ca_develop(shape, seed, genome_net, n_steps=64): ...
+
+# Handcrafted baselines for comparison
+def block_diagonal_init(shape, n_blocks=4): ...
+def orthogonal_init(shape): ...
+
+# === Live CA Rules (Principles 5-7) ===
+
+# Principle 5: Competition / lateral inhibition
+def competition_step(W, k=5): ...
+
+# Principle 6: Homeostatic regulation / synaptic scaling
+def homeostatic_step(W, target_std=0.02): ...
+
+# Principle 6b: Modularity maintenance
+def modularity_step(W, n_blocks=4): ...
+
+# Principle 5b: Gradient-aware pruning / synaptic pruning
+def pruning_step(W, grad_W): ...
+
+# Principle 7: Critical period alpha schedules
+def critical_period_alpha(step, total_steps, alpha_0=0.01): ...
+def layerwise_critical_period(step, layer_idx, n_layers, total_steps): ...
+def adaptive_alpha(step, alpha_0=0.01, loss_history=None): ...
+
+# Learned rule (genome = small MLP)
+def learned_step(W, genome_net): ...
+
+# === Utilities ===
+def neighborhood_mean(W, k=3): ...
+def neighborhood_std(W, k=3): ...
+```
+
+Implement the concrete code for each. Refer to `NEUROGEN.md` for specifications. Keep functions self-contained — each should work independently.
+
+### Step 4: `analysis.ipynb`
+
+Jupyter notebook that reads `results.tsv` and plots:
+- val_bpb over experiments (the progress curve)
+- Comparison by ca_variant and ca_mode
+- Best result per phase
+
+### Step 5: Verify Everything Works
+
+```bash
+uv run prepare.py          # downloads data, trains tokenizer
+uv run train.py             # baseline run, prints val_bpb
+```
+
+Both must complete without error. `train.py` should finish in ~2 minutes on M1 Pro and print a valid `val_bpb`.
+
+## After Foundation: Agent Takes Over
+
+Once the foundation is built, the human starts the autoresearch loop:
+
+```
+Read program.md and let's start experimenting. Run the baseline first.
+```
+
+From this point, the agent follows `program.md` autonomously.
+
+## Code Style
+
+- Python 3.11+, type hints on function signatures
+- Keep `train.py` under 400 lines
+- Keep `ca_rules.py` under 500 lines
+- No external dependencies beyond pyproject.toml
+- Use `float32` everywhere for MPS compatibility
+- All device placement through a single `DEVICE` constant
+- Print metrics as `metric_name: value` (one per line) so grep works
+
+## Device Handling
+
+```python
+import torch
+
+def get_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+DEVICE = get_device()
+```
+
+Never write `.cuda()` anywhere. Always use `.to(DEVICE)`.
+
+For operations unsupported on MPS (SVD, some linalg), wrap in:
+```python
+def cpu_fallback(fn, *args):
+    try:
+        return fn(*args)
+    except RuntimeError:
+        return fn(*(a.cpu() if isinstance(a, torch.Tensor) else a for a in args))
+```
