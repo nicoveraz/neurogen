@@ -43,57 +43,54 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Install dependencies
 uv sync
 
-# Download data and prepare shards
+# Download data and train tokenizer
 uv run prepare.py
 
-# Run baseline training (~2 min)
+# Run baseline training
 uv run train.py
-
-# Start autoresearch (point your agent at program.md)
 ```
 
-## Benchmarking & Evaluation
+## Running Autoresearch
 
-NeuroGen includes three evaluation tools beyond the autoresearch loop:
+The `.claude/settings.json` pre-approves all safe operations (file edits, git, python/uv runs) so Claude Code won't ask permission during the experiment loop. Dangerous operations (rm -rf, sudo, curl) remain blocked.
 
+**Option A — Settings file (recommended, already included):**
 ```bash
-# Establish xavier baseline (run once per config)
-uv run benchmark.py --baseline --seeds 5
-
-# Multi-seed statistical comparison of init methods
-uv run benchmark.py --compare "default,xavier,grid_ca,modular_ca" --seeds 5
-
-# Add output quality metrics (repetition, diversity, self-perplexity)
-uv run benchmark.py --compare "default,xavier" --seeds 3 --quality
-
-# Evaluate generation quality with sample outputs
-uv run evaluate_quality.py --methods "default,xavier,grid_ca"
-
-# Quality convergence over training (the money plot)
-uv run evaluate_quality.py --quality-over-time --methods "default,grid_ca"
+# Just start Claude Code in the repo — settings.json handles permissions
+claude
+# Then say: "Read program.md and start experimenting."
 ```
 
-**Benchmark reports** include: val_bpb with std, vs-baseline percentage, paired t-tests, init diagnostics (head diversity, block-diagonal ratio, layer similarity), FLOPs-matched comparison, and optional quality metrics. All saved to `outputs/`.
+**Option B — Full YOLO mode (faster, use in a container or disposable env):**
+```bash
+claude --dangerously-skip-permissions
+# Then say: "Read program.md and start experimenting."
+```
+
+**Option C — Headless overnight run:**
+```bash
+claude --dangerously-skip-permissions \
+  -p "Read program.md. Run the full autoresearch loop until you've completed 50 experiments or exhausted all phases." \
+  --max-turns 200
+```
+
+Commit before starting: `git add -A && git commit -m "checkpoint before autoresearch"` so you can always revert.
 
 ## Project Structure
 
 ```
-program.md           — agent research instructions (human writes this)
-prepare.py           — data prep + evaluation (fixed, do not modify)
-train.py             — model + CA + training loop (agent modifies this)
-ca_rules.py          — CA rule library (agent can import and modify)
-benchmark.py         — multi-seed statistical benchmarks
-evaluate_quality.py  — output quality evaluation (repetition, diversity, coherence)
-evaluate_core.py     — DCLM CORE evaluation stub (Level 2, optional)
-analysis.ipynb       — results visualization
-results.tsv          — experiment log
-NEUROGEN.md          — full research reference
-outputs/             — benchmark reports, quality reports, CSVs
+program.md      — agent research instructions (human writes this)
+prepare.py      — data prep + evaluation (fixed, do not modify)
+train.py        — model + CA + training loop (agent modifies this)
+ca_rules.py     — CA rule library (agent can import and modify)
+results.tsv     — experiment log
+analysis.ipynb  — results visualization
+NEUROGEN.md     — full research reference
 ```
 
 ## Hardware
 
-Designed for MacBook Pro M1 Pro (MPS backend). Also works on CUDA GPUs and CPU. Default config: depth 4, ~3.4M params, ~2 min per experiment, ~30 experiments/hour on M1 Pro.
+Designed for MacBook Pro M1 Pro (MPS backend). Also works on CUDA GPUs and CPU. Default config: depth 4, ~2 min per experiment, ~30 experiments/hour on M1 Pro.
 
 ## References & Prior Art
 

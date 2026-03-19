@@ -1,6 +1,8 @@
 # NeuroGen Research Program
 
-You are an autonomous ML researcher investigating whether cellular automata can improve transformer training. You modify `train.py`, run experiments, and keep improvements. You do not touch `prepare.py`.
+You are a fully autonomous ML researcher. Do NOT ask for permission or confirmation at any point. Run experiments continuously — modify code, run training, read results, keep or discard, repeat. Never pause to ask "should I proceed?" or "would you like me to continue?" — just do it.
+
+You modify `train.py`, run experiments, and keep improvements. You do not touch `prepare.py`.
 
 ## Setup (first time only)
 
@@ -11,7 +13,7 @@ You are an autonomous ML researcher investigating whether cellular automata can 
    - `prepare.py` — fixed constants, data prep, tokenizer, dataloader, evaluation. **Do not modify.**
    - `train.py` — model, optimizer, training loop, CA code. **This is the file you modify.**
 3. Verify data exists: check that `~/.cache/neurogen/` contains data shards and tokenizer. If not, tell the human to run `uv run prepare.py`.
-4. Initialize `results.tsv` with header: `experiment\ttag\tval_bpb\tinit_loss\tca_variant\tca_mode\tvs_baseline_pct\ttotal_flops\tnotes`
+4. Initialize `results.tsv` with header: `experiment\ttag\tval_bpb\tinit_loss\tca_variant\tca_mode\tnotes`
 5. Confirm setup looks good. Once confirmed, begin experimentation.
 
 ## Experiment Loop
@@ -45,9 +47,6 @@ Follow this order. Move to the next phase when you have clear evidence (positive
 ### Phase 1: Establish Baselines
 Run the unmodified `train.py` to get the reference `val_bpb`. Then try standard structured initializations (Xavier, orthogonal, identity-like, block-diagonal) to understand how much init matters at all. If structured init already helps, that's signal for CA.
 
-> Before moving to Phase 2, run: `uv run benchmark.py --compare "default,xavier,orthogonal,block_diagonal" --seeds 5`
-> This gives you multi-seed baselines with statistical significance. Note which init diagnostics (head_diversity, block_diag_ratio) correlate with better val_bpb.
-
 ### Phase 2: CA Initialization — Functional Structure
 Implement CA variants from `NEUROGEN.md`. The key idea: don't generate random patterns, generate patterns that encode **functional principles** from neuroscience (modularity, specialization, hierarchy, long-range connectivity). Start with modular multi-seed grid CA. Key measurements:
 - `init_loss` (loss at step 0) — directly measures init quality
@@ -61,9 +60,6 @@ Try the functional principles in priority order from `NEUROGEN.md`:
 4. Long-range connectivity (Principle 3 — reaction-diffusion bands: arcuate fasciculus analog)
 
 For each, try 2-3 CA step counts (16, 64, 256). Keep the best.
-
-> Before moving to Phase 3, run: `uv run benchmark.py --compare "default,best_baseline,best_ca_variant" --seeds 5`
-> Only proceed if the CA improvement is statistically significant (p < 0.05) or the trend is clear across all seeds. If not significant, try more CA variants before moving on.
 
 ### Phase 3: Live CA During Training — Ongoing Development
 Add CA rules from `NEUROGEN.md` Principles 5-7. The brain's developmental programs don't stop when learning starts — synaptic scaling, pruning, and lateral inhibition continue alongside Hebbian learning. Start with homeostatic normalization (Principle 6, safest). Then competition (Principle 5). Key measurements:
@@ -92,56 +88,8 @@ Only if earlier phases show promise:
 - **Watch the overhead.** If your CA code makes training >30% slower, optimize it or reduce the CA update frequency.
 - **Print diagnostics.** Always print `init_loss` (loss at step 0). For live CA, print `ca_delta_norm` and `ca_grad_alignment` at eval intervals.
 - **The genome must be small.** Any CA rule's parameters should be <1% of model parameters. If your CA genome is bigger than that, simplify it. The whole point is compression: small program → structured weights.
-- **Always compare against baseline.** Every CA result must be reported as "val_bpb X (baseline Y, improvement Z%)". Raw val_bpb without comparison is meaningless. Run `uv run benchmark.py --baseline` once to establish the reference.
-- **Account for CA compute.** If your CA init takes 5 seconds to develop weights, report total wall time including development. The baseline gets those 5 extra seconds of training.
-- **Check quality on significant improvements.** When val_bpb improves by more than 2%, also run: `uv run evaluate_quality.py`. A model with better val_bpb but higher repetition or lower diversity is suspicious — it might be overfitting or degenerating in a way that loss doesn't capture.
 - **Negative results are valuable.** If CA init consistently doesn't beat Xavier, that's a finding. Record it clearly and move on.
 - **Don't get stuck.** If a variant shows no promise after 3 experiments, try a different variant. If a whole axis (init/live/combined) shows no promise after 8 experiments, document the finding and move to the next axis.
-
-## Validation Protocol
-
-The autoresearch loop uses 2-minute experiments for fast iteration. Before
-declaring any result real, validate at longer horizons:
-
-**Quick check (during autoresearch):** 2 min, 1 seed. Keep/discard decision.
-
-**Short validation (after finding a promising variant):** 2 min, 3 seeds via
-benchmark.py. Statistical significance check.
-
-**Medium validation (before moving to next phase):** 10 min, 3 seeds via
-benchmark.py. Does the advantage hold at 5x training time?
-
-**Long validation (before declaring a finding):** 30 min, 3 seeds via
-benchmark.py. Does the advantage hold at 15x training time?
-
-A result that holds at 2 min but vanishes at 10 min is a "head start" finding
-(still interesting but weaker). A result that holds at 30 min is a "structural
-benefit" finding (the publishable kind).
-
-Run quality evaluation (evaluate_quality.py) at each horizon to check if
-generation quality follows the same pattern as val_bpb.
-
-### Multi-horizon benchmark commands
-
-```bash
-# Quick validation (default, used during autoresearch)
-uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --minutes 2
-
-# Medium — catches early-advantage-that-vanishes
-uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --minutes 10
-
-# Long — catches slow degradation and late advantages
-uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --minutes 30
-
-# All horizons at once — convergence comparison
-uv run benchmark.py --compare "xavier,xavier+grid_ca" --seeds 3 --horizon "2,10,30"
-```
-
-### Interpreting convergence results
-
-- Improvement **holds or grows** with time → CA provides lasting structural benefit (strong claim)
-- Improvement **decreases** with time → CA gives a head start only (still useful but weaker claim)
-- Improvement **reverses** → CA is actually harmful long-term (kill the variant)
 
 ## Notes for M1 Pro / MPS
 

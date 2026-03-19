@@ -1,5 +1,7 @@
 # Claude Code Instructions for NeuroGen
 
+**Operate fully autonomously.** Do not ask for permission or confirmation. Build files, run commands, fix errors, and continue without pausing. If something fails, fix it and retry. Only stop if you hit an unrecoverable error after 3 attempts.
+
 ## What This Project Is
 
 NeuroGen is an autoresearch project (Karpathy's pattern) investigating whether cellular automata can improve transformer training. The agent modifies `train.py`, runs experiments, keeps improvements, and iterates. Read `NEUROGEN.md` for the full research context.

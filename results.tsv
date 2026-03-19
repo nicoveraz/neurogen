@@ -1,1 +1,19 @@
 experiment	tag	val_bpb	init_loss	ca_variant	ca_mode	vs_baseline_pct	total_flops	notes
+1	baseline	2.4714	5.5462	none	none	0.0	0	default nanochat init, 277 steps
+2	phase1_xavier	2.0656	5.5448	xavier	init	+0.5	9.82e+13	best Phase 1 init
+3	phase1_orthogonal	2.2996	5.5459	orthogonal	init	-10.8	9.80e+13	worse than xavier
+4	phase1_block_diag	2.2930	5.5458	block_diagonal	init	-10.5	9.76e+13	worse than xavier
+5	p2_modular_48	2.2196	5.5458	modular_ca	init	-7.2	9.82e+13	pure CA, worse than xavier
+6	p2_hierarchical_48	2.2563	5.5452	hierarchical_ca	init	-8.9	9.82e+13	pure CA, worse than xavier
+7	p2_rxn_diff_200	4.4471	5.5445	reaction_diffusion	init	-110.3	9.82e+13	CATASTROPHIC head_div=0.01
+8	p2_xavier_ca_10pct	2.0229	5.5471	xavier+grid_ca	init	+2.1	9.82e+13	BEST! xavier+10% CA 64steps rotating seeds
+9	p2_xavier_ca_20pct	2.1138	5.5440	xavier+grid_ca	init	-2.3	9.82e+13	20% too strong
+10	p2_xavier_ca_5pct	2.0920	5.5443	xavier+grid_ca	init	-1.3	9.82e+13	5% too subtle
+11	p2_xavier_ca_16step	2.1203	5.5444	xavier+grid_ca	init	-2.6	9.82e+13	16 steps not enough
+12	p2_xavier_ca_256step	2.1194	5.5458	xavier+grid_ca	init	-2.6	9.82e+13	256 steps too much
+13	p2_specialized_heads	2.0989	5.5427	xavier+head_ca	init	-1.6	9.82e+13	per-head seeds no better
+14	p2_attn_only_ca	2.0928	5.5441	xavier+grid_ca	init	-1.3	9.82e+13	attn-only CA worse than full
+15	p3_homeostatic_fixed	2.1280	5.5451	homeostatic	live	-2.5	9.82e+13	target_std=0.02 fights xavier scale
+16	p3_homeostatic_adapt	2.0810	5.5436	homeostatic	live	-0.3	9.82e+13	adaptive target, still worse, overhead
+17	p3_competition	2.1711	5.5416	competition	live	-4.7	9.82e+13	heavy overhead (274 steps vs 295)
+18	p3_pruning	2.1387	5.5446	pruning	live	-3.8	9.82e+13	grad-aware pruning, overhead too high
