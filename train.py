@@ -28,7 +28,7 @@ from ca_rules import grid_ca_develop
 # Hyperparameters
 # ---------------------------------------------------------------------------
 
-DEPTH = 3                     # number of transformer layers
+DEPTH = 2                     # number of transformer layers
 CHANNELS = DEPTH * 64         # embedding dimension (256 for depth 4)
 N_HEADS = DEPTH               # number of attention heads (4 for depth 4)
 N_KV_HEADS = N_HEADS          # KV heads (set < N_HEADS for GQA)
