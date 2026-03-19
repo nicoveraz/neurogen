@@ -33,7 +33,7 @@ CHANNELS = DEPTH * 64         # embedding dimension (256 for depth 4)
 N_HEADS = DEPTH               # number of attention heads (4 for depth 4)
 N_KV_HEADS = N_HEADS          # KV heads (set < N_HEADS for GQA)
 BATCH_SIZE = 32
-LR = 2.5e-3
+LR = 3.5e-3
 WEIGHT_DECAY = 0.05
 DEVICE = get_device()
 
