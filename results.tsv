@@ -55,3 +55,13 @@ experiment	tag	val_bpb	init_loss	ca_variant	ca_mode	vs_baseline_pct	total_flops	
 54	r2_t1_ca10_10min	1.2536	0	ca10	init	-0.5	0	Track1 horizon validation, 10min, 3 seeds
 55	r2_t1_xavier_30min	1.1945	0	xavier	init	+0.8	0	Track1 horizon validation, 30min, 3 seeds
 56	r2_t1_ca10_30min	1.1849	0	ca10	init	+0.8	0	Track1 horizon validation, 30min, 3 seeds
+51	r2_t2_xavier_ca10	1.2603	0	xavier_ca10	init	-0.4	0	Track2 blend sweep, 10min, 2 seeds
+52	r2_t2_xavier_ca15	1.2554	0	xavier_ca15	init	+0.0	0	Track2 blend sweep, 10min, 2 seeds
+53	r2_t2_xavier_ca20	1.2513	0	xavier_ca20	init	+0.3	0	Track2 blend sweep, 10min, 2 seeds
+54	r2_t2_xavier_ca30	1.2630	0	xavier_ca30	init	-0.6	0	Track2 blend sweep, 10min, 2 seeds
+55	r2_t2_xavier_ca5	1.2481	0	xavier_ca5	init	+0.6	0	Track2 blend sweep, 10min, 2 seeds
+56	r2_t2_xavier_block_ca	1.2523	0	xavier_block_ca	init	+0.3	0	Track2 pattern comparison, 10min, 2 seeds
+57	r2_t2_xavier_grid_ca	1.2667	0	xavier_grid_ca	init	-0.9	0	Track2 pattern comparison, 10min, 2 seeds
+58	r2_t2_xavier_rd_spots	1.3509	0	xavier_rd_spots	init	-7.6	0	Track2 pattern comparison, 10min, 2 seeds
+59	r2_t2_xavier_rd_stripes	1.3474	0	xavier_rd_stripes	init	-7.3	0	Track2 pattern comparison, 10min, 2 seeds
+60	r2_t2_xavier_spectral_ca	1.2591	0	xavier_spectral_ca	init	-0.3	0	Track2 pattern comparison, 10min, 2 seeds
