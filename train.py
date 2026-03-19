@@ -432,7 +432,7 @@ def train(time_budget: float | None = None):
     # Training loop with periodic val_bpb evaluation
     model.train()
     step = 0
-    warmup = 100
+    warmup = 200
     max_steps = 100_000
     min_lr = LR / 10
     t0 = time.time()
