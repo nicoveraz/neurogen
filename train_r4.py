@@ -50,6 +50,12 @@ ARCHS = {
     # Best from E1 + universal circuits
     "window_quad_induction": {"window": "quadratic", "universal": "induction"},
     "window_quad_universal": {"window": "quadratic", "universal": "all"},
+    # Track J: Embryogenic CA — activity-dependent development
+    "embryo_strengthen": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.2},
+    "embryo_hebbian": {"embryo": "hebbian", "embryo_freq": 10, "embryo_crit": 0.2},
+    "embryo_strengthen_long": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.4},
+    "embryo_plus_window": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic"},
+    "embryo_plus_induction": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.2, "universal": "induction"},
 }
 
 # ---------------------------------------------------------------------------
@@ -658,6 +664,73 @@ def measure_induction_score(model, device, n_samples=50, seq_len=128):
     return correct / max(total, 1)
 
 # ---------------------------------------------------------------------------
+# Track J: Embryogenic CA — Activity-Dependent Development
+# ---------------------------------------------------------------------------
+def _is_embryo_target(name: str, W: torch.Tensor) -> bool:
+    if W.dim() < 2:
+        return False
+    if any(s in name for s in ("wte", "lm_head", "ve_gate", "ca_", "vitality")):
+        return False
+    if min(W.shape) < 8:
+        return False
+    return True
+
+def embryo_ca_step(model, grad_dict: dict, rule: str, step: int,
+                    total_steps: int, crit_frac: float = 0.2,
+                    base_alpha: float = 0.005):
+    """Activity-dependent CA step during critical period.
+    Returns (n_active, n_closed, mean_alpha) for diagnostics."""
+    critical_end = int(total_steps * crit_frac)
+    if step >= critical_end:
+        return 0, 0, 0.0
+    time_factor = 1.0 - step / critical_end
+    n_active = 0
+    n_closed = 0
+    alpha_sum = 0.0
+    alpha_count = 0
+
+    with torch.no_grad():
+        for name, W in model.named_parameters():
+            if not _is_embryo_target(name, W):
+                continue
+            grad = grad_dict.get(name)
+            if grad is None:
+                continue
+
+            # Per-weight adaptive alpha based on gradient stability
+            grad_mag = grad.abs()
+            instability = grad_mag / (grad_mag.mean() + 1e-8)
+            instability = instability.clamp(0, 2.0)
+            alpha = base_alpha * time_factor * instability
+
+            # Count open/closed weights
+            open_mask = (alpha > 0.0005).float()
+            n_active += open_mask.sum().item()
+            n_closed += (1 - open_mask).sum().item()
+            alpha_sum += alpha.mean().item()
+            alpha_count += 1
+
+            # Compute CA delta based on rule
+            if rule == "strengthen":
+                # Strengthen active pathways: reinforce where gradient is large
+                delta = grad_mag * W.data.sign() * 0.01
+            elif rule == "hebbian":
+                # Hebbian: strengthen large weights with large gradients,
+                # weaken small weights with small gradients
+                w_mag = W.data.abs()
+                w_strength = w_mag / (w_mag.mean() + 1e-8)
+                g_strength = grad_mag / (grad_mag.mean() + 1e-8)
+                # Co-activation: both strong weight AND strong gradient
+                delta = (w_strength * g_strength - 1.0) * W.data * 0.005
+            else:
+                continue
+
+            W.data.add_(alpha * delta)
+
+    mean_alpha = alpha_sum / max(alpha_count, 1)
+    return int(n_active), int(n_closed), mean_alpha
+
+# ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
 def train(time_budget: float | None = None, seed: int | None = None,
@@ -733,7 +806,27 @@ def train(time_budget: float | None = None, seed: int | None = None,
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+        # Capture gradients for embryogenic CA BEFORE optimizer step
+        embryo_rule = arch_cfg.get("embryo")
+        embryo_grad_dict = {}
+        if embryo_rule:
+            embryo_freq = arch_cfg.get("embryo_freq", 10)
+            embryo_crit = arch_cfg.get("embryo_crit", 0.2)
+            if step % embryo_freq == 0 and step < est_total * embryo_crit:
+                for name, p in model.named_parameters():
+                    if p.grad is not None and _is_embryo_target(name, p):
+                        embryo_grad_dict[name] = p.grad.clone()
+
         optimizer.step()
+
+        # Embryogenic CA step (activity-dependent, during critical period)
+        if embryo_grad_dict:
+            t_ca = time.time()
+            n_act, n_cls, m_alpha = embryo_ca_step(
+                model, embryo_grad_dict, embryo_rule, step, est_total,
+                crit_frac=embryo_crit)
+            ca_time_total += time.time() - t_ca
 
         # Sleep consolidation
         if arch_cfg.get("sleep"):
