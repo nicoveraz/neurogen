@@ -42,6 +42,14 @@ ARCHS = {
     "dev_dropout": {"dev_dropout": True},
     "sleep": {"sleep": True, "sleep_interval": 500, "sleep_steps": 10},
     "sleep_competition": {"sleep": True, "sleep_interval": 500, "sleep_steps": 10, "sleep_rule": "competition"},
+    # Universal circuit pre-wiring (from interpretability research)
+    "induction_prewire": {"universal": "induction"},
+    "layer_roles": {"universal": "layer_roles"},
+    "diverse_heads": {"universal": "diverse_heads"},
+    "universal_all": {"universal": "all"},
+    # Best from E1 + universal circuits
+    "window_quad_induction": {"window": "quadratic", "universal": "induction"},
+    "window_quad_universal": {"window": "quadratic", "universal": "all"},
 }
 
 # ---------------------------------------------------------------------------
@@ -504,6 +512,152 @@ def sleep_step(model, rule="homeostatic", alpha=0.001):
                 W_2d.add_(alpha * W_2d * strong - alpha * 0.5 * W_2d * (1 - strong))
 
 # ---------------------------------------------------------------------------
+# Universal Circuit Pre-Wiring
+# ---------------------------------------------------------------------------
+def apply_universal_init(model, mode: str):
+    """Pre-wire known universal circuits from interpretability research."""
+    n_layer = model.n_layer
+    n_embd = model.n_embd
+    n_head = model.blocks[0].attn.n_head
+    head_dim = model.blocks[0].attn.head_dim
+
+    with torch.no_grad():
+        if mode in ("induction", "all"):
+            _init_induction_heads(model, n_embd, n_head, head_dim)
+        if mode in ("layer_roles", "all"):
+            _init_layer_roles(model, n_layer, n_embd)
+        if mode in ("diverse_heads", "all"):
+            _init_diverse_heads(model, n_head, head_dim)
+
+def _init_induction_heads(model, n_embd, n_head, head_dim):
+    """Pre-wire induction circuit: prev-token head in layer 0, induction head in layer 1."""
+    if model.n_layer < 2:
+        return
+    scale = 0.05
+    # Layer 0, head 0: "previous token" head
+    # V/O as near-identity: pass content through to next layer
+    b0 = model.blocks[0]
+    v_w = b0.attn.c_v.weight.data
+    o_w = b0.attn.c_proj.weight.data
+    # Set head 0's V to extract and O to project back (near-identity for that head)
+    for i in range(head_dim):
+        if i < n_embd:
+            v_w[i, i] = scale
+            o_w[i, i] = scale
+
+    # Layer 1, head 0: "induction" head — content matching + copy
+    b1 = model.blocks[1]
+    q_w = b1.attn.c_q.weight.data
+    k_w = b1.attn.c_k.weight.data
+    v_w = b1.attn.c_v.weight.data
+    o_w = b1.attn.c_proj.weight.data
+    # Q/K: near-identity in head-0 subspace = content matching
+    for i in range(head_dim):
+        if i < n_embd:
+            q_w[i, i] = scale
+            k_w[i, i] = scale
+    # V/O: copy mechanism (near-identity)
+    for i in range(head_dim):
+        if i < n_embd:
+            v_w[i, i] = scale
+            o_w[i, i] = scale
+
+def _init_layer_roles(model, n_layer, n_embd):
+    """Initialize layers with role-appropriate structure.
+    Early: local/diagonal. Middle: distributed. Late: output-focused."""
+    for idx, block in enumerate(model.blocks):
+        progress = idx / max(n_layer - 1, 1)
+        for name, W in block.named_parameters():
+            if W.dim() < 2 or min(W.shape) < 4:
+                continue
+            if "ve_gate" in name:
+                continue
+            rows, cols = W.shape
+            if progress < 0.33:
+                # Early: near-diagonal — local processing bias
+                diag = torch.zeros_like(W)
+                bw = max(1, min(rows, cols) // 3)
+                for i in range(min(rows, cols)):
+                    lo = max(0, i - bw)
+                    hi = min(cols, i + bw + 1)
+                    diag[i % rows, lo:hi] = torch.randn(hi - lo, device=W.device) * 0.01
+                W.data = W.data * 0.5 + diag * 0.5
+            elif progress < 0.67:
+                # Middle: boost block-diagonal for modularity
+                nb = min(4, min(rows, cols))
+                bh, bw_ = rows // nb, cols // nb
+                for b in range(nb):
+                    r0, r1 = b * bh, min((b + 1) * bh, rows)
+                    c0, c1 = b * bw_, min((b + 1) * bw_, cols)
+                    W.data[r0:r1, c0:c1] *= 1.3
+            # Late layers: keep default xavier+CA init
+
+def _init_diverse_heads(model, n_head, head_dim):
+    """Diversify heads within each layer: positional, content, local, general."""
+    for block in model.blocks:
+        q_w = block.attn.c_q.weight.data
+        k_w = block.attn.c_k.weight.data
+        dev = q_w.device
+        for h in range(n_head):
+            s = h * head_dim
+            e = (h + 1) * head_dim
+            role = h % 4
+            if role == 0:
+                # Positional head: diagonal Q/K
+                for i in range(head_dim):
+                    idx = (s + i) % q_w.shape[1]
+                    q_w[s + i, idx] += 0.03
+                    k_w[s + i, idx] += 0.03
+            elif role == 1:
+                # Content head: add random structure for content matching
+                q_w[s:e, :] += torch.randn_like(q_w[s:e, :]) * 0.01
+                k_w[s:e, :] += torch.randn_like(k_w[s:e, :]) * 0.01
+            elif role == 2:
+                # Local head: banded structure
+                for i in range(min(head_dim, 4)):  # limit iterations
+                    idx = (s + i) % q_w.shape[1]
+                    bw = min(8, q_w.shape[1])
+                    lo = max(0, idx - bw)
+                    hi = min(q_w.shape[1], idx + bw)
+                    q_w[s + i, lo:hi] += torch.randn(hi - lo, device=dev) * 0.01
+                    k_w[s + i, lo:hi] += torch.randn(hi - lo, device=dev) * 0.01
+            # role == 3: general head, keep default init
+
+# ---------------------------------------------------------------------------
+# Induction Score Measurement
+# ---------------------------------------------------------------------------
+def measure_induction_score(model, device, n_samples=50, seq_len=128):
+    """Measure induction head behavior: given [A,B,...,A], predict B.
+    Returns score in [0,1] where 1 = perfect induction."""
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for _ in range(n_samples):
+            # Create sequence with repeated bigram: random prefix + [A,B] + random middle + [A]
+            prefix_len = torch.randint(10, 40, (1,)).item()
+            mid_len = torch.randint(10, 40, (1,)).item()
+            A = torch.randint(1, 256, (1,)).item()
+            B = torch.randint(1, 256, (1,)).item()
+            # Build sequence
+            seq = torch.randint(1, 256, (prefix_len,)).tolist()
+            seq.extend([A, B])
+            seq.extend(torch.randint(1, 256, (mid_len,)).tolist())
+            seq.append(A)  # second occurrence of A
+            if len(seq) > seq_len:
+                seq = seq[:seq_len]
+            ids = torch.tensor([seq], dtype=torch.long, device=device)
+            logits, _ = model(ids)
+            # Check prediction at position after second A
+            pred_pos = len(seq) - 1  # position of second A
+            probs = F.softmax(logits[0, pred_pos, :], dim=-1)
+            if probs[B].item() > 1.0 / 256:  # better than random
+                correct += probs[B].item()
+            total += 1
+    model.train()
+    return correct / max(total, 1)
+
+# ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
 def train(time_budget: float | None = None, seed: int | None = None,
@@ -545,6 +699,13 @@ def train(time_budget: float | None = None, seed: int | None = None,
                     ca = block_diagonal_init(p.shape, n_blocks=min(4, min(p.shape)),
                                             target_std=p.std().item() * 0.05)
                     p.data.add_(ca.to(p.device))
+
+    # Apply universal circuit pre-wiring (after standard init)
+    universal_mode = arch_cfg.get("universal")
+    if universal_mode:
+        apply_universal_init(model, universal_mode)
+        if not quiet:
+            print(f"universal_init: {universal_mode}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=WEIGHT_DECAY)
     model.train()
@@ -590,11 +751,16 @@ def train(time_budget: float | None = None, seed: int | None = None,
                          and (elapsed - last_curve) >= curve_time_min)
         if should_record or step == 0:
             vbpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
+            # Measure induction score at key checkpoints
+            ind_score = None
+            if universal_mode and step in (0, 100, 500, 2000, 5000, 10000):
+                ind_score = measure_induction_score(model, DEVICE)
             loss_curve.append((step, round(elapsed, 1), round(vbpb, 4)))
             last_curve = elapsed
             if not quiet:
+                extra = f" ind:{ind_score:.3f}" if ind_score is not None else ""
                 print(f"step:{step:5d} loss:{loss.item():.4f} val_bpb:{vbpb:.4f} "
-                      f"lr:{cur_lr:.2e} {elapsed:.0f}s")
+                      f"lr:{cur_lr:.2e} {elapsed:.0f}s{extra}")
         elif not quiet and step % 500 == 0:
             print(f"step:{step:5d} loss:{loss.item():.4f} lr:{cur_lr:.2e} {elapsed:.0f}s")
         step += 1
@@ -604,12 +770,17 @@ def train(time_budget: float | None = None, seed: int | None = None,
     loss_curve.append((step, round(total_time, 1), round(val_bpb, 4)))
     ca_overhead = ca_time_total / total_time * 100 if total_time > 0 else 0
 
+    # Final induction score
+    final_ind_score = measure_induction_score(model, DEVICE) if universal_mode else None
+
     if not quiet:
         print(f"\nval_bpb: {val_bpb:.4f}")
         print(f"total_steps: {step}")
         print(f"params: {total_params} (ca: {ca_params})")
         print(f"ca_overhead_pct: {ca_overhead:.1f}")
         print(f"wall_time_s: {total_time:.1f}")
+        if final_ind_score is not None:
+            print(f"induction_score: {final_ind_score:.4f}")
 
     result = {
         "val_bpb": round(val_bpb, 4),
@@ -624,6 +795,7 @@ def train(time_budget: float | None = None, seed: int | None = None,
         "lr": lr,
         "time_budget_s": time_budget,
         "loss_curve": loss_curve,
+        "induction_score": round(final_ind_score, 4) if final_ind_score is not None else None,
     }
     print(f"RESULT_JSON: {json.dumps(result)}")
     return result
