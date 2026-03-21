@@ -1,21 +1,17 @@
 """
-Output quality evaluation for NeuroGen models.
+NeuroGen Output Quality Evaluation.
 
-Generates text from a trained model and measures quality automatically.
-Complements val_bpb (prediction quality) with generation quality metrics.
+Standalone script — evaluates trained models on text generation quality.
+Does NOT modify train_r4.py or interrupt running experiments.
 
 Usage:
-    uv run evaluate_quality.py                                    # train default, evaluate
-    uv run evaluate_quality.py --methods "default,xavier,grid_ca" # compare methods
-    uv run evaluate_quality.py --quality-over-time --methods "default,grid_ca"
+    uv run evaluate_quality.py --checkpoint checkpoints/model_baseline_42.pt
+    uv run evaluate_quality.py --compare ckpt1.pt ckpt2.pt
+    uv run evaluate_quality.py --glob "checkpoints/model_*.pt" --report quality_report.md
+    uv run evaluate_quality.py --live --arch baseline window_quad_induction --seed 42 --minutes 40
 """
 
-import argparse
-import math
-import re
-import statistics
-import time
-from datetime import datetime
+import argparse, glob, json, math, re, sys, time
 from pathlib import Path
 
 import torch
@@ -23,101 +19,30 @@ import torch.nn.functional as F
 
 from prepare import (
     load_data, get_batch, evaluate_val_bpb, get_device,
-    VOCAB_SIZE, MAX_SEQ_LEN, TIME_BUDGET,
+    VOCAB_SIZE, MAX_SEQ_LEN,
 )
-from train import GPT, get_lr, DEPTH, CHANNELS, N_HEADS, N_KV_HEADS, LR, WEIGHT_DECAY
-from benchmark import apply_init
 
 DEVICE = get_device()
-BATCH_SIZE = 64
-OUTPUTS_DIR = Path("outputs")
-
-# ---------------------------------------------------------------------------
-# Evaluation prompts (TinyStories domain)
-# ---------------------------------------------------------------------------
 
 EVAL_PROMPTS = [
-    # Narrative continuation
     "Once upon a time, there was a little",
     "The cat sat on the mat and looked at",
-    "Sarah walked into the room and saw",
-    # Dialogue
     '"Can you help me?" asked the',
-    '"I don\'t understand," said Tom. "Why did you',
-    # Description
-    "The house was old and",
     "It was a beautiful sunny day. The children",
-    # Abstract
     "The most important thing about being kind is",
-    "When you make a mistake, you should",
-    # Longer context
-    "There was a little bear who lived in the forest. Every morning, he would wake up and",
+    "There was a little bear who lived in the forest. Every morning, he would",
+    "Sarah was sad because she lost her",
+    "The dog ran fast because",
+    "One day, a bird flew into the",
+    'Mom said, "It is time to',
 ]
-
-GENERATION_CONFIG = {
-    "max_new_tokens": 100,
-    "temperature": 0.8,
-    "top_k": 50,
-    "num_samples_per_prompt": 3,
-}
-
-# ---------------------------------------------------------------------------
-# Text generation
-# ---------------------------------------------------------------------------
-
-def generate_text(
-    model: GPT,
-    prompt: str,
-    max_new_tokens: int = 100,
-    temperature: float = 0.8,
-    top_k: int = 50,
-) -> str:
-    """Generate text from a byte-level model given a string prompt."""
-    model.eval()
-    block_size = model.block_size
-    prompt_bytes = prompt.encode("utf-8")
-    ids = torch.tensor([list(prompt_bytes)], dtype=torch.long, device=DEVICE)
-
-    with torch.no_grad():
-        for _ in range(max_new_tokens):
-            logits, _ = model(ids[:, -block_size:])
-            logits = logits[:, -1, :] / temperature
-            if top_k > 0:
-                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-                logits[logits < v[:, [-1]]] = float("-inf")
-            probs = F.softmax(logits, dim=-1)
-            try:
-                nxt = torch.multinomial(probs, 1)
-            except RuntimeError:
-                nxt = torch.multinomial(probs.cpu(), 1).to(DEVICE)
-            ids = torch.cat([ids, nxt], 1)
-
-    output_bytes = bytes(ids[0].tolist())
-    return output_bytes.decode("utf-8", errors="replace")
-
-
-def generate_samples(model: GPT, prompts: list[str], config: dict) -> list[dict]:
-    """Generate multiple samples per prompt. Returns list of {prompt, text, generated}."""
-    samples = []
-    for prompt in prompts:
-        for _ in range(config["num_samples_per_prompt"]):
-            full_text = generate_text(
-                model, prompt,
-                max_new_tokens=config["max_new_tokens"],
-                temperature=config["temperature"],
-                top_k=config["top_k"],
-            )
-            generated = full_text[len(prompt):]
-            samples.append({"prompt": prompt, "text": full_text, "generated": generated})
-    return samples
-
 
 # ---------------------------------------------------------------------------
 # Quality metrics
 # ---------------------------------------------------------------------------
 
 def repetition_rate(text: str, n: int = 3) -> float:
-    """Fraction of n-grams that are repeated. Lower is better."""
+    """Fraction of n-grams that are repeated. Healthy: <0.3. Degenerate: >0.7."""
     words = text.split()
     if len(words) < n + 1:
         return 0.0
@@ -128,265 +53,229 @@ def repetition_rate(text: str, n: int = 3) -> float:
 
 
 def unique_token_ratio(text: str) -> float:
-    """Unique words / total words. Higher is better."""
+    """Unique words / total words. Healthy: 0.4-0.7. Degenerate: <0.2."""
     words = text.split()
     return len(set(words)) / len(words) if words else 0.0
 
 
+def sentence_completion_rate(text: str) -> float:
+    """Fraction of sentences ending with punctuation. Healthy: >0.5."""
+    sentences = re.split(r'[.!?]+', text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    if len(sentences) <= 1:
+        return 0.0
+    return (len(sentences) - 1) / len(sentences)
+
+
 def mean_word_length(text: str) -> float:
-    """Average characters per word. Healthy English: 4-5."""
+    """Average chars per word. Healthy English: 3.5-5.5."""
     words = text.split()
     return sum(len(w) for w in words) / len(words) if words else 0.0
 
 
-def sentence_completion_rate(text: str) -> float:
-    """Fraction of sentences ending with punctuation."""
-    sentences = re.split(r'[.!?]', text)
-    sentences = [s.strip() for s in sentences if s.strip()]
-    if len(sentences) <= 1:
-        return 0.0
-    # Last chunk is likely incomplete, count completed ones
-    return (len(sentences) - 1) / len(sentences)
-
-
-def local_coherence(text: str, window: int = 10) -> float:
-    """Within sliding windows, ratio of unique words (topical consistency proxy)."""
+def local_coherence(text: str, window: int = 15) -> float:
+    """Vocabulary overlap in sliding windows. Higher = more topically consistent."""
     words = text.lower().split()
-    if len(words) <= window:
-        return len(set(words)) / len(words) if words else 0.0
-    scores = []
+    if len(words) < window:
+        return 0.0
+    ratios = []
     for i in range(len(words) - window):
-        chunk = words[i:i+window]
-        scores.append(len(set(chunk)) / len(chunk))
-    return sum(scores) / len(scores) if scores else 0.0
+        chunk = words[i:i + window]
+        ratios.append(len(set(chunk)) / len(chunk))
+    return 1.0 - (sum(ratios) / len(ratios))
 
 
-def self_perplexity(model: GPT, text: str) -> float:
-    """Feed generated text back through model, measure loss.
-    Lower = model is confident in its own output."""
-    text_bytes = text.encode("utf-8")
-    if len(text_bytes) < 4:
+def self_perplexity(model, text: str, device: str) -> float:
+    """Feed model's own output back and measure loss. Low = coherent."""
+    tokens = list(text.encode("utf-8"))
+    if len(tokens) < 3:
         return float("inf")
-    ids = torch.tensor([list(text_bytes)], dtype=torch.long, device=DEVICE)
-    block_size = model.block_size
-    ids = ids[:, :block_size + 1]  # trim to fit
-    if ids.size(1) < 2:
-        return float("inf")
-    x, y = ids[:, :-1], ids[:, 1:]
+    tokens = tokens[:MAX_SEQ_LEN]
+    x = torch.tensor([tokens[:-1]], dtype=torch.long, device=device)
+    y = torch.tensor([tokens[1:]], dtype=torch.long, device=device)
     model.eval()
     with torch.no_grad():
         _, loss = model(x, y)
     return loss.exp().item()
 
 
-def compute_quality_metrics(model: GPT, samples: list[dict]) -> dict:
-    """Compute all quality metrics across samples. Returns mean of each metric."""
+# ---------------------------------------------------------------------------
+# Text generation
+# ---------------------------------------------------------------------------
+
+def generate_text(model, prompt: str, max_tokens: int = 100,
+                  temperature: float = 0.8, top_k: int = 50,
+                  device: str = "cpu") -> str:
+    """Generate text from byte-level prompt."""
+    model.eval()
+    ids = torch.tensor([list(prompt.encode("utf-8"))], dtype=torch.long, device=device)
+    block_size = min(MAX_SEQ_LEN, 256)
+    with torch.no_grad():
+        for _ in range(max_tokens):
+            logits, _ = model(ids[:, -block_size:])
+            logits = logits[:, -1, :] / temperature
+            if top_k > 0:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = float("-inf")
+            probs = F.softmax(logits, dim=-1)
+            try:
+                nxt = torch.multinomial(probs, 1)
+            except RuntimeError:
+                nxt = torch.multinomial(probs.cpu(), 1).to(device)
+            ids = torch.cat([ids, nxt], dim=1)
+    return bytes(ids[0].tolist()).decode("utf-8", errors="replace")
+
+
+# ---------------------------------------------------------------------------
+# Full evaluation
+# ---------------------------------------------------------------------------
+
+def evaluate_model(model, device: str, prompts: list[str] | None = None,
+                   n_samples: int = 3, max_tokens: int = 100,
+                   temperature: float = 0.8) -> dict:
+    """Run full quality evaluation on a model."""
+    if prompts is None:
+        prompts = EVAL_PROMPTS
+
+    all_generated = []
+    all_samples = []
+    for prompt in prompts:
+        for _ in range(n_samples):
+            full = generate_text(model, prompt, max_tokens=max_tokens,
+                                 temperature=temperature, device=device)
+            gen = full[len(prompt):]
+            all_generated.append(gen)
+            all_samples.append({"prompt": prompt, "generated": gen, "full": full})
+
+    combined = " ".join(all_generated)
     metrics = {
-        "repetition_3gram": [],
-        "unique_token_ratio": [],
-        "mean_word_length": [],
-        "sentence_completion": [],
-        "local_coherence": [],
-        "self_perplexity": [],
+        "n_samples": len(all_generated),
+        "repetition_3gram": round(repetition_rate(combined, 3), 4),
+        "unique_token_ratio": round(unique_token_ratio(combined), 4),
+        "sentence_completion": round(sentence_completion_rate(combined), 4),
+        "mean_word_length": round(mean_word_length(combined), 2),
+        "local_coherence": round(local_coherence(combined), 4),
     }
-    for s in samples:
-        gen = s["generated"]
-        metrics["repetition_3gram"].append(repetition_rate(gen, n=3))
-        metrics["unique_token_ratio"].append(unique_token_ratio(gen))
-        metrics["mean_word_length"].append(mean_word_length(gen))
-        metrics["sentence_completion"].append(sentence_completion_rate(gen))
-        metrics["local_coherence"].append(local_coherence(gen))
-        metrics["self_perplexity"].append(self_perplexity(model, s["text"]))
-    return {k: statistics.mean(v) if v else 0.0 for k, v in metrics.items()}
+
+    ppls = []
+    for s in all_samples[:10]:
+        ppl = self_perplexity(model, s["full"], device)
+        if ppl < 1e6:
+            ppls.append(ppl)
+    metrics["self_perplexity"] = round(sum(ppls) / max(len(ppls), 1), 1) if ppls else float("inf")
+
+    sample_ppls = [(self_perplexity(model, s["full"], device), s) for s in all_samples]
+    sample_ppls.sort(key=lambda x: x[0])
+
+    return {
+        "metrics": metrics,
+        "samples": all_samples,
+        "best_sample": sample_ppls[0] if sample_ppls else None,
+        "worst_sample": sample_ppls[-1] if sample_ppls else None,
+    }
 
 
-# ---------------------------------------------------------------------------
-# Train a model with given init method
-# ---------------------------------------------------------------------------
-
-def train_model(method: str, seed: int, minutes: float, stop_at_step: int | None = None):
-    """Train and return (model, val_bpb, steps)."""
-    torch.manual_seed(seed)
-    train_data = load_data("train")
-    val_data = load_data("val")
-    block_size = MAX_SEQ_LEN
-    time_budget = minutes * 60
-
-    model = GPT(VOCAB_SIZE, block_size, DEPTH, N_HEADS, N_KV_HEADS, CHANNELS).to(DEVICE)
-    apply_init(model, method)
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    model.train()
-    step = 0
-    warmup = 100
-    max_steps = 100_000
-    min_lr = LR / 10
-    t0 = time.time()
-
-    while True:
-        if stop_at_step is not None and step >= stop_at_step:
-            break
-        if stop_at_step is None and time.time() - t0 >= time_budget:
-            break
-        x, y = get_batch(train_data, BATCH_SIZE, block_size, DEVICE)
-        lr = get_lr(step, warmup, max_steps, LR, min_lr)
-        for pg in optimizer.param_groups:
-            pg["lr"] = lr
-        _, loss = model(x, y)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        step += 1
-
-    val_bpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
-    return model, val_bpb, step
+def print_evaluation(result: dict, label: str = "Model"):
+    m = result["metrics"]
+    print(f"\n=== Output Quality: {label} ===")
+    print(f"samples: {m['n_samples']}")
+    print(f"\n{'metric':<24} {'value'}")
+    print("-" * 40)
+    for k, v in m.items():
+        if k != "n_samples":
+            print(f"{k:<24} {v}")
+    if result["best_sample"]:
+        ppl, s = result["best_sample"]
+        print(f"\n--- Best (self_ppl={ppl:.1f}) ---")
+        print(f'prompt: "{s["prompt"]}"')
+        print(f"> {s['generated'][:200].replace(chr(10), ' ')}")
+    if result["worst_sample"]:
+        ppl, s = result["worst_sample"]
+        print(f"\n--- Worst (self_ppl={ppl:.1f}) ---")
+        print(f'prompt: "{s["prompt"]}"')
+        print(f"> {s['generated'][:200].replace(chr(10), ' ')}")
 
 
-# ---------------------------------------------------------------------------
-# Quality-over-time evaluation
-# ---------------------------------------------------------------------------
+def print_comparison(results: list[tuple[str, dict]]):
+    labels = [r[0] for r in results]
+    print("\n=== Quality Comparison ===")
+    header = f"{'metric':<24}" + "".join(f"{l:<16}" for l in labels)
+    if len(results) == 2:
+        header += "diff"
+    print(header)
+    print("-" * (24 + 16 * len(labels) + 12))
+    better_higher = {"unique_token_ratio", "sentence_completion", "local_coherence"}
+    better_lower = {"repetition_3gram", "self_perplexity"}
+    for k in results[0][1]["metrics"]:
+        if k == "n_samples":
+            continue
+        vals = [r[1]["metrics"][k] for r in results]
+        row = f"{k:<24}" + "".join(f"{v:<16}" for v in vals)
+        if len(results) == 2 and vals[0] != 0:
+            d = (vals[1] - vals[0]) / abs(vals[0]) * 100
+            tag = ""
+            if k in better_lower:
+                tag = " (better)" if d < 0 else " (worse)"
+            elif k in better_higher:
+                tag = " (better)" if d > 0 else " (worse)"
+            row += f"{d:+.0f}%{tag}"
+        print(row)
 
-def quality_over_training(
-    method: str, seed: int, eval_steps: list[int], minutes: float,
-) -> list[dict]:
-    """Train and evaluate quality at checkpoints."""
-    torch.manual_seed(seed)
-    train_data = load_data("train")
-    val_data = load_data("val")
-    block_size = MAX_SEQ_LEN
-    time_budget = minutes * 60
-
-    model = GPT(VOCAB_SIZE, block_size, DEPTH, N_HEADS, N_KV_HEADS, CHANNELS).to(DEVICE)
-    apply_init(model, method)
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    model.train()
-    step = 0
-    warmup = 100
-    max_steps = 100_000
-    min_lr = LR / 10
-    t0 = time.time()
-
-    eval_steps_sorted = sorted(eval_steps)
-    next_eval_idx = 0
-    curve = []
-
-    while time.time() - t0 < time_budget:
-        # Check if we should evaluate at this step
-        while next_eval_idx < len(eval_steps_sorted) and step >= eval_steps_sorted[next_eval_idx]:
-            val_bpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
-            samples = generate_samples(model, EVAL_PROMPTS[:3], {
-                **GENERATION_CONFIG, "num_samples_per_prompt": 1,
-            })
-            metrics = compute_quality_metrics(model, samples)
-            metrics["step"] = eval_steps_sorted[next_eval_idx]
-            metrics["val_bpb"] = val_bpb
-            metrics["method"] = method
-            curve.append(metrics)
-            model.train()
-            next_eval_idx += 1
-
-        x, y = get_batch(train_data, BATCH_SIZE, block_size, DEVICE)
-        lr = get_lr(step, warmup, max_steps, LR, min_lr)
-        for pg in optimizer.param_groups:
-            pg["lr"] = lr
-        _, loss = model(x, y)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        step += 1
-
-    # Final evaluation
-    val_bpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
-    samples = generate_samples(model, EVAL_PROMPTS[:3], {
-        **GENERATION_CONFIG, "num_samples_per_prompt": 1,
-    })
-    metrics = compute_quality_metrics(model, samples)
-    metrics["step"] = step
-    metrics["val_bpb"] = val_bpb
-    metrics["method"] = method
-    curve.append(metrics)
-
-    return curve
-
-
-# ---------------------------------------------------------------------------
-# Report formatting
-# ---------------------------------------------------------------------------
-
-def format_comparison_report(
-    results: dict[str, dict], samples: dict[str, list[dict]],
-) -> str:
-    """Format a quality comparison report."""
-    lines = [
-        "# Output Quality Report",
-        "",
-        f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        f"**Model:** depth={DEPTH}, channels={CHANNELS} | **Device:** {DEVICE}",
-        f"**Samples:** {len(EVAL_PROMPTS)} prompts x {GENERATION_CONFIG['num_samples_per_prompt']} samples",
-        "",
-        "## Quality Metrics",
-        "",
-    ]
-
-    # Build comparison table
-    methods = list(results.keys())
-    header = "| metric | " + " | ".join(methods) + " |"
-    sep = "|--------|" + "|".join(["--------"] * len(methods)) + "|"
-    lines += [header, sep]
-
-    metric_names = [
-        "val_bpb", "repetition_3gram", "unique_token_ratio",
-        "mean_word_length", "sentence_completion", "local_coherence", "self_perplexity",
-    ]
-    for metric in metric_names:
-        vals = []
-        for m in methods:
-            v = results[m].get(metric, 0.0)
-            vals.append(f"{v:.4f}")
-        lines.append(f"| {metric} | " + " | ".join(vals) + " |")
-
-    # Sample outputs
-    lines += ["", "## Sample Outputs (temperature=0.8)", ""]
+    print("\n=== Head-to-Head Samples ===")
     for prompt in EVAL_PROMPTS[:3]:
-        lines.append(f"**Prompt:** \"{prompt}\"")
-        lines.append("")
-        for m in methods:
-            method_samples = [s for s in samples[m] if s["prompt"] == prompt]
-            if method_samples:
-                gen = method_samples[0]["generated"][:200]
-                lines.append(f"[{m}] {prompt}{gen}")
-        lines.append("")
-
-    return "\n".join(lines) + "\n"
+        print(f'\nprompt: "{prompt}"')
+        for label, result in results:
+            for s in result["samples"]:
+                if s["prompt"] == prompt:
+                    print(f"  [{label}] {s['generated'][:150].replace(chr(10), ' ')}")
+                    break
 
 
-def format_quality_over_time(curves: dict[str, list[dict]]) -> str:
-    """Format quality-over-time report."""
-    lines = [
-        "# Quality Over Training Time",
-        "",
-        f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        "",
-    ]
+def write_report(results: list[tuple[str, dict]], path: str):
+    lines = ["# Output Quality Report\n"]
+    lines.append("| model | repetition | diversity | completion | self_ppl | coherence | word_len |")
+    lines.append("|-------|------------|-----------|------------|----------|-----------|----------|")
+    for label, r in results:
+        m = r["metrics"]
+        lines.append(
+            f"| {label} | {m['repetition_3gram']:.3f} | {m['unique_token_ratio']:.3f} | "
+            f"{m['sentence_completion']:.3f} | {m['self_perplexity']:.1f} | "
+            f"{m['local_coherence']:.3f} | {m['mean_word_length']:.1f} |"
+        )
+    lines.append("\n## Sample Outputs\n")
+    for label, r in results:
+        lines.append(f"### {label}\n")
+        for s in r["samples"][:3]:
+            lines.append(f"**Prompt:** {s['prompt']}")
+            lines.append(f"> {s['generated'][:200].replace(chr(10), ' ')}\n")
+    with open(path, "w") as f:
+        f.write("\n".join(lines))
+    print(f"\nReport saved to {path}")
 
-    for method, curve in curves.items():
-        lines += [f"## {method}", ""]
-        lines.append("| step | val_bpb | repetition | unique_ratio | sent_complete | self_ppl |")
-        lines.append("|------|---------|------------|--------------|---------------|----------|")
-        for point in curve:
-            lines.append(
-                f"| {point['step']} | {point['val_bpb']:.4f} "
-                f"| {point['repetition_3gram']:.3f} "
-                f"| {point['unique_token_ratio']:.3f} "
-                f"| {point['sentence_completion']:.3f} "
-                f"| {point['self_perplexity']:.1f} |"
-            )
-        lines.append("")
 
-    return "\n".join(lines) + "\n"
+# ---------------------------------------------------------------------------
+# Load / train
+# ---------------------------------------------------------------------------
+
+def load_from_checkpoint(path: str):
+    from train_r4 import GPT, ARCHS, CHANNELS, DEPTH, N_HEADS, N_KV_HEADS
+    ckpt = torch.load(path, map_location=DEVICE, weights_only=False)
+    arch_cfg = ARCHS.get(ckpt.get("arch", "baseline"), {})
+    model = GPT(VOCAB_SIZE, MAX_SEQ_LEN, DEPTH, N_HEADS, N_KV_HEADS,
+                CHANNELS, arch_cfg=arch_cfg).to(DEVICE)
+    model.load_state_dict(ckpt["model_state_dict"])
+    model.eval()
+    return model, {k: v for k, v in ckpt.items() if k != "model_state_dict"}
+
+
+def train_and_evaluate(arch: str, seed: int, minutes: float):
+    from train_r4 import train
+    result = train(time_budget=minutes * 60, seed=seed, arch=arch, quiet=True)
+    model = result.get("_model")
+    if model is None:
+        print("ERROR: train() did not return _model")
+        sys.exit(1)
+    return model, {"val_bpb": result["val_bpb"], "arch": arch, "seed": seed}
 
 
 # ---------------------------------------------------------------------------
@@ -394,81 +283,78 @@ def format_quality_over_time(curves: dict[str, list[dict]]) -> str:
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="NeuroGen output quality evaluation")
-    parser.add_argument(
-        "--methods", type=str, default="default",
-        help="Comma-separated init methods to evaluate",
-    )
-    parser.add_argument("--minutes", type=float, default=2.0, help="Training time per method")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument(
-        "--quality-over-time", action="store_true",
-        help="Evaluate quality at checkpoints during training",
-    )
+    parser = argparse.ArgumentParser(description="NeuroGen Quality Evaluation")
+    parser.add_argument("--checkpoint", type=str, nargs="+")
+    parser.add_argument("--compare", type=str, nargs=2)
+    parser.add_argument("--glob", type=str)
+    parser.add_argument("--report", type=str, default=None)
+    parser.add_argument("--live", action="store_true",
+                        help="Train and evaluate (no checkpoint needed)")
+    parser.add_argument("--arch", type=str, nargs="+", default=["baseline"])
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--minutes", type=float, default=40)
+    parser.add_argument("--samples", type=int, default=3)
+    parser.add_argument("--max-tokens", type=int, default=100)
     args = parser.parse_args()
 
-    methods = [m.strip() for m in args.methods.split(",")]
-    OUTPUTS_DIR.mkdir(exist_ok=True)
+    results = []
 
-    if args.quality_over_time:
-        eval_steps = [50, 100, 150, 200, 250]
-        print(f"Quality over time: {methods} | eval at steps {eval_steps}")
-        print()
-        curves = {}
-        for method in methods:
-            print(f"Training {method}...", flush=True)
-            curve = quality_over_training(method, args.seed, eval_steps, args.minutes)
-            curves[method] = curve
-            for point in curve:
-                print(
-                    f"  step {point['step']:4d} | val_bpb {point['val_bpb']:.4f} "
-                    f"| rep {point['repetition_3gram']:.3f} "
-                    f"| uniq {point['unique_token_ratio']:.3f} "
-                    f"| sent {point['sentence_completion']:.3f}"
-                )
-            print()
+    if args.live:
+        for arch in args.arch:
+            print(f"\n--- Training {arch} seed={args.seed} {args.minutes}min ---")
+            model, meta = train_and_evaluate(arch, args.seed, args.minutes)
+            label = f"{arch}_s{args.seed}"
+            print(f"val_bpb: {meta['val_bpb']:.4f}  Generating samples...")
+            r = evaluate_model(model, DEVICE, n_samples=args.samples,
+                               max_tokens=args.max_tokens)
+            r["meta"] = meta
+            results.append((label, r))
+            print_evaluation(r, label)
+            del model
 
-        report = format_quality_over_time(curves)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_path = OUTPUTS_DIR / f"quality_over_time_{ts}.md"
-        report_path.write_text(report)
-        print(f"Report saved to {report_path}")
-        print()
-        print(report)
+    elif args.compare:
+        for path in args.compare:
+            model, meta = load_from_checkpoint(path)
+            label = Path(path).stem
+            print(f"Evaluating {label}...")
+            r = evaluate_model(model, DEVICE, n_samples=args.samples,
+                               max_tokens=args.max_tokens)
+            r["meta"] = meta
+            results.append((label, r))
+            del model
+
+    elif args.checkpoint:
+        for path in args.checkpoint:
+            model, meta = load_from_checkpoint(path)
+            label = Path(path).stem
+            r = evaluate_model(model, DEVICE, n_samples=args.samples,
+                               max_tokens=args.max_tokens)
+            r["meta"] = meta
+            results.append((label, r))
+            print_evaluation(r, label)
+            del model
+
+    elif args.glob:
+        for path in sorted(glob.glob(args.glob)):
+            model, meta = load_from_checkpoint(path)
+            label = Path(path).stem
+            print(f"Evaluating {label}...")
+            r = evaluate_model(model, DEVICE, n_samples=args.samples,
+                               max_tokens=args.max_tokens)
+            r["meta"] = meta
+            results.append((label, r))
+            del model
+
+    else:
+        parser.print_help()
         return
 
-    # Standard quality comparison
-    all_results = {}
-    all_samples = {}
-
-    for method in methods:
-        print(f"Training and evaluating {method}...", flush=True)
-        model, val_bpb, steps = train_model(method, args.seed, args.minutes)
-        print(f"  val_bpb={val_bpb:.4f} ({steps} steps)")
-
-        print(f"  Generating samples...", flush=True)
-        samples = generate_samples(model, EVAL_PROMPTS, GENERATION_CONFIG)
-        metrics = compute_quality_metrics(model, samples)
-        metrics["val_bpb"] = val_bpb
-        all_results[method] = metrics
-        all_samples[method] = samples
-
-        print(
-            f"  repetition={metrics['repetition_3gram']:.3f} "
-            f"unique={metrics['unique_token_ratio']:.3f} "
-            f"sent_complete={metrics['sentence_completion']:.3f} "
-            f"self_ppl={metrics['self_perplexity']:.1f}"
-        )
-        print()
-
-    # Report
-    report = format_comparison_report(all_results, all_samples)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_path = OUTPUTS_DIR / f"quality_{ts}.md"
-    report_path.write_text(report)
-    print(f"Report saved to {report_path}")
-    print()
-    print(report)
+    if len(results) >= 2:
+        print_comparison(results)
+    if args.report and results:
+        write_report(results, args.report)
+    summary = [{"label": l, **r["metrics"], **(r.get("meta", {}))} for l, r in results]
+    print(f"\nQUALITY_JSON: {json.dumps(summary)}")
 
 
 if __name__ == "__main__":

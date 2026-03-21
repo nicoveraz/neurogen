@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse, time, math, json, sys
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -890,7 +891,25 @@ def train(time_budget: float | None = None, seed: int | None = None,
         "loss_curve": loss_curve,
         "induction_score": round(final_ind_score, 4) if final_ind_score is not None else None,
     }
-    print(f"RESULT_JSON: {json.dumps(result)}")
+
+    # Save checkpoint for quality evaluation
+    result["_model"] = model  # keep model in memory for live eval
+    ckpt_dir = Path("checkpoints")
+    ckpt_dir.mkdir(exist_ok=True)
+    ckpt_path = ckpt_dir / f"model_{arch}_{seed}.pt"
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "arch": arch,
+        "seed": seed,
+        "val_bpb": val_bpb,
+        "lr": lr,
+        "total_steps": step,
+    }, ckpt_path)
+    if not quiet:
+        print(f"checkpoint_saved: {ckpt_path}")
+
+    result_json = {k: v for k, v in result.items() if k != "_model"}
+    print(f"RESULT_JSON: {json.dumps(result_json)}")
     return result
 
 if __name__ == "__main__":
