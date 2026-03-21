@@ -57,6 +57,21 @@ ARCHS = {
     "embryo_strengthen_long": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.4},
     "embryo_plus_window": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic"},
     "embryo_plus_induction": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.2, "universal": "induction"},
+    # Window function search (Phase W1-W2)
+    "window_power_0.5": {"window": "power_0.5"},
+    "window_power_1.5": {"window": "power_1.5"},
+    "window_power_2.5": {"window": "power_2.5"},
+    "window_power_3.0": {"window": "power_3.0"},
+    "window_power_4.0": {"window": "power_4.0"},
+    "window_power_5.0": {"window": "power_5.0"},
+    "window_sigmoid_0.3": {"window": "sigmoid_0.3"},
+    "window_sigmoid_0.5": {"window": "sigmoid_0.5"},
+    "window_sigmoid_0.7": {"window": "sigmoid_0.7"},
+    "window_logarithmic": {"window": "logarithmic"},
+    "window_exponential": {"window": "exponential"},
+    "window_fibonacci": {"window": "fibonacci"},
+    # Best window + induction (Phase W4, to be filled after W1-W2)
+    "window_best_induction": {"window": "power_3.0", "universal": "induction"},  # placeholder
     # Phase J2: Embryogenic + winning architecture (window_quad_induction)
     "embryo_heb_wqi": {"embryo": "hebbian", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic", "universal": "induction"},
     "embryo_str_long_wqi": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.4, "window": "quadratic", "universal": "induction"},
@@ -109,14 +124,31 @@ def get_lr(step, warmup_steps, max_steps, max_lr, min_lr):
 def compute_window_mask(T: int, layer_idx: int, n_layer: int,
                         mode: str, device: str) -> torch.Tensor:
     """Causal mask with layer-dependent attention window."""
+    progress = (layer_idx + 1) / n_layer
+    base = 8
     if mode == "linear":
-        frac = (layer_idx + 1) / n_layer
-        window = max(8, int(frac * T))
+        window = max(base, int(progress * T))
     elif mode == "quadratic":
-        frac = ((layer_idx + 1) / n_layer) ** 2
-        window = max(8, int(8 + frac * T))
+        window = max(base, int(base + progress ** 2 * (T - base)))
     elif mode == "step":
         window = T // 4 if layer_idx < n_layer // 2 else T
+    elif mode.startswith("power_"):
+        exp = float(mode.split("_")[1])
+        window = max(base, int(base + progress ** exp * (T - base)))
+    elif mode.startswith("sigmoid_"):
+        mid = float(mode.split("_")[1])
+        steepness = 10.0
+        s = 1.0 / (1.0 + math.exp(-steepness * (progress - mid)))
+        window = max(base, int(base + s * (T - base)))
+    elif mode == "logarithmic":
+        window = max(base, int(base + math.log(1 + progress * (math.e - 1)) * (T - base)))
+    elif mode == "exponential":
+        window = max(base, int(base + (math.exp(progress * 3) - 1) / (math.e**3 - 1) * (T - base)))
+    elif mode == "fibonacci":
+        fibs = [base, base * 2]
+        for _ in range(2, n_layer):
+            fibs.append(min(fibs[-1] + fibs[-2], T))
+        window = fibs[min(layer_idx, len(fibs) - 1)]
     else:
         return None
     window = min(window, T)
