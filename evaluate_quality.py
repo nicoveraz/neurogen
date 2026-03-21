@@ -170,32 +170,37 @@ def evaluate_model(model, device: str, prompts: list[str] | None = None,
     if prompts is None:
         prompts = EVAL_PROMPTS
 
-    all_generated = []
     all_samples = []
     for prompt in prompts:
         for _ in range(n_samples):
             full = generate_text(model, prompt, max_tokens=max_tokens,
                                  temperature=temperature, device=device)
             gen = full[len(prompt):]
-            all_generated.append(gen)
             all_samples.append({"prompt": prompt, "generated": gen, "full": full})
 
-    combined = " ".join(all_generated)
-    metrics = {
-        "n_samples": len(all_generated),
-        "repetition_3gram": round(repetition_rate(combined, 3), 4),
-        "unique_token_ratio": round(unique_token_ratio(combined), 4),
-        "sentence_completion": round(sentence_completion_rate(combined), 4),
-        "mean_word_length": round(mean_word_length(combined), 2),
-        "local_coherence": round(local_coherence(combined), 4),
+    # Per-sample metrics, then average (matches original behavior)
+    per_sample = {
+        "repetition_3gram": [],
+        "unique_token_ratio": [],
+        "sentence_completion": [],
+        "mean_word_length": [],
+        "local_coherence": [],
+        "self_perplexity": [],
     }
-
-    ppls = []
-    for s in all_samples[:10]:
+    for s in all_samples:
+        gen = s["generated"]
+        per_sample["repetition_3gram"].append(repetition_rate(gen, 3))
+        per_sample["unique_token_ratio"].append(unique_token_ratio(gen))
+        per_sample["sentence_completion"].append(sentence_completion_rate(gen))
+        per_sample["mean_word_length"].append(mean_word_length(gen))
+        per_sample["local_coherence"].append(local_coherence(gen))
         ppl = self_perplexity(model, s["full"], device)
         if ppl < 1e6:
-            ppls.append(ppl)
-    metrics["self_perplexity"] = round(sum(ppls) / max(len(ppls), 1), 1) if ppls else float("inf")
+            per_sample["self_perplexity"].append(ppl)
+
+    metrics = {"n_samples": len(all_samples)}
+    for k, vals in per_sample.items():
+        metrics[k] = round(sum(vals) / max(len(vals), 1), 4) if vals else 0.0
 
     sample_ppls = [(self_perplexity(model, s["full"], device), s) for s in all_samples]
     sample_ppls.sort(key=lambda x: x[0])
