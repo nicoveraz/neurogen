@@ -100,6 +100,39 @@ def self_perplexity(model, text: str, device: str) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Training efficiency metrics
+# ---------------------------------------------------------------------------
+
+def compute_efficiency(meta: dict, val_bpb: float) -> dict:
+    """Compute training efficiency metrics from checkpoint metadata.
+    Measures how well each approach uses compute budget."""
+    total_steps = meta.get("total_steps", 0)
+    wall_time = meta.get("wall_time_s", meta.get("time_budget_s", 1))
+    params = meta.get("params", meta.get("total_params", 0))
+    ca_overhead = meta.get("ca_overhead_pct", 0)
+
+    # Steps per second (throughput)
+    steps_per_sec = total_steps / max(wall_time, 1)
+    # Effective training (discount for CA overhead)
+    effective_steps = total_steps * (1 - ca_overhead / 100)
+    # BPB per training step (convergence speed)
+    bpb_per_step = (8.0 - val_bpb) / max(total_steps, 1)  # improvement from random
+    # BPB per wall-second (real-world efficiency)
+    bpb_per_sec = (8.0 - val_bpb) / max(wall_time, 1)
+    # BPB per parameter (parameter efficiency)
+    bpb_per_param = (8.0 - val_bpb) / max(params, 1) * 1e6
+
+    return {
+        "steps_per_sec": round(steps_per_sec, 2),
+        "effective_steps": int(effective_steps),
+        "bpb_improvement": round(8.0 - val_bpb, 4),
+        "bpb_per_kstep": round(bpb_per_step * 1000, 4),
+        "bpb_per_min": round(bpb_per_sec * 60, 4),
+        "ca_overhead_pct": round(ca_overhead, 1),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Text generation
 # ---------------------------------------------------------------------------
 
@@ -177,13 +210,23 @@ def evaluate_model(model, device: str, prompts: list[str] | None = None,
 
 def print_evaluation(result: dict, label: str = "Model"):
     m = result["metrics"]
+    meta = result.get("meta", {})
     print(f"\n=== Output Quality: {label} ===")
     print(f"samples: {m['n_samples']}")
-    print(f"\n{'metric':<24} {'value'}")
-    print("-" * 40)
+    if meta.get("val_bpb"):
+        print(f"val_bpb: {meta['val_bpb']:.4f}")
+
+    # Training efficiency
+    if meta.get("total_steps"):
+        eff = compute_efficiency(meta, meta.get("val_bpb", 8.0))
+        print(f"\n{'--- Training Efficiency ---'}")
+        for k, v in eff.items():
+            print(f"  {k:<20} {v}")
+
+    print(f"\n{'--- Generation Quality ---'}")
     for k, v in m.items():
         if k != "n_samples":
-            print(f"{k:<24} {v}")
+            print(f"  {k:<24} {v}")
     if result["best_sample"]:
         ppl, s = result["best_sample"]
         print(f"\n--- Best (self_ppl={ppl:.1f}) ---")
@@ -233,6 +276,23 @@ def print_comparison(results: list[tuple[str, dict]]):
 
 def write_report(results: list[tuple[str, dict]], path: str):
     lines = ["# Output Quality Report\n"]
+
+    # Training efficiency table
+    lines.append("## Training Efficiency\n")
+    lines.append("| model | val_bpb | steps | overhead | bpb/kstep | bpb/min |")
+    lines.append("|-------|---------|-------|----------|-----------|---------|")
+    for label, r in results:
+        meta = r.get("meta", {})
+        vb = meta.get("val_bpb", 0)
+        eff = compute_efficiency(meta, vb) if meta.get("total_steps") else {}
+        lines.append(
+            f"| {label} | {vb:.4f} | {meta.get('total_steps', '?')} | "
+            f"{eff.get('ca_overhead_pct', '?')}% | "
+            f"{eff.get('bpb_per_kstep', '?')} | {eff.get('bpb_per_min', '?')} |"
+        )
+
+    # Generation quality table
+    lines.append("\n## Generation Quality\n")
     lines.append("| model | repetition | diversity | completion | self_ppl | coherence | word_len |")
     lines.append("|-------|------------|-----------|------------|----------|-----------|----------|")
     for label, r in results:
