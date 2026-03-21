@@ -57,6 +57,15 @@ ARCHS = {
     "embryo_strengthen_long": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.4},
     "embryo_plus_window": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic"},
     "embryo_plus_induction": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.2, "universal": "induction"},
+    # Phase J2: Embryogenic + winning architecture (window_quad_induction)
+    "embryo_heb_wqi": {"embryo": "hebbian", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic", "universal": "induction"},
+    "embryo_str_long_wqi": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.4, "window": "quadratic", "universal": "induction"},
+    "embryo_targeted_wqi": {"embryo": "targeted", "embryo_freq": 10, "embryo_crit": 0.3, "window": "quadratic", "universal": "induction"},
+    "embryo_long60_wqi": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.6, "window": "quadratic", "universal": "induction"},
+    # Phase J3: Smarter CA rules on wqi
+    "embryo_gradalign_wqi": {"embryo": "gradalign", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic", "universal": "induction"},
+    # Phase J5: Long horizon validation
+    "wqi_2h": {"window": "quadratic", "universal": "induction"},
 }
 
 # ---------------------------------------------------------------------------
@@ -713,16 +722,38 @@ def embryo_ca_step(model, grad_dict: dict, rule: str, step: int,
 
             # Compute CA delta based on rule
             if rule == "strengthen":
-                # Strengthen active pathways: reinforce where gradient is large
                 delta = grad_mag * W.data.sign() * 0.01
             elif rule == "hebbian":
-                # Hebbian: strengthen large weights with large gradients,
-                # weaken small weights with small gradients
                 w_mag = W.data.abs()
                 w_strength = w_mag / (w_mag.mean() + 1e-8)
                 g_strength = grad_mag / (grad_mag.mean() + 1e-8)
-                # Co-activation: both strong weight AND strong gradient
                 delta = (w_strength * g_strength - 1.0) * W.data * 0.005
+            elif rule == "targeted":
+                # Different rules for different weight types
+                if any(k in name for k in ("c_q", "c_k")):
+                    # Hebbian for Q/K (reinforce attention patterns)
+                    w_mag = W.data.abs()
+                    w_s = w_mag / (w_mag.mean() + 1e-8)
+                    g_s = grad_mag / (grad_mag.mean() + 1e-8)
+                    delta = (w_s * g_s - 1.0) * W.data * 0.008
+                elif any(k in name for k in ("c_v", "c_proj")):
+                    # Strengthen for V/O (reinforce value pathways)
+                    delta = grad_mag * W.data.sign() * 0.005
+                else:
+                    continue  # skip FFN weights
+            elif rule == "gradalign":
+                # Gradient-aligned: push in gradient direction, scaled by
+                # row-wise consistency (where a row's gradients agree)
+                g_flat = grad.view(W.shape[0], -1)
+                row_std = g_flat.std(dim=1, keepdim=True)
+                row_mean = g_flat.abs().mean(dim=1, keepdim=True)
+                consistency = 1.0 / (row_std / (row_mean + 1e-8) + 1.0)
+                # Expand consistency to match W shape
+                if W.dim() == 2:
+                    cons = consistency.expand_as(W)
+                else:
+                    cons = consistency.view(-1, *([1] * (W.dim() - 1))).expand_as(W)
+                delta = grad.sign() * cons * 0.01
             else:
                 continue
 
