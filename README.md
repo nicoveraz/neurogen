@@ -16,6 +16,12 @@ Layer windows at depth 4:  [8, 10, 65, 256]
 
 The advantage is a **constant offset** — it persists from early training through convergence, meaning the constraint produces a genuinely better solution, not just faster convergence.
 
+![Learning Curves](charts/learning_curves.svg)
+
+![Final Performance](charts/final_performance.svg)
+
+![Window Schedule](charts/window_schedule.svg)
+
 ```
 Validation results (20,000 steps, 5 seeds each):
 

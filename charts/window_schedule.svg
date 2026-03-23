@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 280" font-family="system-ui,sans-serif">
+<rect width="650" height="280" fill="#fafafa" rx="8"/>
+<text x="325" y="24" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">Attention Window per Layer</text>
+<line x1="70" y1="230" x2="620" y2="230" stroke="#e8e8e8"/>
+<text x="62" y="234" text-anchor="end" font-size="11" fill="#666">0</text>
+<line x1="70" y1="183" x2="620" y2="183" stroke="#e8e8e8"/>
+<text x="62" y="187" text-anchor="end" font-size="11" fill="#666">64</text>
+<line x1="70" y1="136" x2="620" y2="136" stroke="#e8e8e8"/>
+<text x="62" y="140" text-anchor="end" font-size="11" fill="#666">128</text>
+<line x1="70" y1="90" x2="620" y2="90" stroke="#e8e8e8"/>
+<text x="62" y="94" text-anchor="end" font-size="11" fill="#666">192</text>
+<line x1="70" y1="43" x2="620" y2="43" stroke="#e8e8e8"/>
+<text x="62" y="47" text-anchor="end" font-size="11" fill="#666">256</text>
+<text x="70" y="248" text-anchor="middle" font-size="12" fill="#555">Layer 0</text>
+<text x="253" y="248" text-anchor="middle" font-size="12" fill="#555">Layer 1</text>
+<text x="437" y="248" text-anchor="middle" font-size="12" fill="#555">Layer 2</text>
+<text x="620" y="248" text-anchor="middle" font-size="12" fill="#555">Layer 3</text>
+<text x="15" y="140" text-anchor="middle" font-size="13" fill="#555" transform="rotate(-90,15,140)">Window (tokens)</text>
+<path d="M 70,43 L 253,43 L 437,43 L 620,43" fill="none" stroke="#888" stroke-width="2.5"/>
+<circle cx="70" cy="43" r="5" fill="#888"/>
+<text x="80" y="33" font-size="10" fill="#888" font-weight="bold">256</text>
+<circle cx="253" cy="43" r="5" fill="#888"/>
+<text x="263" y="33" font-size="10" fill="#888" font-weight="bold">256</text>
+<circle cx="437" cy="43" r="5" fill="#888"/>
+<text x="447" y="33" font-size="10" fill="#888" font-weight="bold">256</text>
+<circle cx="620" cy="43" r="5" fill="#888"/>
+<text x="630" y="33" font-size="10" fill="#888" font-weight="bold">256</text>
+<path d="M 70,213 L 253,179 L 437,123 L 620,43" fill="none" stroke="#3498db" stroke-width="2.5"/>
+<circle cx="70" cy="213" r="5" fill="#3498db"/>
+<text x="80" y="203" font-size="10" fill="#3498db" font-weight="bold">23</text>
+<circle cx="253" cy="179" r="5" fill="#3498db"/>
+<text x="263" y="169" font-size="10" fill="#3498db" font-weight="bold">70</text>
+<circle cx="437" cy="123" r="5" fill="#3498db"/>
+<text x="447" y="113" font-size="10" fill="#3498db" font-weight="bold">147</text>
+<circle cx="620" cy="43" r="5" fill="#3498db"/>
+<text x="630" y="33" font-size="10" fill="#3498db" font-weight="bold">256</text>
+<path d="M 70,224 L 253,213 L 437,167 L 620,43" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
+<circle cx="70" cy="224" r="5" fill="#e74c3c"/>
+<text x="80" y="238" font-size="10" fill="#e74c3c" font-weight="bold">8</text>
+<circle cx="253" cy="213" r="5" fill="#e74c3c"/>
+<text x="263" y="203" font-size="10" fill="#e74c3c" font-weight="bold">23</text>
+<circle cx="437" cy="167" r="5" fill="#e74c3c"/>
+<text x="447" y="157" font-size="10" fill="#e74c3c" font-weight="bold">86</text>
+<circle cx="620" cy="43" r="5" fill="#e74c3c"/>
+<text x="630" y="33" font-size="10" fill="#e74c3c" font-weight="bold">256</text>
+<rect x="435" y="48" width="175" height="72" fill="white" stroke="#ddd" rx="4"/>
+<line x1="443" y1="66" x2="463" y2="66" stroke="#888" stroke-width="2.5"/>
+<circle cx="453" cy="66" r="3" fill="#888"/>
+<text x="469" y="70" font-size="11" fill="#333">full attention</text>
+<line x1="443" y1="86" x2="463" y2="86" stroke="#3498db" stroke-width="2.5"/>
+<circle cx="453" cy="86" r="3" fill="#3498db"/>
+<text x="469" y="90" font-size="11" fill="#333">quadratic γ=2</text>
+<line x1="443" y1="106" x2="463" y2="106" stroke="#e74c3c" stroke-width="2.5"/>
+<circle cx="453" cy="106" r="3" fill="#e74c3c"/>
+<text x="469" y="110" font-size="11" fill="#333">quartic γ=4</text>
+</svg>

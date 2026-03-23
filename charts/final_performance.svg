@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 370" font-family="system-ui,sans-serif">
+<rect width="650" height="370" fill="#fafafa" rx="8"/>
+<text x="325" y="24" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">Converged val_bpb at 20k Steps (lower = better)</text>
+<line x1="70" y1="283" x2="620" y2="283" stroke="#e8e8e8"/>
+<text x="62" y="287" text-anchor="end" font-size="11" fill="#666">0.880</text>
+<line x1="70" y1="239" x2="620" y2="239" stroke="#e8e8e8"/>
+<text x="62" y="243" text-anchor="end" font-size="11" fill="#666">0.885</text>
+<line x1="70" y1="196" x2="620" y2="196" stroke="#e8e8e8"/>
+<text x="62" y="200" text-anchor="end" font-size="11" fill="#666">0.890</text>
+<line x1="70" y1="153" x2="620" y2="153" stroke="#e8e8e8"/>
+<text x="62" y="157" text-anchor="end" font-size="11" fill="#666">0.895</text>
+<line x1="70" y1="109" x2="620" y2="109" stroke="#e8e8e8"/>
+<text x="62" y="113" text-anchor="end" font-size="11" fill="#666">0.900</text>
+<line x1="70" y1="66" x2="620" y2="66" stroke="#e8e8e8"/>
+<text x="62" y="70" text-anchor="end" font-size="11" fill="#666">0.905</text>
+<text x="15" y="170" text-anchor="middle" font-size="13" fill="#555" transform="rotate(-90,15,170)">val_bpb</text>
+<line x1="70" y1="108" x2="620" y2="108" stroke="#aaa" stroke-width="1" stroke-dasharray="6,4"/>
+<text x="622" y="104" font-size="10" fill="#888">baseline</text>
+<rect x="112" y="108" width="90" height="192" fill="#888" opacity="0.85" rx="3"/>
+<line x1="158" y1="43" x2="158" y2="173" stroke="#333" stroke-width="1.5"/>
+<line x1="152" y1="43" x2="164" y2="43" stroke="#333" stroke-width="1.5"/>
+<line x1="152" y1="173" x2="164" y2="173" stroke="#333" stroke-width="1.5"/>
+<text x="158" y="100" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">0.9002</text>
+<text x="158" y="316" text-anchor="middle" font-size="11" fill="#333">baseline</text>
+<rect x="238" y="186" width="90" height="114" fill="#3498db" opacity="0.85" rx="3"/>
+<line x1="282" y1="145" x2="282" y2="228" stroke="#333" stroke-width="1.5"/>
+<line x1="276" y1="145" x2="288" y2="145" stroke="#333" stroke-width="1.5"/>
+<line x1="276" y1="228" x2="288" y2="228" stroke="#333" stroke-width="1.5"/>
+<text x="282" y="178" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">0.8911</text>
+<text x="282" y="316" text-anchor="middle" font-size="11" fill="#333">quadratic</text>
+<text x="282" y="330" text-anchor="middle" font-size="11" fill="#333">(γ=2)</text>
+<text x="282" y="344" text-anchor="middle" font-size="11" fill="#3498db" font-weight="bold">+1.0%</text>
+<rect x="362" y="197" width="90" height="103" fill="#2ecc71" opacity="0.85" rx="3"/>
+<line x1="408" y1="161" x2="408" y2="232" stroke="#333" stroke-width="1.5"/>
+<line x1="402" y1="161" x2="414" y2="161" stroke="#333" stroke-width="1.5"/>
+<line x1="402" y1="232" x2="414" y2="232" stroke="#333" stroke-width="1.5"/>
+<text x="408" y="189" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">0.8899</text>
+<text x="408" y="316" text-anchor="middle" font-size="11" fill="#333">quad +</text>
+<text x="408" y="330" text-anchor="middle" font-size="11" fill="#333">induction</text>
+<text x="408" y="344" text-anchor="middle" font-size="11" fill="#2ecc71" font-weight="bold">+1.1%</text>
+<rect x="488" y="225" width="90" height="75" fill="#e74c3c" opacity="0.85" rx="3"/>
+<line x1="532" y1="177" x2="532" y2="274" stroke="#333" stroke-width="1.5"/>
+<line x1="526" y1="177" x2="538" y2="177" stroke="#333" stroke-width="1.5"/>
+<line x1="526" y1="274" x2="538" y2="274" stroke="#333" stroke-width="1.5"/>
+<text x="532" y="217" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">0.8866</text>
+<text x="532" y="316" text-anchor="middle" font-size="11" fill="#333">power 4.0</text>
+<text x="532" y="330" text-anchor="middle" font-size="11" fill="#333">(γ=4)</text>
+<text x="532" y="344" text-anchor="middle" font-size="11" fill="#e74c3c" font-weight="bold">+1.5%</text>
+</svg>
