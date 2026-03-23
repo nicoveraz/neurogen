@@ -120,6 +120,10 @@ Designed for Apple Silicon (MPS). Also works on CUDA and CPU. Default: depth 4, 
 - [Growing Neural Cellular Automata](https://distill.pub/2020/growing-ca/) — Mordvintsev et al., 2020.
 - Olsson et al., 2022 — In-context learning and induction heads.
 
+## Paper
+
+Preprint: https://doi.org/10.5281/zenodo.19194323
+
 ## License
 
 MIT
