@@ -43,14 +43,14 @@
 <text x="447" y="157" font-size="10" fill="#e74c3c" font-weight="bold">86</text>
 <circle cx="620" cy="43" r="5" fill="#e74c3c"/>
 <text x="630" y="33" font-size="10" fill="#e74c3c" font-weight="bold">256</text>
-<rect x="435" y="48" width="175" height="72" fill="white" stroke="#ddd" rx="4"/>
-<line x1="443" y1="66" x2="463" y2="66" stroke="#888" stroke-width="2.5"/>
-<circle cx="453" cy="66" r="3" fill="#888"/>
-<text x="469" y="70" font-size="11" fill="#333">full attention</text>
-<line x1="443" y1="86" x2="463" y2="86" stroke="#3498db" stroke-width="2.5"/>
-<circle cx="453" cy="86" r="3" fill="#3498db"/>
-<text x="469" y="90" font-size="11" fill="#333">quadratic γ=2</text>
-<line x1="443" y1="106" x2="463" y2="106" stroke="#e74c3c" stroke-width="2.5"/>
-<circle cx="453" cy="106" r="3" fill="#e74c3c"/>
-<text x="469" y="110" font-size="11" fill="#333">quartic γ=4</text>
+<rect x="80" y="145" width="175" height="72" fill="white" stroke="#ddd" rx="4"/>
+<line x1="88" y1="163" x2="108" y2="163" stroke="#888" stroke-width="2.5"/>
+<circle cx="98" cy="163" r="3" fill="#888"/>
+<text x="114" y="167" font-size="11" fill="#333">full attention</text>
+<line x1="88" y1="183" x2="108" y2="183" stroke="#3498db" stroke-width="2.5"/>
+<circle cx="98" cy="183" r="3" fill="#3498db"/>
+<text x="114" y="187" font-size="11" fill="#333">quadratic γ=2</text>
+<line x1="88" y1="203" x2="108" y2="203" stroke="#e74c3c" stroke-width="2.5"/>
+<circle cx="98" cy="203" r="3" fill="#e74c3c"/>
+<text x="114" y="207" font-size="11" fill="#333">quartic γ=4</text>
 </svg>
