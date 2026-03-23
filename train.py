@@ -5,14 +5,18 @@ The AI researcher modifies this file to test CA initialization and live CA rules
 Self-contained: does NOT import from any local package except prepare.py and ca_rules.py.
 
 Usage:
-    uv run train.py                  # default 2 min (autoresearch speed)
-    uv run train.py --minutes 10     # medium validation
-    uv run train.py --minutes 30     # long validation
+    uv run train.py                              # default 2 min (autoresearch speed)
+    uv run train.py --minutes 10                  # medium validation
+    uv run train.py --minutes 30 --seed 42        # long validation, fixed seed
+    uv run train.py --init xavier --minutes 10    # pure xavier init
+    uv run train.py --init xavier_ca10 --seed 42  # xavier + 10% grid CA
 """
 
 import argparse
 import time
 import math
+import json
+import sys
 
 import torch
 import torch.nn as nn
@@ -22,19 +26,22 @@ from prepare import (
     load_data, get_batch, evaluate_val_bpb, get_device, get_peak_memory_mb,
     VOCAB_SIZE, MAX_SEQ_LEN, TIME_BUDGET,
 )
-from ca_rules import grid_ca_develop
+from ca_rules import (
+    grid_ca_develop, reaction_diffusion_init, modular_init, block_diagonal_init,
+    rescale,
+)
 
 # ---------------------------------------------------------------------------
-# Hyperparameters
+# Hyperparameters (Round 1 best: depth 2, LR 3.5e-3, batch 32, WD 0.05)
 # ---------------------------------------------------------------------------
 
-DEPTH = 4                     # number of transformer layers
-CHANNELS = DEPTH * 64         # embedding dimension (256 for depth 4)
-N_HEADS = DEPTH               # number of attention heads (4 for depth 4)
+DEPTH = 2                     # number of transformer layers
+CHANNELS = DEPTH * 64         # embedding dimension (128 for depth 2)
+N_HEADS = DEPTH               # number of attention heads (2 for depth 2)
 N_KV_HEADS = N_HEADS          # KV heads (set < N_HEADS for GQA)
-BATCH_SIZE = 64
-LR = 3e-4
-WEIGHT_DECAY = 0.1
+BATCH_SIZE = 32
+LR = 3.5e-3
+WEIGHT_DECAY = 0.05
 DEVICE = get_device()
 
 # ---------------------------------------------------------------------------
@@ -232,7 +239,7 @@ class GPT(nn.Module):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 # ---------------------------------------------------------------------------
-# CA hooks (agent replaces these with CA variants)
+# CA hooks — configurable initialization
 # ---------------------------------------------------------------------------
 
 def _is_ca_target(name: str, p: torch.Tensor) -> bool:
@@ -246,138 +253,112 @@ def _is_ca_target(name: str, p: torch.Tensor) -> bool:
     return True
 
 
-def initialize_weights(model):
-    """Xavier + CA perturbation: xavier base with 10% CA structure on top."""
+def _spectral_ca_pattern(shape: tuple[int, int], n_modes: int = 8,
+                          target_std: float = 0.02) -> torch.Tensor:
+    """Generate weight pattern via spectral (Fourier) CA.
+    Creates smooth multi-scale structure by composing random Fourier modes."""
+    h, w = shape
+    pattern = torch.zeros(h, w)
+    for _ in range(n_modes):
+        freq_h = torch.randint(1, max(2, h // 4), (1,)).item()
+        freq_w = torch.randint(1, max(2, w // 4), (1,)).item()
+        phase_h = torch.rand(1).item() * 2 * math.pi
+        phase_w = torch.rand(1).item() * 2 * math.pi
+        amp = torch.randn(1).item()
+        rows = torch.sin(torch.linspace(0, freq_h * 2 * math.pi, h) + phase_h)
+        cols = torch.sin(torch.linspace(0, freq_w * 2 * math.pi, w) + phase_w)
+        pattern += amp * rows.unsqueeze(1) * cols.unsqueeze(0)
+    return rescale(pattern, target_std)
+
+
+def initialize_weights(model, init_method: str = "xavier_ca10"):
+    """Apply initialization based on method name.
+
+    Supported methods:
+        xavier          — pure Xavier uniform
+        xavier_ca5      — Xavier + 5% grid CA perturbation
+        xavier_ca10     — Xavier + 10% grid CA perturbation (Round 1 best)
+        xavier_ca15     — Xavier + 15% grid CA perturbation
+        xavier_ca20     — Xavier + 20% grid CA perturbation
+        xavier_ca30     — Xavier + 30% grid CA perturbation
+        xavier_grid_ca  — Xavier + grid CA at best blend (=xavier_ca10)
+        xavier_rd_spots — Xavier + reaction-diffusion spots (feed=0.03, kill=0.06)
+        xavier_rd_stripes — Xavier + reaction-diffusion stripes (feed=0.04, kill=0.06)
+        xavier_block_ca — Xavier + block-diagonal CA
+        xavier_spectral_ca — Xavier + spectral (Fourier) CA
+    """
+    # Parse blend ratio from name
+    blend = 0.0
+    ca_fn = None
+
+    if init_method == "xavier":
+        blend = 0.0
+    elif init_method.startswith("xavier_ca"):
+        pct = init_method.replace("xavier_ca", "")
+        blend = int(pct) / 100.0
+        ca_fn = "grid"
+    elif init_method == "xavier_grid_ca":
+        blend = 0.10
+        ca_fn = "grid"
+    elif init_method == "xavier_rd_spots":
+        blend = 0.10
+        ca_fn = "rd_spots"
+    elif init_method == "xavier_rd_stripes":
+        blend = 0.10
+        ca_fn = "rd_stripes"
+    elif init_method == "xavier_block_ca":
+        blend = 0.10
+        ca_fn = "block"
+    elif init_method == "xavier_spectral_ca":
+        blend = 0.10
+        ca_fn = "spectral"
+    else:
+        print(f"WARNING: Unknown init method '{init_method}', using xavier_ca10")
+        blend = 0.10
+        ca_fn = "grid"
+
     seeds = ["center", "diagonal", "distributed", "random"]
     with torch.no_grad():
         for i, (name, p) in enumerate(model.named_parameters()):
             if _is_ca_target(name, p):
                 # Xavier base
                 nn.init.xavier_uniform_(p)
-                # Add small CA perturbation (10% of xavier scale)
-                seed = seeds[i % len(seeds)]
-                ca_pattern = grid_ca_develop(
-                    p.shape, n_steps=64, seed=seed, target_std=p.std().item() * 0.1
-                )
-                p.data.add_(ca_pattern.to(p.device))
+                if blend > 0 and ca_fn is not None:
+                    xavier_std = p.std().item()
+                    if ca_fn == "grid":
+                        seed = seeds[i % len(seeds)]
+                        ca_pattern = grid_ca_develop(
+                            p.shape, n_steps=64, seed=seed,
+                            target_std=xavier_std * blend
+                        )
+                    elif ca_fn == "rd_spots":
+                        ca_pattern = reaction_diffusion_init(
+                            p.shape, feed=0.03, kill=0.06, n_steps=200,
+                            target_std=xavier_std * blend
+                        )
+                    elif ca_fn == "rd_stripes":
+                        ca_pattern = reaction_diffusion_init(
+                            p.shape, feed=0.04, kill=0.06, n_steps=200,
+                            target_std=xavier_std * blend
+                        )
+                    elif ca_fn == "block":
+                        ca_pattern = block_diagonal_init(
+                            p.shape, n_blocks=min(4, min(p.shape)),
+                            target_std=xavier_std * blend
+                        )
+                    elif ca_fn == "spectral":
+                        ca_pattern = _spectral_ca_pattern(
+                            p.shape, target_std=xavier_std * blend
+                        )
+                    else:
+                        continue
+                    p.data.add_(ca_pattern.to(p.device))
 
 
 def ca_step(model, step, grad_dict=None):
     """Called after each optimizer step. Default: no-op.
     Agent adds live CA rules here."""
     pass
-
-# ---------------------------------------------------------------------------
-# Diagnostics
-# ---------------------------------------------------------------------------
-
-def print_diagnostics(model, step, is_init=False, ca_deltas=None, grad_deltas=None):
-    """Print diagnostic metrics. All linalg ops on CPU for MPS safety.
-
-    Args:
-        model: GPT model.
-        step: Current training step.
-        is_init: If True, print init-quality metrics (call once at step 0).
-        ca_deltas: Dict of {name: delta_tensor} from CA step, or None.
-        grad_deltas: Dict of {name: grad_tensor} from optimizer, or None.
-    """
-    if is_init:
-        # Weight std across all non-embedding 2D params
-        stds = []
-        for name, p in model.named_parameters():
-            if p.dim() >= 2 and "wte" not in name and "lm_head" not in name:
-                stds.append(p.data.cpu().float().std().item())
-        init_weight_std = sum(stds) / len(stds) if stds else 0.0
-        print(f"init_weight_std: {init_weight_std:.6f}")
-
-        # Head diversity: mean pairwise cosine distance of Q-projection weights
-        q_vecs = []
-        for block in model.blocks:
-            w = block.attn.c_q.weight.data.cpu().float()
-            hd = w.shape[0] // block.attn.n_head
-            for h in range(block.attn.n_head):
-                q_vecs.append(w[h * hd : (h + 1) * hd].flatten())
-        if len(q_vecs) >= 2:
-            dists = []
-            for i in range(len(q_vecs)):
-                for j in range(i + 1, len(q_vecs)):
-                    cos = torch.cosine_similarity(
-                        q_vecs[i].unsqueeze(0), q_vecs[j].unsqueeze(0)
-                    ).item()
-                    dists.append(1.0 - cos)
-            print(f"init_head_diversity: {sum(dists) / len(dists):.6f}")
-
-        # Block-diagonal ratio for attention weights
-        ratios = []
-        for block in model.blocks:
-            for attr in ["c_q", "c_k", "c_v"]:
-                w = getattr(block.attn, attr).weight.data.cpu().float()
-                rows, cols = w.shape
-                nb = min(4, min(rows, cols))
-                bh, bw = rows // nb, cols // nb
-                diag_e = sum(
-                    w[b * bh : (b + 1) * bh, b * bw : (b + 1) * bw].pow(2).sum().item()
-                    for b in range(nb)
-                )
-                total_e = w.pow(2).sum().item()
-                if total_e > 1e-12:
-                    ratios.append(diag_e / total_e)
-        if ratios:
-            print(f"init_block_diag_ratio: {sum(ratios) / len(ratios):.6f}")
-
-        # Layer similarity: cosine sim between adjacent layers
-        # Use only the core block params (attn + mlp) to ensure equal sizes
-        layer_vecs = []
-        for block in model.blocks:
-            parts = []
-            for name, p in block.named_parameters():
-                if "ve_gate" not in name:  # skip variable-size params
-                    parts.append(p.data.cpu().float().flatten())
-            layer_vecs.append(torch.cat(parts))
-        if len(layer_vecs) >= 2:
-            # Trim to minimum size across layers
-            min_len = min(v.shape[0] for v in layer_vecs)
-            sims = []
-            for i in range(len(layer_vecs) - 1):
-                s = torch.cosine_similarity(
-                    layer_vecs[i][:min_len].unsqueeze(0),
-                    layer_vecs[i + 1][:min_len].unsqueeze(0),
-                ).item()
-                sims.append(s)
-            print(f"init_layer_similarity: {sum(sims) / len(sims):.6f}")
-
-    # Live CA metrics (print at eval intervals when CA is active)
-    if ca_deltas is not None:
-        ca_norm = sum(d.norm().item() ** 2 for d in ca_deltas.values()) ** 0.5
-        print(f"ca_delta_norm: {ca_norm:.6f}")
-
-        if grad_deltas is not None:
-            grad_norm = sum(d.norm().item() ** 2 for d in grad_deltas.values()) ** 0.5
-            print(f"grad_delta_norm: {grad_norm:.6f}")
-
-            # Cosine alignment between CA and gradient updates
-            ca_flat = torch.cat([ca_deltas[k].cpu().flatten() for k in sorted(ca_deltas)])
-            grad_flat = torch.cat([grad_deltas[k].cpu().flatten() for k in sorted(grad_deltas)])
-            if ca_flat.shape == grad_flat.shape:
-                alignment = torch.cosine_similarity(
-                    ca_flat.unsqueeze(0), grad_flat.unsqueeze(0)
-                ).item()
-                print(f"ca_grad_alignment: {alignment:.6f}")
-
-            # Contribution ratio
-            total = ca_norm + grad_norm
-            if total > 1e-12:
-                print(f"ca_contribution_ratio: {ca_norm / total:.6f}")
-
-        # Weight sparsity
-        n_near_zero = 0
-        n_total = 0
-        for name, p in model.named_parameters():
-            if p.dim() >= 2 and "wte" not in name and "lm_head" not in name:
-                n_near_zero += (p.data.abs() < 1e-4).sum().item()
-                n_total += p.numel()
-        if n_total > 0:
-            print(f"weight_sparsity: {n_near_zero / n_total:.6f}")
 
 # ---------------------------------------------------------------------------
 # Learning rate schedule
@@ -392,20 +373,106 @@ def get_lr(step, warmup_steps, max_steps, max_lr, min_lr):
     return min_lr + 0.5 * (max_lr - min_lr) * (1 + math.cos(math.pi * progress))
 
 # ---------------------------------------------------------------------------
+# Text generation
+# ---------------------------------------------------------------------------
+
+PROMPTS = [
+    "Once upon a time, there was a little",
+    "The cat sat on the mat and looked at",
+    "\"Can you help me?\" asked the",
+    "It was a beautiful sunny day. The children",
+    "The most important thing about being kind is",
+    "There was a little bear who lived in the forest. Every morning, he would wake up and",
+    "Sarah was sad because she lost her",
+    "The dog ran fast because",
+    "One day, a bird flew into the",
+    "Mom said, \"It's time to",
+]
+
+
+def generate(model, prompt_bytes: bytes, max_tokens: int = 100,
+             temperature: float = 0.8, block_size: int = 256) -> str:
+    """Generate text from a byte-level prompt."""
+    model.eval()
+    ids = torch.tensor([list(prompt_bytes)], dtype=torch.long, device=DEVICE)
+    with torch.no_grad():
+        for _ in range(max_tokens):
+            logits, _ = model(ids[:, -block_size:])
+            probs = F.softmax(logits[:, -1, :] / temperature, dim=-1)
+            try:
+                nxt = torch.multinomial(probs, 1)
+            except RuntimeError:
+                nxt = torch.multinomial(probs.cpu(), 1).to(DEVICE)
+            ids = torch.cat([ids, nxt], 1)
+    return bytes(ids[0].tolist()).decode("utf-8", errors="replace")
+
+
+def compute_text_quality(texts: list[str]) -> dict:
+    """Compute text quality metrics over a list of generated texts."""
+    all_tokens = []
+    n_repetitions = 0
+    n_trigrams = 0
+    n_complete = 0
+
+    for text in texts:
+        tokens = text.split()
+        all_tokens.extend(tokens)
+        # 3-gram repetition
+        for j in range(len(tokens) - 2):
+            trigram = (tokens[j], tokens[j+1], tokens[j+2])
+            n_trigrams += 1
+            # Check if this trigram appears again
+            for k in range(j + 1, len(tokens) - 2):
+                if (tokens[k], tokens[k+1], tokens[k+2]) == trigram:
+                    n_repetitions += 1
+                    break
+        # Sentence completion (ends with . ! ? or similar)
+        stripped = text.strip()
+        if stripped and stripped[-1] in '.!?"\'':
+            n_complete += 1
+
+    unique_ratio = len(set(all_tokens)) / max(len(all_tokens), 1)
+    repetition_rate = n_repetitions / max(n_trigrams, 1)
+    completion_rate = n_complete / max(len(texts), 1)
+
+    return {
+        "unique_token_ratio": unique_ratio,
+        "trigram_repetition_rate": repetition_rate,
+        "sentence_completion_rate": completion_rate,
+        "total_tokens": len(all_tokens),
+    }
+
+# ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
 
-def train(time_budget: float | None = None):
+def train(time_budget: float | None = None, seed: int | None = None,
+          init_method: str = "xavier_ca10", quiet: bool = False):
     """Run training loop.
 
     Args:
         time_budget: Training time in seconds. Defaults to TIME_BUDGET from prepare.py.
+        seed: Random seed for reproducibility. None = no seeding.
+        init_method: Initialization method name (see initialize_weights).
+        quiet: If True, suppress per-step output (only emit JSON result).
+
+    Returns:
+        Dict with all results and loss curve data.
     """
     if time_budget is None:
         time_budget = TIME_BUDGET
 
-    print(f"device: {DEVICE}")
-    print(f"time_budget: {time_budget:.0f}s ({time_budget/60:.1f} min)")
+    if seed is not None:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+
+    if not quiet:
+        print(f"device: {DEVICE}")
+        print(f"time_budget: {time_budget:.0f}s ({time_budget/60:.1f} min)")
+        print(f"init_method: {init_method}")
+        if seed is not None:
+            print(f"seed: {seed}")
 
     train_data = load_data("train")
     val_data = load_data("val")
@@ -413,18 +480,19 @@ def train(time_budget: float | None = None):
 
     # Create model
     model = GPT(VOCAB_SIZE, block_size, DEPTH, N_HEADS, N_KV_HEADS, CHANNELS).to(DEVICE)
-    print(f"params: {model.count_parameters():,}")
+    if not quiet:
+        print(f"params: {model.count_parameters():,}")
 
-    # Apply custom init (agent modifies this)
-    initialize_weights(model)
+    # Apply custom init
+    initialize_weights(model, init_method)
 
     # Measure init quality
     init_bpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
     x0, y0 = get_batch(train_data, BATCH_SIZE, block_size, DEVICE)
     _, init_loss_val = model(x0, y0)
-    print(f"init_loss: {init_loss_val.item():.4f}")
-    print(f"init_bpb: {init_bpb:.4f}")
-    print_diagnostics(model, 0, is_init=True)
+    if not quiet:
+        print(f"init_loss: {init_loss_val.item():.4f}")
+        print(f"init_bpb: {init_bpb:.4f}")
 
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
@@ -432,13 +500,17 @@ def train(time_budget: float | None = None):
     # Training loop with periodic val_bpb evaluation
     model.train()
     step = 0
-    warmup = 100
+    warmup = 200
     max_steps = 100_000
     min_lr = LR / 10
     t0 = time.time()
 
-    # Eval interval: ~10 checkpoints over the training run
-    eval_interval = max(50, int(time_budget / 0.4 / 10))  # ~0.4s per step
+    # Loss curve: record val_bpb at intervals
+    # Every 50 steps or 30s, whichever is less frequent
+    curve_step_interval = 50
+    curve_time_interval = 30.0
+    last_curve_time = 0.0
+    loss_curve = []  # list of (step, elapsed_s, val_bpb)
 
     while True:
         elapsed = time.time() - t0
@@ -459,31 +531,39 @@ def train(time_budget: float | None = None):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-        # Live CA hook (agent injects CA rules here)
+        # Live CA hook
         ca_step(model, step)
 
-        if step % eval_interval == 0:
-            # Periodic val_bpb for convergence tracking
+        # Loss curve checkpoint
+        elapsed = time.time() - t0
+        should_record = (
+            step > 0
+            and step % curve_step_interval == 0
+            and (elapsed - last_curve_time) >= curve_time_interval
+        )
+        if should_record or step == 0:
             val_bpb_ckpt = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
-            elapsed = time.time() - t0
-            print(f"step: {step}  train_loss: {loss.item():.4f}  val_bpb: {val_bpb_ckpt:.4f}  elapsed_s: {elapsed:.1f}")
-        elif step % 100 == 0:
-            elapsed = time.time() - t0
+            loss_curve.append((step, round(elapsed, 1), round(val_bpb_ckpt, 4)))
+            last_curve_time = elapsed
+            if not quiet:
+                print(f"step: {step}  train_loss: {loss.item():.4f}  val_bpb: {val_bpb_ckpt:.4f}  elapsed_s: {elapsed:.1f}")
+        elif not quiet and step % 200 == 0:
             print(f"step {step:5d} | loss {loss.item():.4f} | lr {lr:.2e} | {elapsed:.1f}s")
 
         step += 1
 
-    training_time = time.time() - t0
-
-    # Evaluate
+    # Final evaluation
     val_bpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, block_size, DEVICE)
     total_time = time.time() - t0
     peak_mem = get_peak_memory_mb()
 
-    # Sample
+    # Add final point to loss curve
+    loss_curve.append((step, round(total_time, 1), round(val_bpb, 4)))
+
+    # Sample (quick, for display)
     model.eval()
     with torch.no_grad():
-        ids = torch.zeros(1, 1, dtype=torch.long, device=DEVICE)  # start with null byte
+        ids = torch.zeros(1, 1, dtype=torch.long, device=DEVICE)
         for _ in range(200):
             logits, _ = model(ids[:, -block_size:])
             probs = F.softmax(logits[:, -1, :] / 0.8, dim=-1)
@@ -494,16 +574,43 @@ def train(time_budget: float | None = None):
             ids = torch.cat([ids, nxt], 1)
         sample_bytes = bytes(ids[0].tolist())
         sample_text = sample_bytes.decode("utf-8", errors="replace")
-    print(f"\n--- Sample ---\n{sample_text}\n--- End ---\n")
+
+    if not quiet:
+        print(f"\n--- Sample ---\n{sample_text}\n--- End ---\n")
 
     # Print results (grep-friendly format)
-    print(f"val_bpb: {val_bpb:.4f}")
-    print(f"init_loss: {init_loss_val.item():.4f}")
-    print(f"final_train_loss: {loss.item():.4f}")
-    print(f"total_steps: {step}")
-    print(f"params: {model.count_parameters()}")
-    print(f"peak_memory_mb: {peak_mem:.0f}")
-    print(f"wall_time_s: {total_time:.1f}")
+    if not quiet:
+        print(f"val_bpb: {val_bpb:.4f}")
+        print(f"init_loss: {init_loss_val.item():.4f}")
+        print(f"final_train_loss: {loss.item():.4f}")
+        print(f"total_steps: {step}")
+        print(f"params: {model.count_parameters()}")
+        print(f"peak_memory_mb: {peak_mem:.0f}")
+        print(f"wall_time_s: {total_time:.1f}")
+
+    result = {
+        "val_bpb": round(val_bpb, 4),
+        "init_loss": round(init_loss_val.item(), 4),
+        "init_bpb": round(init_bpb, 4),
+        "final_train_loss": round(loss.item(), 4),
+        "total_steps": step,
+        "params": model.count_parameters(),
+        "peak_memory_mb": round(peak_mem, 0),
+        "wall_time_s": round(total_time, 1),
+        "init_method": init_method,
+        "seed": seed,
+        "time_budget_s": time_budget,
+        "loss_curve": loss_curve,
+    }
+
+    # Also store model for potential Track 3 use
+    result["_model"] = model
+
+    # Print JSON result line for programmatic parsing
+    result_json = {k: v for k, v in result.items() if k != "_model"}
+    print(f"RESULT_JSON: {json.dumps(result_json)}")
+
+    return result
 
 
 if __name__ == "__main__":
@@ -512,6 +619,18 @@ if __name__ == "__main__":
         "--minutes", type=float, default=None,
         help="Training time in minutes (default: use TIME_BUDGET from prepare.py)",
     )
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Random seed for reproducibility",
+    )
+    parser.add_argument(
+        "--init", type=str, default="xavier_ca10",
+        help="Initialization method (xavier, xavier_ca10, xavier_rd_spots, etc.)",
+    )
+    parser.add_argument(
+        "--quiet", action="store_true",
+        help="Suppress per-step output, only emit JSON result",
+    )
     args = parser.parse_args()
     budget = args.minutes * 60 if args.minutes is not None else None
-    train(time_budget=budget)
+    train(time_budget=budget, seed=args.seed, init_method=args.init, quiet=args.quiet)

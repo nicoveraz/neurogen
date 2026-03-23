@@ -1,106 +1,118 @@
-# NeuroGen 🧬🧠
+# NeuroGen
 
-**Can a cellular automaton grow better neural network weights than random initialization?**
+**Developmental constraints improve transformer training.**
 
-An [autoresearch](https://github.com/karpathy/autoresearch) project: an AI agent autonomously experiments with cellular automata rules for transformer weight initialization and live training dynamics. Built on the [nanochat](https://github.com/karpathy/nanochat) pattern, adapted for Apple Silicon.
+An [autoresearch](https://github.com/karpathy/autoresearch) project that discovered layer-wise attention window growth — forcing early layers to attend locally before opening to global attention — produces statistically significant improvements in transformer language models.
 
-## The Idea
+## Key Finding
 
-The brain doesn't learn from random initial conditions. Genetic programs grow structured architecture *before* learning begins. NeuroGen tests whether the same principle — small local rules producing structured weights — can improve transformer training.
+Quartic attention window growth (`window_power_4.0`) improves converged val_bpb by **1.5%** over standard full attention (p=0.001, Cohen's d=2.05, 5 seeds, 20k steps).
 
 ```
-Tiny CA Rule Set (genome)  →  Iterate N steps  →  Structured Weights  →  Better Training?
-    ~1K params                                      ~10M params
+Layer windows at depth 4:  [8, 10, 65, 256]
+- Layers 0-2: restricted to local context (8-65 tokens)
+- Layer 3: full attention (256 tokens)
 ```
 
-Three research axes:
-1. **CA Initialization** — replace random init with CA-developed weights
-2. **Live CA** — CA rules running alongside gradient descent during training
-3. **Meta-learned genomes** — evolve the CA rules through the autoresearch loop
+The advantage is a **constant offset** — it persists from early training through convergence, meaning the constraint produces a genuinely better solution, not just faster convergence.
+
+```
+Validation results (20,000 steps, 5 seeds each):
+
+config                  mean bpb   std      vs baseline   p-value   Cohen's d
+baseline                0.9002     0.0075   —             —         —
+window_power_4.0        0.8866     0.0056   +1.5%         0.001     2.05
+window_quadratic        0.8911     0.0048   +1.0%         0.022     1.45
+window_quad_induction   0.8899     0.0041   +1.1%         0.007     1.69
+
+All 5 seeds of every window variant beat the baseline mean.
+Throughput is identical across all architectures (4.8 steps/sec).
+```
 
 ## How It Works
 
-Following Karpathy's autoresearch pattern: the human writes `program.md`, the AI agent modifies `train.py`, runs 2-minute experiments, keeps improvements, discards failures, and repeats.
+A standard transformer uses full attention at every layer — each token can attend to all previous tokens from layer 1. This is like a brain where every neuron connects to every other neuron from birth.
 
+Real brains develop differently: local receptive fields form first, then global connectivity builds on top. NeuroGen embeds this developmental principle into the transformer architecture by restricting each layer's attention window based on depth:
+
+```python
+def compute_window(layer_idx, n_layers, seq_len, exponent=4.0):
+    progress = (layer_idx + 1) / n_layers
+    return int(8 + progress ** exponent * (seq_len - 8))
 ```
-program.md  →  agent reads instructions
-                   ↓
-              agent modifies train.py (adds CA rule)
-                   ↓
-              uv run train.py (2 min experiment)
-                   ↓
-              val_bpb improved?
-              ├── yes → git commit, new baseline
-              └── no  → git reset, try something else
-```
+
+The window function was found through systematic search across power functions (exponents 0.5-5.0), sigmoid curves, logarithmic, exponential, and Fibonacci schedules. The optimal exponent is 3-4 at depth 4 — the model wants early layers extremely local.
+
+## Research Journey
+
+This project ran 100+ autonomous experiments across 4 rounds:
+
+- **Round 1** (50 experiments): CA weight initialization gives ~0.8% improvement. Live CA fails on MPS due to overhead.
+- **Round 2** (40 experiments): CA init advantage holds at 30min training (constant offset, not head start).
+- **Round 4** (68 experiments): Tested 26 architecture variants including CA modulation channels, embryogenic CA, universal circuit pre-wiring, token vitality, sleep consolidation. Most failed. Developmental attention windows emerged as the clear winner.
+- **Validation** (20 experiments): Confirmed at 20k steps with 5 seeds. Statistically significant. Throughput-neutral.
+
+### What Didn't Work
+- CA modulation channels (model collapse)
+- Token vitality / cell death dynamics (model collapse)
+- Sleep consolidation (overhead outweighed benefit)
+- Pre-wiring known circuits alone (induction heads, layer roles — gradient descent prefers organic discovery)
+- Live CA during training (any per-step overhead hurts at small scale)
+- Embryogenic activity-dependent CA (marginal gains, high overhead)
+
+### What Did Work
+- **Developmental attention windows** (quartic growth, +1.5%)
+- **Combining constraints with scaffolds** (window + induction pre-wiring, +1.1%)
+- **Block-diagonal CA init** (+0.6% at 10min, constant offset)
 
 ## Quick Start
 
 ```bash
-# Install uv
+# Install
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install dependencies
 uv sync
 
-# Download data and train tokenizer
+# Download data
 uv run prepare.py
 
-# Run baseline training
-uv run train.py
+# Train baseline
+uv run train_r4.py --arch baseline --minutes 40 --seed 42
+
+# Train with developmental windows (best result)
+uv run train_r4.py --arch window_power_4.0 --minutes 40 --seed 42
+
+# Validation run (step-budget, full convergence)
+uv run validate.py --arch window_power_4.0 --steps 20000 --seed 42
+
+# Quality evaluation
+uv run evaluate_quality.py --live --arch baseline window_power_4.0 --seed 42 --minutes 40
 ```
-
-## Running Autoresearch
-
-The `.claude/settings.json` pre-approves all safe operations (file edits, git, python/uv runs) so Claude Code won't ask permission during the experiment loop. Dangerous operations (rm -rf, sudo, curl) remain blocked.
-
-**Option A — Settings file (recommended, already included):**
-```bash
-# Just start Claude Code in the repo — settings.json handles permissions
-claude
-# Then say: "Read program.md and start experimenting."
-```
-
-**Option B — Full YOLO mode (faster, use in a container or disposable env):**
-```bash
-claude --dangerously-skip-permissions
-# Then say: "Read program.md and start experimenting."
-```
-
-**Option C — Headless overnight run:**
-```bash
-claude --dangerously-skip-permissions \
-  -p "Read program.md. Run the full autoresearch loop until you've completed 50 experiments or exhausted all phases." \
-  --max-turns 200
-```
-
-Commit before starting: `git add -A && git commit -m "checkpoint before autoresearch"` so you can always revert.
 
 ## Project Structure
 
 ```
-program.md      — agent research instructions (human writes this)
-prepare.py      — data prep + evaluation (fixed, do not modify)
-train.py        — model + CA + training loop (agent modifies this)
-ca_rules.py     — CA rule library (agent can import and modify)
-results.tsv     — experiment log
-analysis.ipynb  — results visualization
-NEUROGEN.md     — full research reference
+prepare.py          — data prep + evaluation (fixed)
+train.py            — Round 1-2 training script (depth 2)
+train_r4.py         — Round 4 training with 26 architecture variants
+validate.py         — step-budget convergence runs with diagnostics
+evaluate_quality.py — generation quality metrics
+ca_rules.py         — CA rule library
+program.md          — autoresearch instructions
+results.tsv         — experiment log
+validation_results/ — convergence run data (JSON, 20k steps × 5 seeds)
+outputs/            — experiment logs
 ```
 
 ## Hardware
 
-Designed for MacBook Pro M1 Pro (MPS backend). Also works on CUDA GPUs and CPU. Default config: depth 4, ~2 min per experiment, ~30 experiments/hour on M1 Pro.
+Designed for Apple Silicon (MPS). Also works on CUDA and CPU. Default: depth 4, channels 256, ~3.4M params, ~4.8 steps/sec on M1 Pro.
 
-## References & Prior Art
+## References
 
-NeuroGen builds on and extends several lines of research. See `NEUROGEN.md` for detailed comparison of how this project differs from each.
-
-- [HyperNCA](https://arxiv.org/abs/2204.11674) — Najarro & Risi, 2022. **Most directly related.** NCA growing RL policy weights via CMA-ES. NeuroGen extends this to transformers, adds live CA, and uses functional neuroscience principles.
-- [Growing Neural Cellular Automata](https://distill.pub/2020/growing-ca/) — Mordvintsev et al., 2020. Foundational NCA architecture.
-- [Weight Agnostic Neural Networks](https://arxiv.org/abs/1906.04358) — Gaier & Ha, 2019. Architecture encodes inductive bias without weight training.
-- [HyperNetworks](https://arxiv.org/abs/1609.09106) — Ha et al., 2017. Small networks generating weights for larger networks.
-- [nanochat](https://github.com/karpathy/nanochat) / [autoresearch](https://github.com/karpathy/autoresearch) — Karpathy, 2025-2026. Training harness and autonomous experiment loop.
+- [nanochat](https://github.com/karpathy/nanochat) / [autoresearch](https://github.com/karpathy/autoresearch) — Karpathy. Training harness and experiment loop.
+- [HyperNCA](https://arxiv.org/abs/2204.11674) — Najarro & Risi, 2022. NCA growing RL policy weights.
+- [Growing Neural Cellular Automata](https://distill.pub/2020/growing-ca/) — Mordvintsev et al., 2020.
+- Olsson et al., 2022 — In-context learning and induction heads.
 
 ## License
 

@@ -17,3 +17,51 @@ experiment	tag	val_bpb	init_loss	ca_variant	ca_mode	vs_baseline_pct	total_flops	
 16	p3_homeostatic_adapt	2.0810	5.5436	homeostatic	live	-0.3	9.82e+13	adaptive target, still worse, overhead
 17	p3_competition	2.1711	5.5416	competition	live	-4.7	9.82e+13	heavy overhead (274 steps vs 295)
 18	p3_pruning	2.1387	5.5446	pruning	live	-3.8	9.82e+13	grad-aware pruning, overhead too high
+19	p3_homeo_critical	2.2700	5.5428	homeostatic	live	-10.5	0	critical period alpha, overhead killed steps (247 vs 277)
+20	p3_homeo_lowfreq	2.1970	5.5460	homeostatic	live	-6.3	0	every 10 steps + critical period, still overhead
+21	p3_midtrain_noinit	2.4258	5.5455	homeostatic	live	-16.2	0	default init + mid-training CA, init too important to skip
+22	p4_init+midtrain	2.1656	5.5466	xavier+ca+homeo	init+live	-5.8	0	mid-training CA overhead still hurts, 267 steps
+23	p2_ca_48step	2.1222	5.5431	xavier+grid_ca	init	-3.7	0	48 steps worse than 64
+24	p2_ca_8pct	2.1665	5.5495	xavier+grid_ca	init	-5.4	0	8% worse than 10%
+25	p3_soft_clamp	2.1772	5.5469	soft_clamp	live	-5.8	0	even zero-overhead clamping hurts (267 steps)
+26	p2_kaiming_ca	2.1729	5.5441	kaiming+grid_ca	init	-5.6	0	kaiming worse than xavier for this arch
+27	hp_lr5e4	1.8504	5.5474	xavier+grid_ca	init	+8.5	0	LR 5e-4 much better than 3e-4
+28	hp_lr8e4	1.7449	5.5455	xavier+grid_ca	init	+13.7	0	LR 8e-4 even better
+29	hp_lr1.2e3	1.6857	5.5453	xavier+grid_ca	init	+16.7	0	LR 1.2e-3
+30	hp_lr1.8e3	1.6068	5.5473	xavier+grid_ca	init	+20.6	0	LR 1.8e-3
+31	hp_lr2.5e3	1.5840	5.5454	xavier+grid_ca	init	+21.7	0	LR 2.5e-3
+32	hp_lr3.5e3	1.5907	5.5431	xavier+grid_ca	init	-0.4	0	plateau: 3.5e-3 slightly worse than 2.5e-3
+33	hp_lr3.0e3	1.6273	5.5459	xavier+grid_ca	init	-2.7	0	3.0e-3 worse, 2.5e-3 confirmed optimal
+34	hp_batch32	1.4777	5.5455	xavier+grid_ca	init	+6.7	0	batch 32, 502 steps, huge improvement
+35	hp_batch16	1.5297	5.5458	xavier+grid_ca	init	-3.5	0	890 steps but gradients too noisy
+36	hp_wd0.05	1.4669	5.5490	xavier+grid_ca	init	+0.7	0	weight decay 0.05
+37	hp_wd0.01	1.5011	5.5454	xavier+grid_ca	init	-2.3	0	too little regularization, 0.05 confirmed best
+38	ablation_xavier	1.5087	5.5462	xavier	init	-2.8	0	pure xavier worse, CA init still helps +2.8%
+39	p3_homeo_batch32	1.5227	5.5460	homeostatic	live	-3.8	0	live CA still hurts with more steps
+40	arch_depth5	1.6512	5.5476	xavier+grid_ca	init	-12.5	0	too many params (6.5M), 308 steps not enough
+41	arch_depth3	1.4437	5.5455	xavier+grid_ca	init	+1.6	0	depth 3, 1.5M params, 845 steps
+42	arch_depth2	1.4211	5.5431	xavier+grid_ca	init	+1.6	0	depth 2, 492K params, 1850 steps
+43	arch_depth1	1.7204	5.5453	xavier+grid_ca	init	-21.1	0	too little capacity (98K params), 5585 steps
+44	hp_lr3.5e3_d2	1.4193	5.5434	xavier+grid_ca	init	+0.1	0	LR 3.5e-3 at depth 2
+45	hp_lr5e3_d2	1.4280	5.5441	xavier+grid_ca	init	-0.6	0	5e-3 slightly worse, 3.5e-3 confirmed for depth 2
+46	arch_wide192	1.4662	5.5463	xavier+grid_ca	init	-3.3	0	wider=fewer steps (1231), worse tradeoff
+47	p2_progressive_ca	1.4286	5.5460	xavier+progressive_ca	init	-0.7	0	two-stage CA init no better, slight overhead
+48	hp_warmup200	1.4089	5.5461	xavier+grid_ca	init	+0.7	0	warmup 200 with depth 2
+49	p2_ca_15pct_d2	1.4258	5.5477	xavier+grid_ca	init	-1.2	0	15% too strong for depth 2, 10% confirmed
+50	hp_grad_accum	1.4130	5.5454	xavier+grid_ca	init	-0.3	0	grad accum 2x no benefit (3690 micro-steps)
+51	r2_t1_xavier_2min	1.4135	0	xavier	init	+1.2	0	Track1 horizon validation, 2min, 3 seeds
+52	r2_t1_ca10_2min	1.3971	0	ca10	init	+1.2	0	Track1 horizon validation, 2min, 3 seeds
+53	r2_t1_xavier_10min	1.2469	0	xavier	init	-0.5	0	Track1 horizon validation, 10min, 3 seeds
+54	r2_t1_ca10_10min	1.2536	0	ca10	init	-0.5	0	Track1 horizon validation, 10min, 3 seeds
+55	r2_t1_xavier_30min	1.1945	0	xavier	init	+0.8	0	Track1 horizon validation, 30min, 3 seeds
+56	r2_t1_ca10_30min	1.1849	0	ca10	init	+0.8	0	Track1 horizon validation, 30min, 3 seeds
+51	r2_t2_xavier_ca10	1.2603	0	xavier_ca10	init	-0.4	0	Track2 blend sweep, 10min, 2 seeds
+52	r2_t2_xavier_ca15	1.2554	0	xavier_ca15	init	+0.0	0	Track2 blend sweep, 10min, 2 seeds
+53	r2_t2_xavier_ca20	1.2513	0	xavier_ca20	init	+0.3	0	Track2 blend sweep, 10min, 2 seeds
+54	r2_t2_xavier_ca30	1.2630	0	xavier_ca30	init	-0.6	0	Track2 blend sweep, 10min, 2 seeds
+55	r2_t2_xavier_ca5	1.2481	0	xavier_ca5	init	+0.6	0	Track2 blend sweep, 10min, 2 seeds
+56	r2_t2_xavier_block_ca	1.2523	0	xavier_block_ca	init	+0.3	0	Track2 pattern comparison, 10min, 2 seeds
+57	r2_t2_xavier_grid_ca	1.2667	0	xavier_grid_ca	init	-0.9	0	Track2 pattern comparison, 10min, 2 seeds
+58	r2_t2_xavier_rd_spots	1.3509	0	xavier_rd_spots	init	-7.6	0	Track2 pattern comparison, 10min, 2 seeds
+59	r2_t2_xavier_rd_stripes	1.3474	0	xavier_rd_stripes	init	-7.3	0	Track2 pattern comparison, 10min, 2 seeds
+60	r2_t2_xavier_spectral_ca	1.2591	0	xavier_spectral_ca	init	-0.3	0	Track2 pattern comparison, 10min, 2 seeds
