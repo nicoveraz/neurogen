@@ -2,61 +2,59 @@
 <rect width="700" height="340" fill="#fafafa" rx="8"/>
 <text x="370" y="24" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">125M Model: Learning Curves (50k steps, mean of 2 seeds)</text>
 
-<!-- Y axis grid: bpb 3.0 to 5.5, y: 270 (3.0) to 50 (5.5) -->
-<line x1="80" y1="270" x2="660" y2="270" stroke="#e0e0e0"/>
-<text x="72" y="274" text-anchor="end" font-size="11" fill="#666">3.0</text>
-<line x1="80" y1="226" x2="660" y2="226" stroke="#e0e0e0"/>
-<text x="72" y="230" text-anchor="end" font-size="11" fill="#666">3.5</text>
-<line x1="80" y1="182" x2="660" y2="182" stroke="#e0e0e0"/>
-<text x="72" y="186" text-anchor="end" font-size="11" fill="#666">4.0</text>
-<line x1="80" y1="138" x2="660" y2="138" stroke="#e0e0e0"/>
-<text x="72" y="142" text-anchor="end" font-size="11" fill="#666">4.5</text>
-<line x1="80" y1="94" x2="660" y2="94" stroke="#e0e0e0"/>
-<text x="72" y="98" text-anchor="end" font-size="11" fill="#666">5.0</text>
-<line x1="80" y1="50" x2="660" y2="50" stroke="#e0e0e0"/>
-<text x="72" y="54" text-anchor="end" font-size="11" fill="#666">5.5</text>
+<!-- Y axis grid: bpb 3.0 to 5.0, y: 254 to 91 -->
+<line x1="80" y1="254" x2="660" y2="254" stroke="#e0e0e0"/>
+<text x="72" y="258" text-anchor="end" font-size="11" fill="#666">3.0</text>
+<line x1="80" y1="213" x2="660" y2="213" stroke="#e0e0e0"/>
+<text x="72" y="217" text-anchor="end" font-size="11" fill="#666">3.5</text>
+<line x1="80" y1="172" x2="660" y2="172" stroke="#e0e0e0"/>
+<text x="72" y="176" text-anchor="end" font-size="11" fill="#666">4.0</text>
+<line x1="80" y1="131" x2="660" y2="131" stroke="#e0e0e0"/>
+<text x="72" y="135" text-anchor="end" font-size="11" fill="#666">4.5</text>
+<line x1="80" y1="91" x2="660" y2="91" stroke="#e0e0e0"/>
+<text x="72" y="95" text-anchor="end" font-size="11" fill="#666">5.0</text>
 
 <!-- X axis -->
-<text x="80" y="290" text-anchor="middle" font-size="11" fill="#555">0</text>
-<text x="196" y="290" text-anchor="middle" font-size="11" fill="#555">10k</text>
-<text x="312" y="290" text-anchor="middle" font-size="11" fill="#555">20k</text>
-<text x="428" y="290" text-anchor="middle" font-size="11" fill="#555">30k</text>
-<text x="544" y="290" text-anchor="middle" font-size="11" fill="#555">40k</text>
-<text x="660" y="290" text-anchor="middle" font-size="11" fill="#555">50k</text>
-<text x="370" y="318" text-anchor="middle" font-size="13" fill="#555">Training Steps</text>
-<text x="18" y="165" text-anchor="middle" font-size="13" fill="#555" transform="rotate(-90,18,165)">Validation bpb</text>
+<text x="80" y="283" text-anchor="middle" font-size="11" fill="#555">0</text>
+<text x="196" y="283" text-anchor="middle" font-size="11" fill="#555">10k</text>
+<text x="312" y="283" text-anchor="middle" font-size="11" fill="#555">20k</text>
+<text x="428" y="283" text-anchor="middle" font-size="11" fill="#555">30k</text>
+<text x="544" y="283" text-anchor="middle" font-size="11" fill="#555">40k</text>
+<text x="660" y="283" text-anchor="middle" font-size="11" fill="#555">50k</text>
+<text x="370" y="310" text-anchor="middle" font-size="13" fill="#555">Training Steps</text>
+<text x="18" y="172" text-anchor="middle" font-size="13" fill="#555" transform="rotate(-90,18,172)">Validation bpb</text>
 
 <!-- Shaded gap area between curves -->
-<path d="M 109,55 L 138,102 L 167,125 L 196,131 L 254,152 L 312,174 L 370,182 L 428,196 L 486,210 L 544,223 L 602,227 L 660,231 L 660,270 L 602,264 L 544,253 L 486,236 L 428,219 L 370,201 L 312,187 L 254,167 L 196,148 L 167,137 L 138,110 L 109,57 Z" fill="#e74c3c" fill-opacity="0.08"/>
+<path d="M 109,55 L 138,98 L 167,119 L 196,125 L 254,144 L 312,164 L 370,172 L 428,185 L 486,198 L 544,210 L 602,214 L 660,217 L 660,254 L 602,248 L 544,238 L 486,222 L 428,207 L 370,190 L 312,177 L 254,159 L 196,140 L 167,130 L 138,105 L 109,56 Z" fill="#e74c3c" fill-opacity="0.1"/>
 
 <!-- Baseline curve (gray) -->
-<path d="M 109,55 L 138,102 L 167,125 L 196,131 L 254,152 L 312,174 L 370,182 L 428,196 L 486,210 L 544,223 L 602,227 L 660,231" fill="none" stroke="#888" stroke-width="2.5"/>
+<path d="M 109,55 L 138,98 L 167,119 L 196,125 L 254,144 L 312,164 L 370,172 L 428,185 L 486,198 L 544,210 L 602,214 L 660,217" fill="none" stroke="#888" stroke-width="2.5"/>
 
 <!-- Quartic curve (red) -->
-<path d="M 109,57 L 138,110 L 167,137 L 196,148 L 254,167 L 312,187 L 370,201 L 428,219 L 486,236 L 544,253 L 602,264 L 660,270" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
+<path d="M 109,56 L 138,105 L 167,130 L 196,140 L 254,159 L 312,177 L 370,190 L 428,207 L 486,222 L 544,238 L 602,248 L 660,254" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
 
 <!-- End points with values -->
-<circle cx="660" cy="231" r="4" fill="#888"/>
-<text x="650" y="225" text-anchor="end" font-size="11" fill="#888" font-weight="bold">3.45</text>
-<circle cx="660" cy="270" r="4" fill="#e74c3c"/>
-<text x="650" y="266" text-anchor="end" font-size="11" fill="#e74c3c" font-weight="bold">3.00</text>
+<circle cx="660" cy="217" r="4" fill="#888"/>
+<text x="650" y="212" text-anchor="end" font-size="11" fill="#888" font-weight="bold">3.45</text>
+<circle cx="660" cy="254" r="4" fill="#e74c3c"/>
+<text x="650" y="249" text-anchor="end" font-size="11" fill="#e74c3c" font-weight="bold">3.00</text>
 
-<!-- Gap annotation at 50k -->
-<line x1="665" y1="233" x2="665" y2="268" stroke="#333" stroke-width="1.5"/>
-<line x1="662" y1="233" x2="668" y2="233" stroke="#333" stroke-width="1.5"/>
-<line x1="662" y1="268" x2="668" y2="268" stroke="#333" stroke-width="1.5"/>
-<text x="673" y="254" font-size="12" fill="#333" font-weight="bold">12.9%</text>
+<!-- Gap bracket at 50k -->
+<line x1="665" y1="219" x2="665" y2="252" stroke="#333" stroke-width="1.5"/>
+<line x1="662" y1="219" x2="668" y2="219" stroke="#333" stroke-width="1.5"/>
+<line x1="662" y1="252" x2="668" y2="252" stroke="#333" stroke-width="1.5"/>
+<text x="673" y="239" font-size="12" fill="#333" font-weight="bold">12.9%</text>
 
 <!-- Gap annotation at 30k -->
-<line x1="433" y1="198" x2="433" y2="217" stroke="#555" stroke-width="1" stroke-dasharray="3,2"/>
-<text x="441" y="211" font-size="9" fill="#555">7.0%</text>
+<line x1="433" y1="187" x2="433" y2="205" stroke="#555" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="441" y="200" font-size="9" fill="#555">7.0%</text>
 
 <!-- Legend -->
-<rect x="420" y="55" width="230" height="52" fill="white" stroke="#ddd" rx="4"/>
-<line x1="428" y1="73" x2="450" y2="73" stroke="#888" stroke-width="2.5"/>
-<circle cx="439" cy="73" r="3" fill="#888"/>
-<text x="456" y="77" font-size="11" fill="#333">Baseline (full attention)</text>
-<line x1="428" y1="93" x2="450" y2="93" stroke="#e74c3c" stroke-width="2.5"/>
-<circle cx="439" cy="93" r="3" fill="#e74c3c"/>
-<text x="456" y="97" font-size="11" fill="#333">Quartic windows (γ=4)</text>
+<rect x="420" y="58" width="230" height="52" fill="white" stroke="#ddd" rx="4"/>
+<line x1="428" y1="76" x2="450" y2="76" stroke="#888" stroke-width="2.5"/>
+<circle cx="439" cy="76" r="3" fill="#888"/>
+<text x="456" y="80" font-size="11" fill="#333">Baseline (full attention)</text>
+<line x1="428" y1="96" x2="450" y2="96" stroke="#e74c3c" stroke-width="2.5"/>
+<circle cx="439" cy="96" r="3" fill="#e74c3c"/>
+<text x="456" y="100" font-size="11" fill="#333">Quartic windows (γ=4)</text>
 </svg>
