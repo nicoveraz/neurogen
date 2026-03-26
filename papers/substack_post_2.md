@@ -27,7 +27,13 @@ But the real surprise was the learning curve. At 3.4M scale, the window advantag
 
 After 50k steps, the quartic window model is nearly 13% better — and the gap is still widening. Neither model is converged.
 
+![125M Learning Curves](https://raw.githubusercontent.com/nicoveraz/neurogen/main/charts/125m_learning_curves.svg)
+
+![125M Gap Evolution](https://raw.githubusercontent.com/nicoveraz/neurogen/main/charts/125m_gap_evolution.svg)
+
 This isn't faster convergence. The windowed model is finding a fundamentally better optimization trajectory, and the longer it trains, the more that trajectory diverges from baseline.
+
+![125M Final Performance](https://raw.githubusercontent.com/nicoveraz/neurogen/main/charts/125m_final_performance.svg)
 
 **Caveat:** These are preliminary results with only 2 matched-seed pairs. The effect is large enough to be visible without statistics, but I'd want 5+ seeds and full convergence before claiming a final number. The 3.4M results (5 seeds, p=0.001) are validated. The 125M results are promising but not proven.
 
@@ -124,6 +130,8 @@ The practical takeaway is simple: add quartic attention window growth to your tr
 ```python
 window = base + ((layer + 1) / n_layers) ** 4 * (seq_len - base)
 ```
+
+![Window Schedule](https://raw.githubusercontent.com/nicoveraz/neurogen/main/charts/window_schedule.svg)
 
 The deeper takeaway is about optimization landscapes. Full-attention transformers explore a vast parameter space where every layer competes for both local and global patterns simultaneously. Window constraints partition the search space: early layers search locally, late layers search globally. The partitioned search finds better solutions because the compositional structure is preserved by design rather than rediscovered by accident.
 
