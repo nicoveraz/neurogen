@@ -1,8 +1,13 @@
-# Data and results
-results.tsv
+# Model checkpoints
 *.pt
 *.pth
-run.log
+checkpoints/
+checkpoints_125m/
+
+# Training logs
+*.log
+*.tar.gz
+results.tsv
 
 # Python
 __pycache__/
@@ -22,5 +27,3 @@ __pycache__/
 # Env
 .env
 .venv/
-quality.log
-papers/

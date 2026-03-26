@@ -111,43 +111,85 @@ This project ran 200+ autonomous experiments across 5 phases:
 
 ## Quick Start
 
+### 3.4M model (Apple Silicon / CPU)
+
 ```bash
 # Install
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 
-# Download data
+# Download data (TinyStories, ~50MB)
 uv run prepare.py
 
-# Train baseline (3.4M model, M1 Pro)
+# Train baseline
 uv run train_r4.py --arch baseline --minutes 40 --seed 42
 
-# Train with developmental windows (best result)
+# Train with quartic windows (best config)
 uv run train_r4.py --arch window_power_4.0 --minutes 40 --seed 42
 
-# Validation run (step-budget, full convergence)
+# Step-budget validation (eliminates throughput confounds)
 uv run validate.py --arch window_power_4.0 --steps 20000 --seed 42
+```
 
-# 125M model (requires CUDA / H100)
+### 125M model (CUDA / H100)
+
+```bash
+pip install torch numpy datasets tiktoken flash-attn
+
+# Download data (FineWeb-Edu, ~100M tokens)
+python train_125m.py --prepare
+
+# Throughput audit (verify equal speed across configs)
+python train_125m.py --throughput
+
+# Train single run
 python train_125m.py --arch window_power_4.0 --steps 50000 --seed 42
+
+# Generate text from checkpoint
+python train_125m.py --generate checkpoints_125m/window_power_4.0_s42.pt
+
+# Compare models side-by-side
+python train_125m.py --compare checkpoints_125m/baseline_s137.pt checkpoints_125m/window_power_4.0_s137.pt
+```
+
+### Gradient mechanism experiments (Apple Silicon / CPU)
+
+```bash
+# Exp 1: window sweep on frozen checkpoint (~20 min)
+uv run experiment_gradient.py --exp1
+
+# Exp 2: gradient decomposition by layer (~30 min)
+uv run experiment_gradient.py --exp2
+
+# Exp 3: variance reduction comparison (~2 hours)
+uv run experiment_gradient.py --exp3
+
+# Analyze all results
+uv run analyze_all.py
 ```
 
 ## Project Structure
 
 ```
-prepare.py              — data prep + evaluation (3.4M, TinyStories)
-train_r4.py             — Round 4 training with 26 architecture variants
+# Training
+prepare.py              — data prep + tokenizer (3.4M, TinyStories)
+train_r4.py             — 3.4M model with 26 architecture variants
 validate.py             — step-budget convergence runs with diagnostics
-train_125m.py           — 125M parameter validation (H100)
-analyze_125m.py         — 125M statistical analysis
-experiment_gradient.py  — gradient mechanism experiments
-analyze_all.py          — comprehensive cross-scale analysis
+train_125m.py           — 125M model (GPT-2 small) for H100
 ca_rules.py             — CA rule library
-results.tsv             — experiment log
-validation_results/     — 3.4M convergence data (JSON, 20k steps x 5 seeds)
-results_125m/           — 125M results (JSON, 20k-50k steps)
-gradient_results/       — mechanism experiment data
-figures/                — publication figures
+
+# Analysis
+analyze_125m.py         — 125M statistical analysis
+analyze_all.py          — cross-scale analysis with figures
+experiment_gradient.py  — gradient mechanism experiments (3 experiments)
+evaluate_quality.py     — generation quality metrics
+
+# Data
+validation_results/     — 3.4M convergence data (20k steps × 5 seeds × 4 configs)
+results_125m/           — 125M results (20k-50k steps × 2 seeds)
+gradient_results/       — mechanism experiment data (3 experiments)
+charts/                 — SVG figures for README
+papers/                 — paper draft
 ```
 
 ## Hardware
