@@ -1,0 +1,38 @@
+[
+  {
+    "layer": 0,
+    "noise_fraction": 0.050113,
+    "noise_fraction_std": 0.00028,
+    "entropy": 1.9877,
+    "mean_attention_span": 12.91,
+    "n_attended_positions": 17.29,
+    "time_s": 10.8
+  },
+  {
+    "layer": 1,
+    "noise_fraction": 0.039504,
+    "noise_fraction_std": 0.000154,
+    "entropy": 1.4997,
+    "mean_attention_span": 7.4,
+    "n_attended_positions": 10.94,
+    "time_s": 10.3
+  },
+  {
+    "layer": 2,
+    "noise_fraction": 0.068764,
+    "noise_fraction_std": 0.000297,
+    "entropy": 2.4533,
+    "mean_attention_span": 21.3,
+    "n_attended_positions": 23.29,
+    "time_s": 10.9
+  },
+  {
+    "layer": 3,
+    "noise_fraction": 0.067432,
+    "noise_fraction_std": 0.000507,
+    "entropy": 2.1097,
+    "mean_attention_span": 12.98,
+    "n_attended_positions": 18.66,
+    "time_s": 10.4
+  }
+]

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" font-family="system-ui,sans-serif">
+<rect width="700" height="340" fill="#fafafa" rx="8"/>
+<text x="350" y="24" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">125M Model: Learning Curves (50k steps, 2 seeds)</text>
+
+<!-- Y axis labels and grid -->
+<line x1="80" y1="280" x2="660" y2="280" stroke="#e0e0e0"/>
+<text x="72" y="284" text-anchor="end" font-size="11" fill="#666">3.0</text>
+<line x1="80" y1="230" x2="660" y2="230" stroke="#e0e0e0"/>
+<text x="72" y="234" text-anchor="end" font-size="11" fill="#666">3.5</text>
+<line x1="80" y1="180" x2="660" y2="180" stroke="#e0e0e0"/>
+<text x="72" y="184" text-anchor="end" font-size="11" fill="#666">4.0</text>
+<line x1="80" y1="130" x2="660" y2="130" stroke="#e0e0e0"/>
+<text x="72" y="134" text-anchor="end" font-size="11" fill="#666">4.5</text>
+<line x1="80" y1="80" x2="660" y2="80" stroke="#e0e0e0"/>
+<text x="72" y="84" text-anchor="end" font-size="11" fill="#666">5.0</text>
+
+<!-- X axis labels -->
+<text x="80" y="300" text-anchor="middle" font-size="11" fill="#555">0</text>
+<text x="196" y="300" text-anchor="middle" font-size="11" fill="#555">10k</text>
+<text x="312" y="300" text-anchor="middle" font-size="11" fill="#555">20k</text>
+<text x="428" y="300" text-anchor="middle" font-size="11" fill="#555">30k</text>
+<text x="544" y="300" text-anchor="middle" font-size="11" fill="#555">40k</text>
+<text x="660" y="300" text-anchor="middle" font-size="11" fill="#555">50k</text>
+
+<!-- Axis labels -->
+<text x="370" y="325" text-anchor="middle" font-size="13" fill="#555">Training Steps</text>
+<text x="15" y="180" text-anchor="middle" font-size="13" fill="#555" transform="rotate(-90,15,180)">Validation bpb</text>
+
+<!-- Scale: x: 80 + step/50000 * 580, y: 280 - (bpb-3.0)/2.0 * 200 -->
+<!-- Baseline mean curve (gray) -->
+<path d="M 80,80 L 138,91 L 196,116 L 254,145 L 312,180 L 370,199 L 428,216 L 486,229 L 544,237 L 602,247 L 660,251" fill="none" stroke="#888" stroke-width="2.5"/>
+
+<!-- Quartic mean curve (red) -->
+<path d="M 80,80 L 138,88 L 196,108 L 254,133 L 312,162 L 370,184 L 428,204 L 486,221 L 544,238 L 602,253 L 660,260" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
+
+<!-- Data points baseline -->
+<circle cx="196" cy="116" r="4" fill="#888"/>
+<circle cx="312" cy="180" r="4" fill="#888"/>
+<circle cx="428" cy="216" r="4" fill="#888"/>
+<circle cx="544" cy="237" r="4" fill="#888"/>
+<circle cx="660" cy="251" r="4" fill="#888"/>
+
+<!-- Data points quartic -->
+<circle cx="196" cy="108" r="4" fill="#e74c3c"/>
+<circle cx="312" cy="162" r="4" fill="#e74c3c"/>
+<circle cx="428" cy="204" r="4" fill="#e74c3c"/>
+<circle cx="544" cy="238" r="4" fill="#e74c3c"/>
+<circle cx="660" cy="260" r="4" fill="#e74c3c"/>
+
+<!-- Gap annotations -->
+<line x1="660" y1="251" x2="660" y2="260" stroke="#333" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="670" y="258" font-size="10" fill="#333" font-weight="bold">+12.9%</text>
+
+<line x1="544" y1="237" x2="544" y2="238" stroke="#333" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="554" y="240" font-size="9" fill="#555">+9.9%</text>
+
+<line x1="428" y1="216" x2="428" y2="204" stroke="#333" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="438" y="213" font-size="9" fill="#555">+7.0%</text>
+
+<!-- Legend -->
+<rect x="120" y="40" width="200" height="50" fill="white" stroke="#ddd" rx="4"/>
+<line x1="128" y1="58" x2="148" y2="58" stroke="#888" stroke-width="2.5"/>
+<circle cx="138" cy="58" r="3" fill="#888"/>
+<text x="154" y="62" font-size="11" fill="#333">Baseline (full attention)</text>
+<line x1="128" y1="78" x2="148" y2="78" stroke="#e74c3c" stroke-width="2.5"/>
+<circle cx="138" cy="78" r="3" fill="#e74c3c"/>
+<text x="154" y="82" font-size="11" fill="#333">Quartic windows (y=4)</text>
+</svg>

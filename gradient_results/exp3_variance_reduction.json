@@ -1,0 +1,46 @@
+{
+  "A_full_batch32_s42": {
+    "config": "A_full_batch32",
+    "seed": 42,
+    "effective_batch": 32,
+    "final_bpb": 1.242,
+    "tokens_seen": 16384000,
+    "steps": 2000,
+    "status": "complete"
+  },
+  "B_quartic_batch32_s42": {
+    "config": "B_quartic_batch32",
+    "seed": 42,
+    "effective_batch": 32,
+    "final_bpb": 1.224,
+    "tokens_seen": 16384000,
+    "steps": 2000,
+    "status": "complete"
+  },
+  "C_full_batch128_s42": {
+    "config": "C_full_batch128",
+    "seed": 42,
+    "effective_batch": 128,
+    "final_bpb": 1.0858,
+    "tokens_seen": 65536000,
+    "steps": 2000,
+    "status": "complete"
+  },
+  "D_full_batch256_s42": {
+    "config": "D_full_batch256",
+    "seed": 42,
+    "effective_batch": 256,
+    "final_bpb_at_1000": 1.1496,
+    "tokens_seen_at_1000": 65536000,
+    "steps": 1000,
+    "status": "partial_timeout"
+  },
+  "token_matched_comparison": {
+    "note": "At 16M tokens (equal data seen)",
+    "A_full_batch32": 1.242,
+    "B_quartic_batch32": 1.224,
+    "C_full_batch128_step500": 1.3574,
+    "D_full_batch256_step500": 1.3211,
+    "conclusion": "Windows beat larger batch at equal token count. Mechanism is signal coherence, not variance reduction."
+  }
+}

@@ -45,6 +45,14 @@ step     baseline   quartic    gap
 Throughput: baseline 2.78 sps, quartic 2.84 sps (windows are faster with Flash Attention)
 ```
 
+### 125M Figures
+
+![125M Learning Curves](charts/125m_learning_curves.svg)
+
+![125M Gap Evolution](charts/125m_gap_evolution.svg)
+
+![125M Final Performance](charts/125m_final_performance.svg)
+
 ### 3.4M Figures
 
 ![Learning Curves](charts/learning_curves.svg)
