@@ -1,39 +1,56 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280" font-family="system-ui,sans-serif">
-<rect width="600" height="280" fill="#fafafa" rx="8"/>
-<text x="300" y="24" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">125M: Final Performance at 50k Steps</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 550 280" font-family="system-ui,sans-serif">
+<rect width="550" height="280" fill="#fafafa" rx="8"/>
+<text x="275" y="22" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">125M: Final bpb at 50k Steps (preliminary)</text>
+<text x="275" y="40" text-anchor="middle" font-size="11" fill="#999">Matched-seed comparison (lower is better)</text>
 
-<!-- Bars -->
-<!-- Baseline s42: 3.549 -->
-<rect x="60" y="110" width="100" height="130" fill="#888" rx="4" opacity="0.8"/>
-<text x="110" y="105" text-anchor="middle" font-size="13" fill="#888" font-weight="bold">3.549</text>
-<text x="110" y="258" text-anchor="middle" font-size="10" fill="#555">Baseline</text>
-<text x="110" y="270" text-anchor="middle" font-size="9" fill="#888">seed 42</text>
+<!-- Y axis: bpb from 2.8 to 3.8, y: 230 (2.8) to 60 (3.8) -->
+<line x1="90" y1="230" x2="480" y2="230" stroke="#e0e0e0"/>
+<text x="82" y="234" text-anchor="end" font-size="11" fill="#666">2.8</text>
+<line x1="90" y1="196" x2="480" y2="196" stroke="#e0e0e0"/>
+<text x="82" y="200" text-anchor="end" font-size="11" fill="#666">3.0</text>
+<line x1="90" y1="162" x2="480" y2="162" stroke="#e0e0e0"/>
+<text x="82" y="166" text-anchor="end" font-size="11" fill="#666">3.2</text>
+<line x1="90" y1="128" x2="480" y2="128" stroke="#e0e0e0"/>
+<text x="82" y="132" text-anchor="end" font-size="11" fill="#666">3.4</text>
+<line x1="90" y1="94" x2="480" y2="94" stroke="#e0e0e0"/>
+<text x="82" y="98" text-anchor="end" font-size="11" fill="#666">3.6</text>
 
-<!-- Baseline s137: 3.345 -->
-<rect x="170" y="89" width="100" height="151" fill="#888" rx="4" opacity="0.6"/>
-<text x="220" y="84" text-anchor="middle" font-size="13" fill="#888" font-weight="bold">3.345</text>
-<text x="220" y="258" text-anchor="middle" font-size="10" fill="#555">Baseline</text>
-<text x="220" y="270" text-anchor="middle" font-size="9" fill="#888">seed 137</text>
+<!-- Scale: y = 230 - (bpb - 2.8) / 1.0 * 170 -->
+<!-- Seed 42: baseline=3.549 → y=230-(0.749)*170=102.7, quartic=2.937 → y=230-(0.137)*170=206.7 -->
+<!-- Seed 137: baseline=3.345 → y=230-(0.545)*170=137.4, quartic=3.065 → y=230-(0.265)*170=184.9 -->
 
-<!-- Quartic s42: 2.937 -->
-<rect x="320" y="47" width="100" height="193" fill="#e74c3c" rx="4" opacity="0.8"/>
-<text x="370" y="42" text-anchor="middle" font-size="13" fill="#e74c3c" font-weight="bold">2.937</text>
-<text x="370" y="258" text-anchor="middle" font-size="10" fill="#555">Quartic</text>
-<text x="370" y="270" text-anchor="middle" font-size="9" fill="#e74c3c">seed 42</text>
+<!-- Seed 42 group -->
+<text x="195" y="258" text-anchor="middle" font-size="12" fill="#555" font-weight="bold">Seed 42</text>
 
-<!-- Quartic s137: 3.065 -->
-<rect x="430" y="60" width="100" height="180" fill="#e74c3c" rx="4" opacity="0.6"/>
-<text x="480" y="55" text-anchor="middle" font-size="13" fill="#e74c3c" font-weight="bold">3.065</text>
-<text x="480" y="258" text-anchor="middle" font-size="10" fill="#555">Quartic</text>
-<text x="480" y="270" text-anchor="middle" font-size="9" fill="#e74c3c">seed 137</text>
+<!-- Baseline s42 bar: 3.549 → y=103 -->
+<rect x="120" y="103" width="60" height="127" fill="#888" rx="3"/>
+<text x="150" y="97" text-anchor="middle" font-size="12" fill="#888" font-weight="bold">3.55</text>
 
-<!-- Delta annotations -->
-<line x1="110" y1="120" x2="370" y2="57" stroke="#333" stroke-width="1" stroke-dasharray="4,3"/>
-<text x="240" y="78" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">-17.2%</text>
+<!-- Quartic s42 bar: 2.937 → y=207 -->
+<rect x="190" y="207" width="60" height="23" fill="#e74c3c" rx="3"/>
+<text x="220" y="201" text-anchor="middle" font-size="12" fill="#e74c3c" font-weight="bold">2.94</text>
 
-<line x1="220" y1="99" x2="480" y2="70" stroke="#333" stroke-width="1" stroke-dasharray="4,3"/>
-<text x="350" y="90" text-anchor="middle" font-size="12" fill="#333" font-weight="bold">-8.4%</text>
+<!-- Delta arrow seed 42 -->
+<text x="195" y="168" text-anchor="middle" font-size="11" fill="#333" font-weight="bold">-17.2%</text>
 
-<!-- Note -->
-<text x="300" y="22" text-anchor="middle" font-size="10" fill="#999">(lower is better)</text>
+<!-- Seed 137 group -->
+<text x="375" y="258" text-anchor="middle" font-size="12" fill="#555" font-weight="bold">Seed 137</text>
+
+<!-- Baseline s137 bar: 3.345 → y=137 -->
+<rect x="300" y="137" width="60" height="93" fill="#888" rx="3"/>
+<text x="330" y="131" text-anchor="middle" font-size="12" fill="#888" font-weight="bold">3.35</text>
+
+<!-- Quartic s137 bar: 3.065 → y=185 -->
+<rect x="370" y="185" width="60" height="45" fill="#e74c3c" rx="3"/>
+<text x="400" y="179" text-anchor="middle" font-size="12" fill="#e74c3c" font-weight="bold">3.07</text>
+
+<!-- Delta arrow seed 137 -->
+<text x="375" y="168" text-anchor="middle" font-size="11" fill="#333" font-weight="bold">-8.4%</text>
+
+<!-- Legend -->
+<rect x="100" y="50" width="175" height="30" fill="white" stroke="#ddd" rx="4"/>
+<rect x="108" y="58" width="14" height="14" fill="#888" rx="2"/>
+<text x="128" y="70" font-size="11" fill="#333">Baseline</text>
+<rect x="192" y="58" width="14" height="14" fill="#e74c3c" rx="2"/>
+<text x="212" y="70" font-size="11" fill="#333">Quartic</text>
 </svg>
