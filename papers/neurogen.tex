@@ -28,7 +28,7 @@ Independent Researcher\\
 \maketitle
 
 \begin{abstract}
-We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields robust improvements that increase with scale: $+1.5$\% at 3.4M parameters ($p=0.001$, Cohen's $d=2.05$, 5 seeds) and up to $+12.9$\% at 125M parameters (50k steps, gap still widening). Gradient mechanism experiments reveal that windows do not reduce gradient noise (noise norm is constant across window sizes) but instead increase gradient signal coherence $18\times$, consistent with forced architectural specialization rather than noise removal. A variance reduction control (larger batch size) fails to replicate the effect at equal token count. We propose that constraining early layers to local attention forces compositional feature hierarchies that later layers leverage for more effective global integration.
+We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields robust improvements that increase with scale: $+1.5$\% at 3.4M parameters ($p=0.001$, Cohen's $d=2.05$, 5 seeds) and up to $+12.9$\% at 125M parameters (50k steps, gap still widening). Three targeted mechanism experiments eliminate gradient noise removal, softmax coupling contamination, and variance reduction as explanations, establishing that the benefit is specific to attention restriction rather than a generic gradient quality effect. Several hypotheses remain consistent with the data---forced architectural specialization, implicit regularization, optimization landscape effects, inductive bias, and curriculum learning---and await further investigation.
 \end{abstract}
 
 \section{Introduction}
@@ -233,7 +233,29 @@ At equal token count (16M), quartic windows (1.224) outperform both baseline (1.
 
 \subsection{Mechanism Conclusion}
 
-The mechanism is \textbf{forced architectural specialization}: constraining early layers to local attention forces them to build compositional features (local n-gram patterns, syntactic boundaries) that later layers leverage for more effective global integration. This produces higher gradient signal coherence as a consequence, not a cause.
+\subsection{Eliminated Hypotheses}
+
+Three mechanism hypotheses are ruled out by the experimental evidence:
+
+\begin{enumerate}
+    \item \textbf{Gradient noise removal.} If windows clean gradients by removing contributions from non-attended positions, noise norm should decrease with smaller windows. It does not---noise norm is constant at $\sim$0.0053 across all window sizes (Experiment~1).
+    \item \textbf{Softmax coupling contamination.} If the softmax backward pass introduces significant gradient contamination through position coupling, the noise fraction from non-attended positions should be large ($>30$\%). It is only 4--7\% (Experiment~2).
+    \item \textbf{Variance reduction.} If windows improve training by reducing gradient variance (fewer sources $=$ less variance), larger batch sizes should replicate the effect. At equal token count, larger batch is \textit{worse} than baseline, while windows improve it (Experiment~3).
+\end{enumerate}
+
+\subsection{Surviving Hypotheses}
+
+Several explanations remain consistent with all observed data. Distinguishing between them requires experiments we have not run.
+
+\begin{itemize}
+    \item \textbf{Forced architectural specialization.} Early layers constrained to local attention must build compositional features (n-gram patterns, syntactic boundaries) that later layers leverage for global integration. The increased gradient signal coherence observed in Experiment~1 would be a consequence of this specialization, not a cause.
+    \item \textbf{Implicit regularization.} Window constraints reduce the effective hypothesis space of each layer, acting as a form of structural regularization that prevents overfitting to spurious long-range correlations early in training.
+    \item \textbf{Optimization landscape effect.} Partitioning attention by depth may create a smoother or more favorable loss landscape, allowing gradient descent to find qualitatively different (and better) local minima.
+    \item \textbf{Inductive bias toward compositionality.} The local-to-global structure may encode a useful prior about natural language hierarchy that happens to align with the structure of the training data.
+    \item \textbf{Curriculum effect.} The layer-wise window schedule may function as an implicit curriculum where the model learns local patterns before global ones, analogous to curriculum learning in training schedules.
+\end{itemize}
+
+These hypotheses are not mutually exclusive---several may contribute simultaneously. The key empirical finding is that the mechanism is \textit{specific to attention restriction}: it cannot be replicated by generic gradient quality improvements (larger batch, gradient filtering) and operates through a pathway distinct from noise removal.
 
 \section{Limitations}
 
@@ -243,6 +265,7 @@ The mechanism is \textbf{forced architectural specialization}: constraining earl
     \item The 3.4M model uses TinyStories (narrow domain); 125M uses FineWeb-Edu (broader).
     \item Optimal exponent at depth 12 not yet determined (tested only quartic).
     \item Mechanism experiments performed only at 3.4M scale.
+    \item The surviving mechanism hypotheses have not been experimentally distinguished.
 \end{itemize}
 
 \section{Discussion}
@@ -253,9 +276,11 @@ The mechanism is \textbf{forced architectural specialization}: constraining earl
 
 \textbf{Biological connection.} The optimal configuration mirrors cortical development: extremely local receptive fields at early processing stages, with global integration only at the highest levels. The quartic growth exponent creates a steep curve---most layers stay very local, with only the final layers opening to full context.
 
+\textbf{Mechanism.} We have strong evidence for what the mechanism is \textit{not} (gradient noise removal, softmax coupling, variance reduction) but multiple remaining candidates for what it \textit{is}. Distinguishing forced specialization from implicit regularization, optimization landscape effects, inductive bias, and curriculum effects would require targeted ablations---for example, randomizing the layer-to-window assignment (which preserves total compute but breaks the local-to-global hierarchy) or applying windows only during early training then removing them (which tests whether the benefit is from permanent constraint or early-training curriculum).
+
 \section{Conclusion}
 
-We systematically tested 26 biologically-inspired approaches across 200+ experiments at two scales. Most fail. Developmental attention window growth---constraining early layers to local attention with quartic growth toward full attention---produces consistent improvements: $+1.5$\% at 3.4M parameters ($p=0.001$, 5 seeds) and $+12.9$\% at 125M parameters (50k steps, gap widening). Mechanism analysis eliminates gradient noise removal and variance reduction, identifying forced architectural specialization as the operative mechanism. The approach requires no additional parameters, no extra compute, and produces faster models when combined with Flash Attention's sliding window support.
+We systematically tested 26 biologically-inspired approaches across 200+ experiments at two scales. Most fail. Developmental attention window growth---constraining early layers to local attention with quartic growth toward full attention---produces consistent improvements: $+1.5$\% at 3.4M parameters ($p=0.001$, 5 seeds) and $+12.9$\% at 125M parameters (50k steps, gap widening). Three mechanism experiments eliminate gradient noise removal, softmax coupling contamination, and variance reduction as explanations, establishing that the benefit is specific to attention restriction rather than a generic gradient quality effect. Several hypotheses---forced specialization, implicit regularization, optimization landscape effects, inductive bias, and curriculum learning---remain consistent with the data and await further investigation. The approach requires no additional parameters, no extra compute, and produces faster models when combined with Flash Attention's sliding window support.
 
 Code and data: \url{https://github.com/nicoveraz/neurogen}
 

@@ -101,7 +101,19 @@ Larger batch models look better only because they saw 4-8x more data.
 At equal token budget, windows win and larger batch loses.
 ```
 
-**Conclusion:** The mechanism is **forced architectural specialization**, not gradient noise removal or variance reduction. Constraining early layers to local attention forces them to build compositional features that later layers can leverage, producing better gradient signal coherence as a consequence.
+**What we ruled out:**
+- Gradient noise removal (noise is constant across window sizes)
+- Softmax coupling contamination (only 4-7% of gradient from non-attended positions)
+- Variance reduction (larger batch can't replicate the effect at equal token count)
+
+**What remains consistent with the data:**
+- Forced architectural specialization (early layers must build local features first)
+- Implicit regularization (windows constrain the hypothesis space)
+- Optimization landscape effect (partitioned search finds different minima)
+- Inductive bias toward compositional structure
+- Curriculum effect (local-before-global learning order)
+
+Distinguishing between these surviving hypotheses requires experiments we haven't run. The data shows that attention windows produce a real, scaling improvement through a mechanism that is specific to attention restriction — not a generic gradient quality effect.
 
 ## Research Journey
 
