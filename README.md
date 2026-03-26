@@ -81,7 +81,25 @@ Three experiments tested why attention windows improve training:
 
 **Experiment 2 — Gradient decomposition:** Decomposed the softmax backward pass into contributions from attended vs non-attended positions. Noise fraction is only **4-7%** across all layers — the softmax coupling introduces minimal gradient contamination.
 
-**Experiment 3 — Variance reduction control:** Compared quartic windows (batch 32) against full attention with larger effective batch (128, 256). At equal token count (16M tokens), quartic windows (bpb=1.224) beat both baseline (1.242) and batch 128 (1.357). Larger batch cannot replicate the window effect.
+**Experiment 3 — Variance reduction control:** If windows work by reducing gradient variance, larger batch sizes should replicate the effect. They don't.
+
+```
+Same optimizer steps (2000), 3 seeds each:
+
+config                eff batch   mean bpb   tokens     vs baseline
+baseline (full attn)       32      1.2439      16M        —
+quartic windows            32      1.2143      16M       +2.4%
+full attn, batch 128      128      1.0840      66M      +12.9%
+full attn, batch 256      256      1.0331     131M      +17.0%
+
+Token-matched comparison (at 16M tokens seen):
+  quartic windows:    1.214  ← best
+  baseline:           1.244
+  batch 128 (step500): 1.352  ← worse than baseline
+
+Larger batch models look better only because they saw 4-8x more data.
+At equal token budget, windows win and larger batch loses.
+```
 
 **Conclusion:** The mechanism is **forced architectural specialization**, not gradient noise removal or variance reduction. Constraining early layers to local attention forces them to build compositional features that later layers can leverage, producing better gradient signal coherence as a consequence.
 

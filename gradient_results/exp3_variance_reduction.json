@@ -3,44 +3,113 @@
     "config": "A_full_batch32",
     "seed": 42,
     "effective_batch": 32,
-    "final_bpb": 1.242,
+    "final_bpb": 1.2415,
     "tokens_seen": 16384000,
-    "steps": 2000,
-    "status": "complete"
+    "steps": 2000
+  },
+  "A_full_batch32_s137": {
+    "config": "A_full_batch32",
+    "seed": 137,
+    "effective_batch": 32,
+    "final_bpb": 1.2474,
+    "tokens_seen": 16384000,
+    "steps": 2000
+  },
+  "A_full_batch32_s256": {
+    "config": "A_full_batch32",
+    "seed": 256,
+    "effective_batch": 32,
+    "final_bpb": 1.2428,
+    "tokens_seen": 16384000,
+    "steps": 2000
   },
   "B_quartic_batch32_s42": {
     "config": "B_quartic_batch32",
     "seed": 42,
     "effective_batch": 32,
-    "final_bpb": 1.224,
+    "final_bpb": 1.2255,
     "tokens_seen": 16384000,
-    "steps": 2000,
-    "status": "complete"
+    "steps": 2000
+  },
+  "B_quartic_batch32_s137": {
+    "config": "B_quartic_batch32",
+    "seed": 137,
+    "effective_batch": 32,
+    "final_bpb": 1.2154,
+    "tokens_seen": 16384000,
+    "steps": 2000
+  },
+  "B_quartic_batch32_s256": {
+    "config": "B_quartic_batch32",
+    "seed": 256,
+    "effective_batch": 32,
+    "final_bpb": 1.2021,
+    "tokens_seen": 16384000,
+    "steps": 2000
   },
   "C_full_batch128_s42": {
     "config": "C_full_batch128",
     "seed": 42,
     "effective_batch": 128,
-    "final_bpb": 1.0858,
+    "final_bpb": 1.0878,
     "tokens_seen": 65536000,
     "steps": 2000,
-    "status": "complete"
+    "bpb_at_16M_tokens": 1.3573
+  },
+  "C_full_batch128_s137": {
+    "config": "C_full_batch128",
+    "seed": 137,
+    "effective_batch": 128,
+    "final_bpb": 1.074,
+    "tokens_seen": 65536000,
+    "steps": 2000,
+    "bpb_at_16M_tokens": 1.3342
+  },
+  "C_full_batch128_s256": {
+    "config": "C_full_batch128",
+    "seed": 256,
+    "effective_batch": 128,
+    "final_bpb": 1.0903,
+    "tokens_seen": 65536000,
+    "steps": 2000,
+    "bpb_at_16M_tokens": 1.3635
   },
   "D_full_batch256_s42": {
     "config": "D_full_batch256",
     "seed": 42,
     "effective_batch": 256,
-    "final_bpb_at_1000": 1.1496,
-    "tokens_seen_at_1000": 65536000,
-    "steps": 1000,
-    "status": "partial_timeout"
+    "final_bpb": 1.0414,
+    "tokens_seen": 131072000,
+    "steps": 2000
   },
-  "token_matched_comparison": {
-    "note": "At 16M tokens (equal data seen)",
-    "A_full_batch32": 1.242,
-    "B_quartic_batch32": 1.224,
-    "C_full_batch128_step500": 1.3574,
-    "D_full_batch256_step500": 1.3211,
-    "conclusion": "Windows beat larger batch at equal token count. Mechanism is signal coherence, not variance reduction."
+  "D_full_batch256_s137": {
+    "config": "D_full_batch256",
+    "seed": 137,
+    "effective_batch": 256,
+    "final_bpb": 1.0257,
+    "tokens_seen": 131072000,
+    "steps": 2000
+  },
+  "D_full_batch256_s256": {
+    "config": "D_full_batch256",
+    "seed": 256,
+    "effective_batch": 256,
+    "final_bpb": 1.0322,
+    "tokens_seen": 131072000,
+    "steps": 2000
+  },
+  "summary": {
+    "A_mean": 1.2439,
+    "B_mean": 1.2143,
+    "C_mean": 1.084,
+    "D_mean": 1.0331,
+    "B_vs_A": "+2.38%",
+    "token_matched_16M": {
+      "A_full_batch32": 1.2439,
+      "B_quartic_batch32": 1.2143,
+      "C_full_batch128_step500": 1.3517,
+      "note": "At equal tokens (16M), windows (1.214) beat baseline (1.244) and larger batch (1.352)"
+    },
+    "conclusion": "Variance reduction cannot replicate window effect. At equal token count, larger batch is WORSE than baseline. Mechanism is forced architectural specialization."
   }
 }
