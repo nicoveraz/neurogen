@@ -2,29 +2,23 @@
 
 **Developmental constraints improve transformer training.**
 
-An [autoresearch](https://github.com/karpathy/autoresearch) project that discovered layer-wise attention window growth — forcing early layers to attend locally before opening to global attention — produces statistically significant improvements in transformer language models.
+An [autoresearch](https://github.com/karpathy/autoresearch) project that discovered layer-wise attention window growth — forcing early layers to attend locally before opening to global attention — produces statistically significant improvements in transformer language models. Validated at 3.4M and 125M parameter scales.
 
 ## Key Finding
 
-Quartic attention window growth (`window_power_4.0`) improves converged val_bpb by **1.5%** over standard full attention (p=0.001, Cohen's d=2.05, 5 seeds, 20k steps).
+Quartic attention window growth (`window_power_4.0`) improves converged val_bpb by **1.5%** at 3.4M parameters (p=0.001, Cohen's d=2.05, 5 seeds) and **8.4%** at 125M parameters (50k steps, matched-seed comparison), with the advantage **growing over training**.
 
 ```
-Layer windows at depth 4:  [8, 10, 65, 256]
-- Layers 0-2: restricted to local context (8-65 tokens)
-- Layer 3: full attention (256 tokens)
+Layer windows at depth 4:  [8, 10, 65, 256]       (3.4M model)
+Layer windows at depth 12: [16, 16, 16, ..., 1024] (125M model, quartic growth)
+
+- Early layers: restricted to local context
+- Final layer: full attention
 ```
 
-The advantage is a **constant offset** — it persists from early training through convergence, meaning the constraint produces a genuinely better solution, not just faster convergence.
-
-![Learning Curves](charts/learning_curves.svg)
-
-![Final Performance](charts/final_performance.svg)
-
-![Window Schedule](charts/window_schedule.svg)
+### 3.4M Validation (20k steps, 5 seeds)
 
 ```
-Validation results (20,000 steps, 5 seeds each):
-
 config                  mean bpb   std      vs baseline   p-value   Cohen's d
 baseline                0.9002     0.0075   —             —         —
 window_power_4.0        0.8866     0.0056   +1.5%         0.001     2.05
@@ -32,31 +26,65 @@ window_quadratic        0.8911     0.0048   +1.0%         0.022     1.45
 window_quad_induction   0.8899     0.0041   +1.1%         0.007     1.69
 
 All 5 seeds of every window variant beat the baseline mean.
-Throughput is identical across all architectures (4.8 steps/sec).
+Throughput is identical across all architectures (4.8 steps/sec on M1 Pro).
 ```
+
+### 125M Scaling (50k steps, H100)
+
+The advantage **grows with training** — not just faster convergence:
+
+```
+step     baseline   quartic    gap
+5k       4.917      4.817      +2.0%
+10k      4.596      4.416      +3.9%
+20k      4.090      3.989      +2.5%
+30k      3.783      3.651      +3.5%
+40k      3.429      3.231      +5.8%
+50k      3.345      3.065      +8.4%   ← gap still widening
+
+Throughput: baseline 2.78 sps, quartic 2.84 sps (windows are faster with Flash Attention)
+```
+
+![Learning Curves](charts/learning_curves.svg)
+
+![Final Performance](charts/final_performance.svg)
+
+![Window Schedule](charts/window_schedule.svg)
 
 ## How It Works
 
-A standard transformer uses full attention at every layer — each token can attend to all previous tokens from layer 1. This is like a brain where every neuron connects to every other neuron from birth.
-
-Real brains develop differently: local receptive fields form first, then global connectivity builds on top. NeuroGen embeds this developmental principle into the transformer architecture by restricting each layer's attention window based on depth:
+A standard transformer uses full attention at every layer. NeuroGen restricts each layer's attention window based on depth, forcing early layers to build local features before later layers integrate globally:
 
 ```python
 def compute_window(layer_idx, n_layers, seq_len, exponent=4.0):
     progress = (layer_idx + 1) / n_layers
-    return int(8 + progress ** exponent * (seq_len - 8))
+    return int(base + progress ** exponent * (seq_len - base))
 ```
 
-The window function was found through systematic search across power functions (exponents 0.5-5.0), sigmoid curves, logarithmic, exponential, and Fibonacci schedules. The optimal exponent is 3-4 at depth 4 — the model wants early layers extremely local.
+The window function was found through systematic search across power functions (exponents 0.5-12.0), sigmoid curves, logarithmic, exponential, and Fibonacci schedules. The optimal exponent is 3-4 at depth 4.
+
+## Mechanism
+
+Three experiments tested why attention windows improve training:
+
+**Experiment 1 — Gradient quality vs window size:** On a frozen trained checkpoint, measured gradient SNR across 10 window sizes. Gradient noise is **constant** (~0.0053) regardless of window size. What changes is **signal coherence** — signal norm increases 18x from window 256 to window 8. Windows don't remove noise; they make gradients point in a more consistent direction.
+
+**Experiment 2 — Gradient decomposition:** Decomposed the softmax backward pass into contributions from attended vs non-attended positions. Noise fraction is only **4-7%** across all layers — the softmax coupling introduces minimal gradient contamination.
+
+**Experiment 3 — Variance reduction control:** Compared quartic windows (batch 32) against full attention with larger effective batch (128, 256). At equal token count (16M tokens), quartic windows (bpb=1.224) beat both baseline (1.242) and batch 128 (1.357). Larger batch cannot replicate the window effect.
+
+**Conclusion:** The mechanism is **forced architectural specialization**, not gradient noise removal or variance reduction. Constraining early layers to local attention forces them to build compositional features that later layers can leverage, producing better gradient signal coherence as a consequence.
 
 ## Research Journey
 
-This project ran 100+ autonomous experiments across 4 rounds:
+This project ran 200+ autonomous experiments across 5 phases:
 
 - **Round 1** (50 experiments): CA weight initialization gives ~0.8% improvement. Live CA fails on MPS due to overhead.
 - **Round 2** (40 experiments): CA init advantage holds at 30min training (constant offset, not head start).
 - **Round 4** (68 experiments): Tested 26 architecture variants including CA modulation channels, embryogenic CA, universal circuit pre-wiring, token vitality, sleep consolidation. Most failed. Developmental attention windows emerged as the clear winner.
 - **Validation** (20 experiments): Confirmed at 20k steps with 5 seeds. Statistically significant. Throughput-neutral.
+- **125M scaling** (15 experiments): Validated at GPT-2 scale on H100. Advantage grows from +2% to +8.4% over 50k steps.
+- **Mechanism** (3 experiments): Gradient analysis eliminates noise-removal and variance-reduction hypotheses. Identifies forced specialization as the mechanism.
 
 ### What Didn't Work
 - CA modulation channels (model collapse)
@@ -67,7 +95,7 @@ This project ran 100+ autonomous experiments across 4 rounds:
 - Embryogenic activity-dependent CA (marginal gains, high overhead)
 
 ### What Did Work
-- **Developmental attention windows** (quartic growth, +1.5%)
+- **Developmental attention windows** (quartic growth, +1.5% at 3.4M, +8.4% at 125M)
 - **Combining constraints with scaffolds** (window + induction pre-wiring, +1.1%)
 - **Block-diagonal CA init** (+0.6% at 10min, constant offset)
 
@@ -81,7 +109,7 @@ uv sync
 # Download data
 uv run prepare.py
 
-# Train baseline
+# Train baseline (3.4M model, M1 Pro)
 uv run train_r4.py --arch baseline --minutes 40 --seed 42
 
 # Train with developmental windows (best result)
@@ -90,28 +118,32 @@ uv run train_r4.py --arch window_power_4.0 --minutes 40 --seed 42
 # Validation run (step-budget, full convergence)
 uv run validate.py --arch window_power_4.0 --steps 20000 --seed 42
 
-# Quality evaluation
-uv run evaluate_quality.py --live --arch baseline window_power_4.0 --seed 42 --minutes 40
+# 125M model (requires CUDA / H100)
+python train_125m.py --arch window_power_4.0 --steps 50000 --seed 42
 ```
 
 ## Project Structure
 
 ```
-prepare.py          — data prep + evaluation (fixed)
-train.py            — Round 1-2 training script (depth 2)
-train_r4.py         — Round 4 training with 26 architecture variants
-validate.py         — step-budget convergence runs with diagnostics
-evaluate_quality.py — generation quality metrics
-ca_rules.py         — CA rule library
-program.md          — autoresearch instructions
-results.tsv         — experiment log
-validation_results/ — convergence run data (JSON, 20k steps × 5 seeds)
-outputs/            — experiment logs
+prepare.py              — data prep + evaluation (3.4M, TinyStories)
+train_r4.py             — Round 4 training with 26 architecture variants
+validate.py             — step-budget convergence runs with diagnostics
+train_125m.py           — 125M parameter validation (H100)
+analyze_125m.py         — 125M statistical analysis
+experiment_gradient.py  — gradient mechanism experiments
+analyze_all.py          — comprehensive cross-scale analysis
+ca_rules.py             — CA rule library
+results.tsv             — experiment log
+validation_results/     — 3.4M convergence data (JSON, 20k steps x 5 seeds)
+results_125m/           — 125M results (JSON, 20k-50k steps)
+gradient_results/       — mechanism experiment data
+figures/                — publication figures
 ```
 
 ## Hardware
 
-Designed for Apple Silicon (MPS). Also works on CUDA and CPU. Default: depth 4, channels 256, ~3.4M params, ~4.8 steps/sec on M1 Pro.
+- **3.4M model**: Apple Silicon (MPS), ~4.8 steps/sec on M1 Pro. Also works on CUDA and CPU.
+- **125M model**: NVIDIA H100 80GB, ~2.8 steps/sec. Uses Flash Attention with native sliding window support.
 
 ## References
 
