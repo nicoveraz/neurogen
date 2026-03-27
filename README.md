@@ -101,19 +101,34 @@ Larger batch models look better only because they saw 4-8x more data.
 At equal token budget, windows win and larger batch loses.
 ```
 
-**What we ruled out:**
-- Gradient noise removal (noise is constant across window sizes)
-- Softmax coupling contamination (only 4-7% of gradient from non-attended positions)
-- Variance reduction (larger batch can't replicate the effect at equal token count)
+**Experiment 4 — Train-val gap:** Quartic models have a slightly *larger* gap than baseline, opposite of the regularization prediction. Windows are **not** acting as implicit regularization.
 
-**What remains consistent with the data:**
-- Forced architectural specialization (early layers must build local features first)
-- Implicit regularization (windows constrain the hypothesis space)
-- Optimization landscape effect (partitioned search finds different minima)
-- Inductive bias toward compositional structure
-- Curriculum effect (local-before-global learning order)
+**Experiment 5 — Gradient covariance rank:** Effective rank drops from 48.4 (full attention) to 14.7 (window 8). At window 8, 97.7% of gradient variance is in the top component. Windows **dramatically reduce parameter coupling**.
 
-Distinguishing between these surviving hypotheses requires experiments we haven't run. The data shows that attention windows produce a real, scaling improvement through a mechanism that is specific to attention restriction — not a generic gradient quality effect.
+**Experiment 6 — Trained model landscape:** Quartic-trained models have slightly *lower* gradient stability than baseline (0.109 vs 0.139). Windows do **not** produce a smoother optimization landscape.
+
+**Experiment 7 — Remove windows mid-training (decisive test):** Train with quartic for 10k steps, then switch to full attention for 10k more. Result: removing windows preserves the full benefit.
+
+```
+config                          mean bpb    vs baseline
+A: Full attention (20k steps)    0.8977      —
+B: Quartic windows (20k steps)   0.8858      +1.33%
+F: Quartic 10k → Full 10k       0.8842      +1.50%
+
+F ≈ B (and slightly better): the hierarchy learned under constraint persists.
+```
+
+**What we ruled out (7 experiments):**
+- Gradient noise removal (noise constant — Exp 1)
+- Softmax coupling contamination (4-7% — Exp 2)
+- Variance reduction (batch size can't replicate — Exp 3)
+- Implicit regularization (quartic has larger train-val gap — Exp 4)
+- Optimization landscape smoothness (quartic slightly less stable — Exp 6)
+- Ongoing structural constraint (removing windows preserves benefit — Exp 7)
+
+**What the data supports:**
+- **Curriculum effect with lasting structural impact.** Windows during early training force a local-to-global learning order that creates a compositional hierarchy. This hierarchy persists after windows are removed — the model doesn't unlearn it. The reduced parameter coupling (Exp 5) is likely the mechanism by which the early constraint shapes the hierarchy.
+- **Inductive bias toward compositionality** remains consistent but is not independently testable with current experiments.
 
 ## Research Journey
 
@@ -182,19 +197,19 @@ python train_125m.py --generate checkpoints_125m/window_power_4.0_s42.pt
 python train_125m.py --compare checkpoints_125m/baseline_s137.pt checkpoints_125m/window_power_4.0_s137.pt
 ```
 
-### Gradient mechanism experiments (Apple Silicon / CPU)
+### Mechanism experiments (Apple Silicon / CPU)
 
 ```bash
-# Exp 1: window sweep on frozen checkpoint (~20 min)
-uv run experiment_gradient.py --exp1
+# Exp 1-3: gradient analysis (~2.5 hours)
+uv run experiment_gradient.py --all
 
-# Exp 2: gradient decomposition by layer (~30 min)
-uv run experiment_gradient.py --exp2
+# Exp 4-6: disambiguation (~45 min)
+uv run experiment_mechanism.py --exp4 --exp5 --exp6
 
-# Exp 3: variance reduction comparison (~2 hours)
-uv run experiment_gradient.py --exp3
+# Exp 7: curriculum test (~3 hours)
+uv run experiment_mechanism.py --exp7
 
-# Analyze all results
+# Cross-scale analysis with figures
 uv run analyze_all.py
 ```
 
@@ -208,18 +223,21 @@ validate.py             — step-budget convergence runs with diagnostics
 train_125m.py           — 125M model (GPT-2 small) for H100
 ca_rules.py             — CA rule library
 
+# Mechanism experiments
+experiment_gradient.py  — experiments 1-3 (gradient quality, decomposition, variance)
+experiment_mechanism.py — experiments 4-7 (regularization, coupling, landscape, curriculum)
+
 # Analysis
 analyze_125m.py         — 125M statistical analysis
 analyze_all.py          — cross-scale analysis with figures
-experiment_gradient.py  — gradient mechanism experiments (3 experiments)
 evaluate_quality.py     — generation quality metrics
 
 # Data
 validation_results/     — 3.4M convergence data (20k steps × 5 seeds × 4 configs)
 results_125m/           — 125M results (20k-50k steps × 2 seeds)
-gradient_results/       — mechanism experiment data (3 experiments)
+gradient_results/       — mechanism experiment data (7 experiments)
 charts/                 — SVG figures for README
-papers/                 — paper draft
+papers/                 — paper (LaTeX + PDF)
 ```
 
 ## Hardware

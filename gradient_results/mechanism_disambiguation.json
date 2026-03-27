@@ -1,0 +1,133 @@
+{
+  "exp4": null,
+  "exp5": null,
+  "exp6": null,
+  "exp7": {
+    "A_full_s42": {
+      "config": "A_full",
+      "seed": 42,
+      "final_bpb": 0.904102,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.99814
+      ],
+      "curve_end": [
+        20000,
+        0.904102
+      ]
+    },
+    "B_quartic_s42": {
+      "config": "B_quartic",
+      "seed": 42,
+      "final_bpb": 0.892674,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.998171
+      ],
+      "curve_end": [
+        20000,
+        0.892674
+      ]
+    },
+    "F_switch_s42": {
+      "config": "F_switch",
+      "seed": 42,
+      "final_bpb": 0.8946,
+      "source": "trained",
+      "curve_start": [
+        0,
+        7.9982
+      ],
+      "curve_end": [
+        20000,
+        0.8946
+      ]
+    },
+    "A_full_s137": {
+      "config": "A_full",
+      "seed": 137,
+      "final_bpb": 0.891267,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.998151
+      ],
+      "curve_end": [
+        20000,
+        0.891267
+      ]
+    },
+    "B_quartic_s137": {
+      "config": "B_quartic",
+      "seed": 137,
+      "final_bpb": 0.878824,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.998205
+      ],
+      "curve_end": [
+        20000,
+        0.878824
+      ]
+    },
+    "F_switch_s137": {
+      "config": "F_switch",
+      "seed": 137,
+      "final_bpb": 0.8739,
+      "source": "trained",
+      "curve_start": [
+        0,
+        7.9982
+      ],
+      "curve_end": [
+        20000,
+        0.8739
+      ]
+    },
+    "A_full_s256": {
+      "config": "A_full",
+      "seed": 256,
+      "final_bpb": 0.894124,
+      "source": "cached",
+      "curve_start": [
+        0,
+        8.00041
+      ],
+      "curve_end": [
+        20000,
+        0.894124
+      ]
+    },
+    "B_quartic_s256": {
+      "config": "B_quartic",
+      "seed": 256,
+      "final_bpb": 0.883028,
+      "source": "cached",
+      "curve_start": [
+        0,
+        8.000046
+      ],
+      "curve_end": [
+        20000,
+        0.883028
+      ]
+    },
+    "F_switch_s256": {
+      "config": "F_switch",
+      "seed": 256,
+      "final_bpb": NaN,
+      "source": "trained",
+      "curve_start": [
+        0,
+        8.0
+      ],
+      "curve_end": [
+        20000,
+        NaN
+      ]
+    }
+  }
+}
