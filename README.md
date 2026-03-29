@@ -75,7 +75,7 @@ The window function was found through systematic search across power functions (
 
 ## Mechanism
 
-Three experiments tested why attention windows improve training:
+Seven experiments tested why attention windows improve training:
 
 **Experiment 1 — Gradient quality vs window size:** On a frozen trained checkpoint, measured gradient SNR across 10 window sizes. Gradient noise is **constant** (~0.0053) regardless of window size. What changes is **signal coherence** — signal norm increases 18x from window 256 to window 8. Windows don't remove noise; they make gradients point in a more consistent direction.
 
