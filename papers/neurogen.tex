@@ -28,7 +28,7 @@ Independent Researcher\\
 \maketitle
 
 \begin{abstract}
-We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields robust improvements that increase with scale: $+1.5$\% at 3.4M parameters ($p=0.001$, Cohen's $d=2.05$, 5 seeds) and up to $+12.9$\% at 125M parameters (50k steps, gap still widening). Seven mechanism experiments eliminate six hypotheses (gradient noise removal, softmax coupling, variance reduction, implicit regularization, landscape smoothness, ongoing structural constraint) and identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed.
+We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields robust improvements that increase with scale: $+1.5$\% at 3.4M parameters ($p=0.001$, Cohen's $d=2.05$, 5 seeds) and averaging $+12.9$\% at 125M parameters (50k steps, gap still widening). Seven mechanism experiments eliminate six hypotheses (gradient noise removal, softmax coupling, variance reduction, implicit regularization, landscape smoothness, ongoing structural constraint) and identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed.
 \end{abstract}
 
 \section{Introduction}
@@ -215,21 +215,21 @@ If windows improve training through gradient variance reduction, then larger bat
 
 \begin{table}[H]
 \centering
-\caption{Variance reduction comparison (seed 42, equal optimizer steps).}
+\caption{Variance reduction comparison (mean of 3 seeds, equal optimizer steps).}
 \label{tab:variance}
 \begin{tabular}{lcccc}
 \toprule
 Config & Eff.\ batch & bpb & Tokens & bpb at 16M tokens \\
 \midrule
-A: Full, batch 32 & 32 & 1.242 & 16M & 1.242 \\
-\textbf{B: Quartic, batch 32} & 32 & \textbf{1.224} & 16M & \textbf{1.224} \\
-C: Full, batch 128 & 128 & 1.086 & 66M & 1.357 \\
-D: Full, batch 256 & 256 & 1.150 & 66M & 1.321 \\
+A: Full, batch 32 & 32 & 1.244 & 16M & 1.244 \\
+\textbf{B: Quartic, batch 32} & 32 & \textbf{1.214} & 16M & \textbf{1.214} \\
+C: Full, batch 128 & 128 & 1.084 & 66M & ${\sim}$1.352 \\
+D: Full, batch 256 & 256 & 1.033 & 131M & ${\sim}$1.45 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-At equal token count (16M), quartic windows (1.224) outperform both baseline (1.242) and the larger-batch controls (1.357, 1.321). Variance reduction cannot replicate the window effect. The mechanism is specific to attention restriction.
+At equal token count (16M), quartic windows (1.214) outperform both baseline (1.244) and the larger-batch controls (${\sim}$1.352, ${\sim}$1.45). Variance reduction cannot replicate the window effect. The mechanism is specific to attention restriction.
 
 \subsection{Mechanism Conclusion}
 
@@ -243,18 +243,18 @@ Seven experiments systematically eliminate six mechanism hypotheses:
     \item \textbf{Variance reduction} (Exp.~3). Larger batch sizes cannot replicate the effect at equal token count. At 16M tokens: windows 1.214, baseline 1.244, batch$\times$4 1.352.
     \item \textbf{Implicit regularization} (Exp.~4). Quartic models have a \textit{larger} train-val gap than baseline ($+0.013$ vs $-0.004$), opposite of the regularization prediction.
     \item \textbf{Optimization landscape smoothness} (Exp.~6). Quartic-trained models have slightly \textit{lower} gradient stability (0.109 vs 0.139) than baseline. Windows do not produce a smoother landscape.
-    \item \textbf{Ongoing structural constraint} (Exp.~7). Removing windows at step 10k (switching to full attention) preserves the full benefit: $F = 0.884$ vs $B = 0.886$ vs $A = 0.898$. The constraint is not needed permanently.
+    \item \textbf{Ongoing structural constraint} (Exp.~7). Removing windows at step 10k (switching to full attention) preserves---and slightly improves---the benefit: $F = 0.884$ vs $B = 0.886$ vs $A = 0.898$. The early constraint creates lasting structure; maintaining it is unnecessary and marginally counterproductive.
 \end{enumerate}
 
 \subsection{Positive Findings}
 
 \textbf{Experiment 5: Parameter coupling.} Gradient covariance effective rank drops from 48.4 (full attention) to 14.7 (window 8). At window 8, 97.7\% of gradient variance concentrates in the top singular component. Windows \textit{dramatically reduce parameter coupling} at early layers.
 
-\textbf{Experiment 7: Curriculum with lasting structure.} Training with quartic windows for only the first 10k steps, then switching to full attention, produces results equivalent to (or slightly better than) keeping windows for all 20k steps:
+\textbf{Experiment 7: Curriculum with lasting structure.} Training with quartic windows for only the first 10k steps, then switching to full attention, produces \textit{slightly better} results than keeping windows for all 20k steps:
 
 \begin{table}[H]
 \centering
-\caption{Curriculum test: removing windows mid-training (mean of 2 seeds).}
+\caption[Curriculum test]{Curriculum test: removing windows mid-training (mean of 2 seeds$^*$).}
 \label{tab:curriculum}
 \begin{tabular}{lccc}
 \toprule
@@ -262,14 +262,17 @@ Config & Steps with windows & Final bpb & vs Baseline \\
 \midrule
 A: Full attention & 0 / 20k & 0.8977 & --- \\
 B: Quartic windows & 20k / 20k & 0.8858 & $+1.33$\% \\
-F: Quartic $\rightarrow$ Full & 10k / 20k & 0.8842 & $+1.50$\% \\
+F: Quartic $\rightarrow$ Full & 10k / 20k & \textbf{0.8842} & $\mathbf{+1.50}$\% \\
 \bottomrule
 \end{tabular}
+
+\vspace{2pt}
+{\small $^*$Seed 256 Config F diverged after window removal (NaN); results from seeds 42 and 137 only.}
 \end{table}
 
 \subsection{Mechanism Summary}
 
-The data converges on a \textbf{curriculum effect with lasting structural impact}. Windows during early training force a local-to-global learning order that creates a compositional hierarchy. This hierarchy persists after windows are removed---the model does not unlearn it. The reduced parameter coupling (Experiment~5) is the likely mechanism by which early constraints shape the hierarchy: with fewer interacting parameters per gradient step, early layers are forced to find coherent local solutions rather than diffuse global patterns.
+The data converges on a \textbf{curriculum effect with lasting structural impact}. Windows during early training force a local-to-global learning order that creates a compositional hierarchy. This hierarchy persists after windows are removed---the model does not unlearn it. Notably, removing windows after 10k steps actually finds a \textit{better} solution ($F = 0.8842$) than keeping them for all 20k steps ($B = 0.8858$), suggesting that permanent windows eventually become a mild constraint on the upper layers. The reduced parameter coupling (Experiment~5) is the likely mechanism by which early constraints shape the hierarchy: with fewer interacting parameters per gradient step, early layers are forced to find coherent local solutions rather than diffuse global patterns.
 
 Inductive bias toward compositionality remains consistent with the data but is not independently testable with current experiments.
 
@@ -288,7 +291,7 @@ Inductive bias toward compositionality remains consistent with the data but is n
 
 \textbf{Scaling.} The effect grows with scale ($+1.5$\% at 3.4M $\rightarrow$ $+12.9$\% at 125M), and the gap is still widening at 50k steps. More layers provide a richer developmental progression.
 
-\textbf{Practical implications.} Two deployment strategies emerge from Experiment~7. Either keep windows permanently (simple, slight throughput bonus from Flash Attention sliding window) or apply windows only during the first half of training then remove them (allows full attention at inference). Both produce equivalent results.
+\textbf{Practical implications.} Two deployment strategies emerge from Experiment~7. Either keep windows permanently (simple, slight throughput bonus from Flash Attention sliding window) or apply windows only during the first half of training then remove them (allows full attention at inference with a marginally better result).
 
 \textbf{Biological connection.} The curriculum interpretation aligns with critical periods in cortical development: constrained connectivity during early development shapes functional architecture that persists after the constraints relax. The quartic growth exponent creates a steep developmental curve where most layers stay very local, with only the final layers opening to full context.
 

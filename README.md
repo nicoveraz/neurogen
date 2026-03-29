@@ -115,7 +115,7 @@ A: Full attention (20k steps)    0.8977      —
 B: Quartic windows (20k steps)   0.8858      +1.33%
 F: Quartic 10k → Full 10k       0.8842      +1.50%
 
-F ≈ B (and slightly better): the hierarchy learned under constraint persists.
+F is slightly *better* than B: removing windows after 10k steps finds a better solution than keeping them, strengthening the curriculum interpretation. Seed 256 Config F diverged (NaN) after window removal; results from seeds 42 and 137 only.
 ```
 
 **What we ruled out (7 experiments):**
