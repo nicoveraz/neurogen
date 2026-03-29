@@ -231,26 +231,51 @@ D: Full, batch 256 & 256 & 1.033 & 131M & ${\sim}$1.45 \\
 
 At equal token count (16M), quartic windows (1.214) outperform both baseline (1.244) and the larger-batch controls (${\sim}$1.352, ${\sim}$1.45). Variance reduction cannot replicate the window effect. The mechanism is specific to attention restriction.
 
-\subsection{Mechanism Conclusion}
+\subsection{Experiment 4: Train-Val Gap (Implicit Regularization)}
 
-\subsection{Eliminated Hypotheses}
+If windows act as implicit regularizers, they should reduce overfitting---quartic models should have a \textit{smaller} train-val gap than baseline. On frozen checkpoints (seed 42), we measured training bpb and validation bpb to compute the generalization gap.
 
-Seven experiments systematically eliminate six mechanism hypotheses:
+\textbf{Key finding:} Quartic models have a \textit{larger} train-val gap than baseline ($+0.013$ vs $-0.004$). This is the \textit{opposite} of the regularization prediction---windowed models slightly overfit \textit{more}, not less. Implicit regularization is eliminated as a mechanism.
 
-\begin{enumerate}
-    \item \textbf{Gradient noise removal} (Exp.~1). Noise norm is constant ($\sim$0.0053) across all window sizes. What changes is signal norm ($18\times$ increase). Windows increase gradient coherence, not reduce noise.
-    \item \textbf{Softmax coupling contamination} (Exp.~2). Noise fraction from non-attended positions is only 4--7\%. The softmax backward pass introduces minimal gradient contamination.
-    \item \textbf{Variance reduction} (Exp.~3). Larger batch sizes cannot replicate the effect at equal token count. At 16M tokens: windows 1.214, baseline 1.244, batch$\times$4 1.352.
-    \item \textbf{Implicit regularization} (Exp.~4). Quartic models have a \textit{larger} train-val gap than baseline ($+0.013$ vs $-0.004$), opposite of the regularization prediction.
-    \item \textbf{Optimization landscape smoothness} (Exp.~6). Quartic-trained models have slightly \textit{lower} gradient stability (0.109 vs 0.139) than baseline. Windows do not produce a smoother landscape.
-    \item \textbf{Ongoing structural constraint} (Exp.~7). Removing windows at step 10k (switching to full attention) preserves---and slightly improves---the benefit: $F = 0.884$ vs $B = 0.886$ vs $A = 0.898$. The early constraint creates lasting structure; maintaining it is unnecessary and marginally counterproductive.
-\end{enumerate}
+\subsection{Experiment 5: Gradient Covariance Rank (Parameter Coupling)}
 
-\subsection{Positive Findings}
+We measured the effective rank of the gradient covariance matrix under different window sizes to test whether windows reduce parameter coupling. On a frozen baseline checkpoint, we collected 50 gradient samples for the Q/K weights of layer~0 at five window sizes and computed the SVD of the gradient matrix (Table~\ref{tab:coupling}).
 
-\textbf{Experiment 5: Parameter coupling.} Gradient covariance effective rank drops from 48.4 (full attention) to 14.7 (window 8). At window 8, 97.7\% of gradient variance concentrates in the top singular component. Windows \textit{dramatically reduce parameter coupling} at early layers.
+\begin{table}[H]
+\centering
+\caption{Gradient covariance rank vs window size (layer 0, Q/K weights, 50 passes).}
+\label{tab:coupling}
+\begin{tabular}{rcccc}
+\toprule
+Window & Effective rank & Var.\ top-1 & Var.\ top-5 & Top singular value \\
+\midrule
+8 & 14.7 & 97.7\% & 99.8\% & --- \\
+32 & 32.1 & --- & --- & --- \\
+64 & 39.8 & --- & --- & --- \\
+128 & 45.2 & --- & --- & --- \\
+256 & 48.4 & 18.3\% & 52.1\% & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\textbf{Experiment 7: Curriculum with lasting structure.} Training with quartic windows for only the first 10k steps, then switching to full attention, produces \textit{slightly better} results than keeping windows for all 20k steps:
+\textbf{Key finding:} Effective rank drops from 48.4 (full attention) to 14.7 (window~8)---a $3.3\times$ reduction. At window~8, 97.7\% of gradient variance concentrates in the top singular component. Windows \textit{dramatically reduce parameter coupling} at early layers, forcing each gradient step to update a coherent, low-dimensional subspace rather than diffuse, high-dimensional noise.
+
+\subsection{Experiment 6: Gradient Stability (Landscape Smoothness)}
+
+If windows produce a smoother optimization landscape, then models \textit{trained with} quartic windows should exhibit more stable gradients at convergence---even when evaluated with standard (unmasked) forward passes. We compared gradient direction stability (mean pairwise cosine similarity across 30 gradient samples) for baseline vs quartic checkpoints.
+
+\textbf{Key finding:} Quartic-trained models have slightly \textit{lower} gradient stability (0.109 vs 0.139 for baseline). The quartic model finds a \textit{better} solution, but not one in a smoother region of the loss landscape. Optimization landscape smoothness is eliminated as a mechanism.
+
+\subsection{Experiment 7: Remove Windows Mid-Training (Curriculum vs Structure)}
+
+This experiment distinguishes three sub-hypotheses about the nature of the window effect:
+\begin{itemize}
+    \item \textbf{Structural specialization:} Windows create permanent internal hierarchy. Removing them should preserve the benefit ($F \approx B$).
+    \item \textbf{Ongoing constraint:} Windows must remain active to maintain the benefit. Removing them should degrade performance ($F$ worse than $B$).
+    \item \textbf{Curriculum effect:} Windows bootstrap useful structure but eventually constrain. Removing them should \textit{improve} performance ($F$ better than $B$).
+\end{itemize}
+
+We trained three configurations: A~(full attention, 20k steps), B~(quartic windows, 20k steps), and F~(quartic for 10k steps, then full attention for 10k steps), across 3 seeds (Table~\ref{tab:curriculum}).
 
 \begin{table}[H]
 \centering
@@ -269,6 +294,8 @@ F: Quartic $\rightarrow$ Full & 10k / 20k & \textbf{0.8842} & $\mathbf{+1.50}$\%
 \vspace{2pt}
 {\small $^*$Seed 256 Config F diverged after window removal (NaN); results from seeds 42 and 137 only.}
 \end{table}
+
+\textbf{Key finding:} $F > B > A$. Removing windows after 10k steps actually finds a \textit{better} solution ($F = 0.8842$) than keeping them for all 20k steps ($B = 0.8858$). This supports a \textbf{curriculum effect with lasting structural impact}: early constraints create a compositional hierarchy that persists after removal, and permanent windows eventually become a mild constraint on the upper layers. The ongoing structural constraint hypothesis is eliminated.
 
 \subsection{Mechanism Summary}
 
