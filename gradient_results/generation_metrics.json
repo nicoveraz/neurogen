@@ -1,0 +1,118 @@
+{
+  "metrics": [
+    {
+      "label": "Baseline",
+      "mean_words": 40.9,
+      "repetition_4gram": 0.0,
+      "vocab_diversity": 0.5051
+    },
+    {
+      "label": "Quartic",
+      "mean_words": 41.2,
+      "repetition_4gram": 0.0024,
+      "vocab_diversity": 0.4788
+    }
+  ],
+  "generations": {
+    "Baseline": [
+      {
+        "prompt": "Once upon a time there was a",
+        "generated": " loyal pillow. Inside the town lived and she had a secret home. Every day, the pillow would say hello and try to stop the pillow. One day the ill was walking down the street and soon she found a pillo"
+      },
+      {
+        "prompt": "The little girl walked into the",
+        "generated": " air and opened the box. She was ready to go on an adventure. Every day she would sit on her bed, then she would offer to her bed for everyone to help support her.\n\nOne day when she was looking around"
+      },
+      {
+        "prompt": "One day, the cat decided to",
+        "generated": " go on an adventure. His friends said, \"You need to take a walk in the forest, time to look for a cake.\"\n\nThe cat looked at the bear and tried to poke the yellow bear, but it didn't get the dog. The c"
+      },
+      {
+        "prompt": "Tom was very sad because",
+        "generated": " he loved his jam and he had done something bad.\n\nTom learned that to ask for help, not eat any important things that aren't to leave the machine. No protest, the letter was brave, but he was very pro"
+      },
+      {
+        "prompt": "The teacher told the children to",
+        "generated": " touch the children. \n\nThe children and the boy went to the children their see who had an idea. They left the pond every day. They shared the match and it was proud of them. \n\nWhen it was time to go h"
+      },
+      {
+        "prompt": "It was a dark and stormy",
+        "generated": " and a sign. It did not know where it was. It would be like it and the house. It did not mind that it was a special shirt. It seemed so special. Comping around the garden and everyone was very happy.\n"
+      },
+      {
+        "prompt": "Mom said we could go to the",
+        "generated": " park and play with the worm and the river. Anna said it was a tree with lots of fun and healthy for herself.\n\nLily followed Mom and took different care of the tree. She knew that she would never leav"
+      },
+      {
+        "prompt": "The dog found a big red",
+        "generated": " ball that he could see and he was happy to go back to it.\n\nThe dog was very happy and said, \"Thank you for helping me the ball, Jack! Now we have someone to play with.\"\n\nThe rabbit was happy that his"
+      },
+      {
+        "prompt": "Lucy wanted to learn how to",
+        "generated": " share and play with her food. She decided to have fun and be a great time.\n\nAfter the town was ready, Lucy and her mommy went outside and they stuck to the town. Zoomy went back to her home, feeling "
+      },
+      {
+        "prompt": "After school, the boy went to",
+        "generated": " the park to play with his friends. Timmy saw that it was on a big flower with lots of toys for him. He asked his friends what he was doing and his friends said it was okay. Timmy decided to buy more "
+      },
+      {
+        "prompt": "There was a tiny bird who",
+        "generated": " loved to play with poppies. One day, a little girl named Lily went outside to play in the poppy and go on a journey. They put on a huge cheap train and a window.\n\nLily was very excited to show off th"
+      },
+      {
+        "prompt": "The old man sat by the",
+        "generated": " house and ate the apples. The cat was happy and thanked the seal for the old man for making him smile. From that day on, the white cat tapped the whip to leave his house to find something fun.Once th"
+      }
+    ],
+    "Quartic": [
+      {
+        "prompt": "Once upon a time there was a",
+        "generated": " tough pile of words. The tough price was very wet. The rice was very happy and watched the sport speak together!\n\nOne day, the price was playing with his toys in the garden. The tough price was cauti"
+      },
+      {
+        "prompt": "The little girl walked into the",
+        "generated": " forest and laughed. She put on her shoes and said they could look at the little girl's way home, the little girl wanted to be the money out of the most yummy fruits in the warmer. She had so much fun"
+      },
+      {
+        "prompt": "One day, the cat decided to",
+        "generated": " give it a clover. She said the cat was locked, and the cat was so happy. She went back home to her mother. She gave her a big hug and got a big piece of colourful catch. She was happy to see the cat "
+      },
+      {
+        "prompt": "Tom was very sad because",
+        "generated": " he loved his jacket, so he ran in. \n\nThe boy found a little bird in the sky. He was so excited it could balance the factus together! He took it back home with a smile on the table and soved it.\n\nNow "
+      },
+      {
+        "prompt": "The teacher told the children to",
+        "generated": " the puppy and first weight. They said they would keep the child forever. \n\nThe teacher knew that the children was baking something different and they did not play with the children. The teacher said "
+      },
+      {
+        "prompt": "It was a dark and stormy",
+        "generated": ". They were having fun.\n\nOne day, they decided to take a march and they started to grow big and strong. The end.Once upon a time there was a rich white and she was glad that she decided to start findi"
+      },
+      {
+        "prompt": "Mom said we could go to the",
+        "generated": " park to play. They saw a race that was fuzzy. Lily was sad and replied that she felt shy.\n\nThe next day, Lily was thankful to the race. She took the race and put it in a bucket. She could make it go "
+      },
+      {
+        "prompt": "The dog found a big red",
+        "generated": " ball too. The red ball was happy, and sugar and sword.\n\nEvery day, the dog would have some new things to eat. The ball was happy to be okay. The dog would have the ball too. The dog was happy and too"
+      },
+      {
+        "prompt": "Lucy wanted to learn how to",
+        "generated": " share and candy when she has no doll. She has an idea.\n\n\"Let's go to the garden!\" Sara says. She reaches the book and puts the doll away.\n\n\"Put the tears in the garden, Sara!\" Ben and Ben say.\n\n\"OK, "
+      },
+      {
+        "prompt": "After school, the boy went to",
+        "generated": " the park to play with. He reached for it and told it to soar in the sky. The little boy grinned and said, \"I want to play with you, but you can't teach us how to do it if you pick up it with your blu"
+      },
+      {
+        "prompt": "There was a tiny bird who",
+        "generated": " loved to fly. One day, the swan got a bit bit from the big bird tricked he was still nice and gave the candy. The big bird was so happy that he had eaten with his energy. \n\nThe needer the big bitteff"
+      },
+      {
+        "prompt": "The old man sat by the",
+        "generated": " door. The fan said, \"That would be wonderful.\" Tom told the old man that he should be careful when he went to bed.\n\nThe old man had to take a closer look for her, but the woman wanted to be worried t"
+      }
+    ]
+  }
+}

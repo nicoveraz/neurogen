@@ -73,6 +73,22 @@ def compute_window(layer_idx, n_layers, seq_len, exponent=4.0):
 
 The window function was found through systematic search across power functions (exponents 0.5-12.0), sigmoid curves, logarithmic, exponential, and Fibonacci schedules. The optimal exponent is 3-4 at depth 4.
 
+## Attention Entropy Analysis
+
+Direct measurement of attention entropy confirms forced specialization. Quartic models develop dramatically more focused attention at early layers:
+
+![Attention Entropy](charts/attention_entropy_per_layer.png)
+
+```
+Layer    Baseline     Quartic      Change
+L0       1.994        0.852       −57.3%  ← forced local focus
+L1       1.506        0.916       −39.2%
+L2       2.466        2.183       −11.5%
+L3       2.120        2.449       +15.5%  ← final layer stays diffuse (full attention)
+```
+
+Early layers (L0–L1) show **49% lower entropy** on average — attention is concentrated on nearby tokens. The final layer compensates with slightly higher entropy, using its full attention span. This is exactly the developmental hierarchy the window schedule creates.
+
 ## Mechanism
 
 Seven experiments tested why attention windows improve training:
@@ -139,7 +155,7 @@ This project ran 200+ autonomous experiments across 5 phases:
 - **Round 4** (68 experiments): Tested 26 architecture variants including CA modulation channels, embryogenic CA, universal circuit pre-wiring, token vitality, sleep consolidation. Most failed. Developmental attention windows emerged as the clear winner.
 - **Validation** (20 experiments): Confirmed at 20k steps with 5 seeds. Statistically significant. Throughput-neutral.
 - **125M scaling** (15 experiments): Validated at GPT-2 scale on H100. Advantage grows from +2% to +8.4% over 50k steps.
-- **Mechanism** (3 experiments): Gradient analysis eliminates noise-removal and variance-reduction hypotheses. Identifies forced specialization as the mechanism.
+- **Mechanism** (7 experiments): Gradient analysis eliminates six mechanism hypotheses. Identifies curriculum effect with lasting structural impact via reduced parameter coupling.
 
 ### What Didn't Work
 - CA modulation channels (model collapse)
@@ -228,9 +244,11 @@ experiment_gradient.py  — experiments 1-3 (gradient quality, decomposition, va
 experiment_mechanism.py — experiments 4-7 (regularization, coupling, landscape, curriculum)
 
 # Analysis
-analyze_125m.py         — 125M statistical analysis
-analyze_all.py          — cross-scale analysis with figures
-evaluate_quality.py     — generation quality metrics
+analyze_125m.py              — 125M statistical analysis
+analyze_all.py               — cross-scale analysis with figures
+analyze_attention_entropy.py — per-layer attention entropy comparison
+evaluate_quality.py          — generation quality metrics
+generate_comparison.py       — side-by-side story generation
 
 # Data
 validation_results/     — 3.4M convergence data (20k steps × 5 seeds × 4 configs)
