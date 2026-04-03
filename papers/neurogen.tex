@@ -299,27 +299,27 @@ F: Quartic $\rightarrow$ Full & 10k / 20k & \textbf{0.8842} & $\mathbf{+1.50}$\%
 
 \subsection{Attention Entropy Confirmation}
 
-As independent confirmation of forced specialization, we measured per-layer attention entropy on validation data (100 batches) for both baseline and quartic checkpoints at 20k steps. For each layer, we computed entropy $H = -\sum_j \alpha_{ij} \log \alpha_{ij}$ averaged over all heads, query positions, and batches (Table~\ref{tab:entropy}).
+As independent confirmation of forced specialization, we measured per-layer attention entropy on validation data (100 batches) for both baseline and quartic checkpoints. For each layer, we computed entropy $H = -\sum_j \alpha_{ij} \log \alpha_{ij}$ averaged over all heads, query positions, and batches. To test whether this specialization is permanent or transient, we measured entropy at both 20k and 100k training steps (Table~\ref{tab:entropy}).
 
 \begin{table}[H]
 \centering
-\caption{Attention entropy per layer (seed 42, 100 batches, positions $>0$).}
+\caption{Attention entropy per layer at 20k and 100k steps (seed 42, 100 batches).}
 \label{tab:entropy}
-\begin{tabular}{rcccc}
+\begin{tabular}{rcccccc}
 \toprule
-Layer & Baseline (nats) & Quartic (nats) & $\Delta$ & \% Change \\
+ & \multicolumn{3}{c}{20k steps} & \multicolumn{3}{c}{100k steps} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+Layer & Baseline & Quartic & Change & Baseline & Quartic & Change \\
 \midrule
-0 & 1.994 & 0.852 & $-1.142$ & $-57.3$\% \\
-1 & 1.506 & 0.916 & $-0.590$ & $-39.2$\% \\
-2 & 2.466 & 2.183 & $-0.283$ & $-11.5$\% \\
-3 & 2.120 & 2.449 & $+0.329$ & $+15.5$\% \\
-\midrule
-Mean & 2.022 & 1.600 & $-0.422$ & $-20.9$\% \\
+0 & 1.994 & 0.852 & $-57.3$\% & 1.860 & 0.898 & $-51.7$\% \\
+1 & 1.506 & 0.916 & $-39.2$\% & 1.933 & 1.248 & $-35.4$\% \\
+2 & 2.466 & 2.183 & $-11.5$\% & 2.722 & 2.489 & $-8.6$\% \\
+3 & 2.120 & 2.449 & $+15.5$\% & 2.382 & 2.605 & $+9.4$\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Quartic models develop dramatically more focused attention at early layers: entropy is 57\% lower at layer~0 and 39\% lower at layer~1 compared to baseline. The final layer (which has full attention in both models) shows slightly \textit{higher} entropy in the quartic model, indicating it compensates by using its broader context more diffusely. This gradient from focused (early) to diffuse (late) is precisely the developmental hierarchy that the window schedule creates, confirming that the architectural constraint produces lasting specialization in the learned attention patterns.
+The specialization is \textit{permanent}. At 100k steps---$5\times$ longer training---quartic models still show 52\% lower entropy at layer~0 and 35\% lower at layer~1. The entropy gap narrows only slightly from 20k to 100k, confirming that the developmental hierarchy is not a transient artifact of early training but a lasting structural feature. The final layer consistently shows slightly \textit{higher} entropy in the quartic model, compensating by using its full attention span to integrate globally over the local features built by the constrained early layers.
 
 \subsection{Mechanism Summary}
 

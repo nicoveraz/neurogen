@@ -230,6 +230,20 @@ def train_steps(arch: str, max_steps: int = 20000, seed: int = 42,
         json.dump({"summary": summary, "curve": results}, f, indent=2)
     print(f"Saved: {curve_path}")
 
+    # Save model checkpoint
+    ckpt_dir = Path("checkpoints")
+    ckpt_dir.mkdir(exist_ok=True)
+    ckpt_path = ckpt_dir / f"model_{arch}_{seed}.pt"
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "arch": arch,
+        "seed": seed,
+        "max_steps": max_steps,
+        "val_bpb": final_vbpb,
+        "total_time_s": round(total_time, 1),
+    }, ckpt_path)
+    print(f"Saved: {ckpt_path}")
+
     return summary, results
 
 

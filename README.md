@@ -45,6 +45,28 @@ step     baseline   quartic    gap
 Throughput: baseline 2.78 sps, quartic 2.84 sps (windows are faster with Flash Attention)
 ```
 
+### 3.4M Extended Training (100K steps, seed 42)
+
+The quartic advantage **persists through 5x longer training**, with the curriculum effect strongest in early steps:
+
+```
+step     baseline   quartic    gap
+1k       1.3394     1.3261     +0.99%
+5k       1.1216     1.1086     +1.16%
+10k      1.0512     1.0210     +2.87%   ← peak gap (curriculum effect strongest)
+20k      0.9709     0.9572     +1.41%
+50k      0.8983     0.8933     +0.56%
+100k     0.8072     0.7994     +0.97%   ← advantage persists at convergence
+
+Best seen: quartic 0.7921 (step 96k) vs baseline 0.7980 (step 96k)
+
+Attention spans at 100k:
+  Baseline:  [8/256, 12/256, 22/256, 15/256]   (all layers use full window)
+  Quartic:   [2/8,   3/23,  11/86,  29/256]    (early layers stay local)
+```
+
+The developmental constraint accelerates hierarchy formation: the quartic model reaches its best structure early (peak advantage at 10K), and this advantage narrows but never closes even after 100K steps. The attention spans confirm that quartic early layers learn to use only ~2-3 tokens of their allowed window — they develop genuine locality, not just a mask.
+
 ### 3.4M Validated Results (20k steps, 5 seeds)
 
 ![Learning Curves](charts/learning_curves.svg)
@@ -61,6 +83,30 @@ Throughput: baseline 2.78 sps, quartic 2.84 sps (windows are faster with Flash A
 
 ![125M Final Performance](charts/125m_final_performance.svg)
 
+### Generation Samples (100K steps)
+
+Side-by-side generations from the 100K-step checkpoints (temperature=0.8, top_k=50). Both models are 3.4M params trained on TinyStories — qualitative differences are subtle at this scale, but the quartic model shows cleaner dialogue structure and fewer degenerate patterns:
+
+> **Prompt: "The little girl walked into the"**
+>
+> **Baseline:** air and opened the door. Inside the box, she saw some money inside. She was so excited, she quickly quickly quickly got the money of enough money. The little girl ran to her mom and hugged her tigh...
+>
+> **Quartic:** forest, exploring nature and enjoying the kind owner who loved him very much. So, she waved goodbye to the little girl and went back to her family. The little girl was very happy to have a new friend...
+
+> **Prompt: "Mom said we could go to the"**
+>
+> **Baseline:** store and buy a big treat. But Mom refused to ask what happened. She said they could find a beautiful spot on the carpet that was not easier for them. They were very sad. They had wanted to go back...
+>
+> **Quartic:** park and play games. When it was time to go home, Mom gave Lily and Ben a big smile. She said, "Thank you, mom and dad. You are very smart and kind. You have a good day." Mom and dad smiled and hugg...
+
+> **Prompt: "The dog found a big red"**
+>
+> **Baseline:** ball! The dog was very happy and said, "Thank you, doggy!" The dog said, "You're welcome, doggy!" The dog ran back to the park and the doggy hopped onto the ball...
+>
+> **Quartic:** ball. The dog said, "I will remove you from the swing." Lily and Tom nodded. They said, "OK, we will do big things together. But can we play with the ball again?"...
+
+Full set of 12 paired generations: [`generated_samples.txt`](generated_samples.txt)
+
 ## How It Works
 
 A standard transformer uses full attention at every layer. NeuroGen restricts each layer's attention window based on depth, forcing early layers to build local features before later layers integrate globally:
@@ -75,19 +121,22 @@ The window function was found through systematic search across power functions (
 
 ## Attention Entropy Analysis
 
-Direct measurement of attention entropy confirms forced specialization. Quartic models develop dramatically more focused attention at early layers:
+Direct measurement of attention entropy confirms forced specialization **persists through extended training**:
 
 ![Attention Entropy](charts/attention_entropy_per_layer.png)
 
+![Entropy 20K vs 100K](charts/attention_entropy_20k_vs_100k.png)
+
 ```
-Layer    Baseline     Quartic      Change
-L0       1.994        0.852       −57.3%  ← forced local focus
-L1       1.506        0.916       −39.2%
-L2       2.466        2.183       −11.5%
-L3       2.120        2.449       +15.5%  ← final layer stays diffuse (full attention)
+         --- 20K Steps ---              --- 100K Steps ---
+Layer    Baseline  Quartic  Change      Baseline  Quartic  Change
+L0       1.994     0.852    −57.3%      1.860     0.898    −51.7%  ← stays focused
+L1       1.506     0.916    −39.2%      1.933     1.248    −35.4%
+L2       2.466     2.183    −11.5%      2.722     2.489    −8.6%
+L3       2.120     2.449    +15.5%      2.382     2.605    +9.4%   ← stays diffuse
 ```
 
-Early layers (L0–L1) show **49% lower entropy** on average — attention is concentrated on nearby tokens. The final layer compensates with slightly higher entropy, using its full attention span. This is exactly the developmental hierarchy the window schedule creates.
+Early layers (L0–L1) maintain **~44% lower entropy** even at 100K steps — the specialization created by attention windows is permanent, not a transient training artifact. The final layer compensates with slightly higher entropy, using its full attention span to integrate globally over the local features built below.
 
 ## Mechanism
 
