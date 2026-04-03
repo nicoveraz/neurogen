@@ -14,14 +14,15 @@ I extended both the baseline and quartic window models to 100,000 steps on TinyS
 
 ![100K Training Curves](https://raw.githubusercontent.com/nicoveraz/neurogen/main/charts/100k_training_curve.png)
 
-| Steps | Baseline bpb | Quartic bpb | Gap |
-|:------|:-------------|:------------|:----|
-| 1,000 | 1.3394 | 1.3261 | +0.99% |
-| 5,000 | 1.1216 | 1.1086 | +1.16% |
-| 10,000 | 1.0512 | 1.0210 | +2.87% |
-| 20,000 | 0.9709 | 0.9572 | +1.41% |
-| 50,000 | 0.8983 | 0.8933 | +0.56% |
-| 100,000 | 0.8072 | 0.7994 | +0.97% |
+```
+Steps      Baseline    Quartic     Gap
+1,000      1.3394      1.3261      +0.99%
+5,000      1.1216      1.1086      +1.16%
+10,000     1.0512      1.0210      +2.87%  ← peak
+20,000     0.9709      0.9572      +1.41%
+50,000     0.8983      0.8933      +0.56%
+100,000    0.8072      0.7994      +0.97%  ← persists
+```
 
 The advantage peaks at +2.87% during the early hierarchy-forming phase (10K steps), then settles to a persistent +0.97% at 100K. The quartic model reached 0.7921 bpb at its best checkpoint (step 96K). Neither model is fully converged.
 
@@ -33,11 +34,12 @@ At 3.4M parameters, neither model writes literature. But at 100K steps, the text
 
 Aggregate metrics across all 240 samples:
 
-| Metric | Baseline | Quartic |
-|:-------|:---------|:--------|
-| Mean words/sample | 31.2 | 30.3 |
-| Vocabulary diversity | 0.789 | 0.801 (+1.5%) |
-| 3-gram repetition | 0.011 | 0.015 |
+```
+Metric                Baseline    Quartic
+Mean words/sample     31.2        30.3
+Vocabulary diversity  0.789       0.801 (+1.5%)
+3-gram repetition     0.011       0.015
+```
 
 On average, the differences are modest — both models produce similar-quality TinyStories output at this scale. But the interesting signal is in the failure modes. When baseline fails, it tends toward repetitive phrase loops. Here are the most contrasting pairs I found (cherry-picked from the best-of-5 seeds per prompt — not every sample looks like this):
 
@@ -85,13 +87,14 @@ Entropy measures how focused each layer's attention is. Low entropy = the layer 
 
 ![Entropy 20K vs 100K](https://raw.githubusercontent.com/nicoveraz/neurogen/main/charts/attention_entropy_20k_vs_100k.png)
 
-|  | 20K Steps |  |  | 100K Steps |  |  |
-|:---|:---|:---|:---|:---|:---|:---|
-| Layer | Baseline | Quartic | Change | Baseline | Quartic | Change |
-| L0 | 1.994 | 0.852 | −57.3% | 1.860 | 0.898 | −51.7% |
-| L1 | 1.506 | 0.916 | −39.2% | 1.933 | 1.248 | −35.4% |
-| L2 | 2.466 | 2.183 | −11.5% | 2.722 | 2.489 | −8.6% |
-| L3 | 2.120 | 2.449 | +15.5% | 2.382 | 2.605 | +9.4% |
+```
+         --- 20K Steps ---              --- 100K Steps ---
+Layer    Baseline  Quartic  Change      Baseline  Quartic  Change
+L0       1.994     0.852    −57.3%      1.860     0.898    −51.7%
+L1       1.506     0.916    −39.2%      1.933     1.248    −35.4%
+L2       2.466     2.183    −11.5%      2.722     2.489    −8.6%
+L3       2.120     2.449    +15.5%      2.382     2.605    +9.4%
+```
 
 The key findings:
 
