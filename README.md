@@ -52,6 +52,8 @@ Baseline 100K:  [8/256, 12/256, 22/256, 15/256]   (all layers diffuse)
 Quartic 100K:   [2/8,   3/23,  11/86,  29/256]    (early layers tightly local)
 ```
 
+![100K Training Curves](charts/100k_training_curve.png)
+
 ![Learning Curves](charts/learning_curves.svg)
 
 ![Final Performance](charts/final_performance.svg)
