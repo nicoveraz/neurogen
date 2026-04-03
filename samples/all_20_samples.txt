@@ -1,0 +1,1973 @@
+================================================================================
+NEUROGEN: 20 SAMPLES PER PROMPT
+100K-step checkpoints | temp=0.8 | top_k=50 | top_p=0.9 | max=250 tokens
+Baseline vbpb=0.8072 | Quartic vbpb=0.7994
+================================================================================
+
+================================================================================
+PROMPT 1/12: "Once upon a time there was a"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+little girl called Sarah. She was only three years old and very curious.
+
+[QUARTIC]
+little girl called Sarah. She was only three years old and very curious about the world around her.
+
+--- seed 1 ---
+
+[BASELINE]
+mom and a little boy. The mom and dad were always careful to be careful and took things that were not supposed to be scared.
+
+[QUARTIC]
+curious little girl wanted to play with the curtain. She asked her mommy, "Can I play with the curtain?" Her mommy said, "Yes, you can play with the curtain."
+
+--- seed 2 ---
+
+[BASELINE]
+little girl named Jane. Jane lived on a special board with her mom and dad. Every day Jane would take her board to a real place. The place was always where to be supported by all the other animals.
+
+[QUARTIC]
+little girl named Lily. One day, she went to the park with her mom. They saw a big ball and Lily pointed to it. It was red and shiny and had bits of windows. She wanted to kick it back. She ran to the ball and picked it up. She said, "Look, mom, I f
+
+--- seed 3 ---
+
+[BASELINE]
+little girl named May. She was very hungry and wanted to eat something sweet. So she went to the store and picked out a big box. She found a bottle of bows in the garden and put them in a bowl with some fresh apples.
+
+[QUARTIC]
+little girl named Amy. She loved to play with her toys and sing songs. One day, Amy was walking through the park when she saw a small bird with a broken wing.
+
+--- seed 4 ---
+
+[BASELINE]
+big garden. In the garden, there was a beautiful flower. It was a beautiful butterfly with lots of flowers and butterflies. One day, a small bird came to the garden. The bird saw the butterfly and asked, "What is your name?"
+
+[QUARTIC]
+brave little boy. He was walking through the park one day when he saw a big red ball. He wanted to play with it, so he ran to the red ball and started to stretch his arms as hard as he could. He was so happy and said to himself, "Thank you for helpi
+
+--- seed 5 ---
+
+[BASELINE]
+compassionate girl named Amy. She was always very patient and waited until her mom came to her.
+
+[QUARTIC]
+poor man who lived in a small house with a big ball. He loved to play and run around the house with his ball. One day, he saw a big, scary dog running towards him. The dog ran to the dog and barked. The dog ran after the dog and tried to catch the d
+
+--- seed 6 ---
+
+[BASELINE]
+small girl called Mary. Mary loved to collect things with her paws. She was very brave and helped everyone in need of animals.
+
+[QUARTIC]
+smart bear named Bob. Bob was a very good bear, so he was very loyal. One day Bob decided to go on an adventure. He grabbed a phone and started to pretend.
+
+--- seed 7 ---
+
+[BASELINE]
+little girl named Sue. Sue had a little toy car that she loved to play with. One day, she saw a big, beautiful car on the ground. She picked it up and said, "Look mommy, I found a big car!" Her mom smiled and said, "That's wonderful, Sue! You can pl
+
+[QUARTIC]
+little girl named Sue. She loved to play in the woods and look for bugs. One day, she found a letter in her pocket. It was a big, red ball that her grandma had found before. Sue was so excited and wanted to play with it too.
+
+--- seed 8 ---
+
+[BASELINE]
+girl named Mary. She was very smart. Every day she would look around her house. One day while she was playing with her favorite coat, she saw a silver one. It was shiny and bright orange. Mary was very excited to see it was the same one.
+
+[QUARTIC]
+girl. She was three years old and very excited to go explore. She was a very successful girl and every night she would bring her star expensive too.
+
+--- seed 9 ---
+
+[BASELINE]
+little girl named Sue. She loved to play with her dolls. One day, her mom said, "Sue, it is time for you to delay. You have to go to school for a few days." The little girl did not want to wait.
+
+[QUARTIC]
+little girl named Sue. Sue was three years old and she was very brave. One day, Sue went outside and saw something shiny in the grass. She went to take a closer look. It was a carpet! Sue was excited.
+
+--- seed 10 ---
+
+[BASELINE]
+mommy and a little girl. The little girl had a big smile and loved to play outside.
+
+[QUARTIC]
+wise old owl. She lived in a big tree and loved to explore the forest near her house.
+
+--- seed 11 ---
+
+[BASELINE]
+little girl named Lily. She loved to play with her toys all day long. One day, her mom gave her a cold airplane. Lily was so happy and played in the sun all day.
+
+[QUARTIC]
+little girl named Lily. She loved to play with her toys and her friends. One day, she went to a park with her mommy and saw a big tree with lots of people.
+
+--- seed 12 ---
+
+[BASELINE]
+big car. It was very cheap. Every day it would push a big bump and take the car away. It wanted to play the car in the park and pretend it was a superhero.
+
+[QUARTIC]
+brave boy who wanted to go on a trip. He went to the park and he saw a big, scary bear. He started to run away, but he was stuck inside. He was so scared he started to cry.
+
+--- seed 13 ---
+
+[BASELINE]
+family who wanted to take a walk. They asked their mom, "Can we take a walk with us?" Mom said yes and they went to the walk to the tall grass.
+
+[QUARTIC]
+fair teddy bear. It was very high and had long blocks. Every day it would put on its bright blue shoes and trucks. The teddy bear loved to play outside.
+
+--- seed 14 ---
+
+[BASELINE]
+little boy named Joe. Joe loved to go on adventures by himself. One day he went to a special place with his mommy. He saw a big red carpet with a funny face on it. Joe wanted to go on the tour and see the carpets. He asked his mommy if he could go o
+
+[QUARTIC]
+boy. He was working on a chair. He had a plastic scarf and a long beard and a strong beard. He loved to watch them eat them.
+
+--- seed 15 ---
+
+[BASELINE]
+boy called John. John was always happy and loved to dress up. One day, John decided to go for a walk. He walked and walked until he came to a big park. John had never seen anything like it before.
+
+[QUARTIC]
+boy called John. John was very excited to try the new boy with his friends.
+
+--- seed 16 ---
+
+[BASELINE]
+little girl named Sally. Sally loved to play in the sun and dance around the house. One day, she wanted to buy a toy for her birthday. Sally was excited and said, "I want that toy!"
+
+[QUARTIC]
+little girl named Sally. She was three years old and loved exploring the world around her.
+
+--- seed 17 ---
+
+[BASELINE]
+little girl called Anna. She was three years old and loved to play. One day, Anna decided to go for a walk.
+
+[QUARTIC]
+boy who wanted to go on an adventure. He went on a walk to the town and found a big piece of cookie. He was so excited to have it! He ran outside to get it back.
+
+--- seed 18 ---
+
+[BASELINE]
+funny man who lived in a big house. One day he was walking through the woods when he heard a loud noise. He was so scared that he forgot to run out into the dark. As he looked around, he saw a tiny hole in the wall. He stopped and looked around for
+
+[QUARTIC]
+funny man who had a big bag full of shiny bells. One day, he decided to show his bag to his friends. They walked to the shiny thing and looked at it carefully.
+
+--- seed 19 ---
+
+[BASELINE]
+little girl called Sarah. She was three years old and loved to explore the world around her. One day, she was walking in the woods when she saw a little mouse with a big beak. She had never seen anything like it before.
+
+[QUARTIC]
+little girl called Sarah. She was three years old and loved to explore the world around her. One day, she was playing in the garden when she saw a big, frightened bull. She was scared and didn't know what to do.
+
+================================================================================
+PROMPT 2/12: "The little girl walked into the"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+water. She saw the sunflower. It was blue. The little girl looked sad. The little girl didn't know why the sunflower was in the water.
+
+[QUARTIC]
+woods and behind the trees. They are happy and proud. They said they had stopped the statue from the way. They said they had to stay in the water and the little girl didn't listen and stayed at the water. They stayed at the water until the statue wa
+
+--- seed 1 ---
+
+[BASELINE]
+room with a smile. She felt a bit so happy, she wanted to go to the park.
+
+[QUARTIC]
+desert and asked if she could borrow the staff. The little girl smiled and said she wanted to take it home.
+
+--- seed 2 ---
+
+[BASELINE]
+forest and played the game together. They laughed and had lots of fun. After a while, the little girl felt very proud. She had had a lot of fun. The end.Once upon a time, there was a boy named Timmy. Timmy loved to play hide and seek with his friend
+
+[QUARTIC]
+woods and saw a big tree with lots of leaves. The little girl looked around and noticed a big tree with a path in it. She wanted to climb the tree to see the whole world. The little girl was so happy and she clapped her hands.
+
+--- seed 3 ---
+
+[BASELINE]
+cave and saw a big hill. She was so excited! She couldn't believe how far away and her mum said it was too tall.
+
+[QUARTIC]
+woods. She saw a big, furry animal in the water. The little girl was so happy to see the animal again. She ran to the fence and picked it up. The animal shook its head and said, "You must be careful." The little girl was scared, but the animal said,
+
+--- seed 4 ---
+
+[BASELINE]
+house and saw some other friends playing. They wanted to join in and have some fun. The little girl and her friends said goodbye to each other. They all said thank you and smiled. The little girl smiled and said, "You're welcome. You are very good f
+
+[QUARTIC]
+forest and the rare bear became friends.
+
+--- seed 5 ---
+
+[BASELINE]
+dark store with her mom to the car. When she arrived, the dad said it was time to go home.
+
+[QUARTIC]
+living room and saw something sparkly on the ceiling. She was curious to see what was inside. She looked inside the ceiling and saw a big ball of yellow balloons in the corner of her room.
+
+--- seed 6 ---
+
+[BASELINE]
+car and said thank you.
+
+[QUARTIC]
+room and saw something very strange. It was a big, furry pond! The little girl was so excited that she ran to the edge of the pond to try and find out. She had never seen anything like it before.
+
+--- seed 7 ---
+
+[BASELINE]
+room and saw a small piece of the carpet and asked her mommy what it was. Her mommy said it was a present for her and said it was a special car.
+
+[QUARTIC]
+woods. She saw many buildings and animals. The little girl was so happy. She hugged the little boy and said, "Thank you, little little girl! You are the best friends ever!" The little girl smiled and said, "Yes, please!" The little girl hugged the l
+
+--- seed 8 ---
+
+[BASELINE]
+forest and saw a big tree with a squirrel on the ground. She was so excited and couldn't wait to pick it up.
+
+[QUARTIC]
+park. She was so happy and proud to have her carrot.
+
+--- seed 9 ---
+
+[BASELINE]
+car and saw the bird had a swing. The bird was happy and said, "Thank you, little bird. You are very kind and friendly." The little girl smiled and hugged the bird. The bird flew off to play with her.Once upon a time, there was a little boy named Ti
+
+[QUARTIC]
+woods and saw lots of animals. She wanted to go home and play with her friends. She thought about it and she remembered how much she loved her and she was excited to explore.
+
+--- seed 10 ---
+
+[BASELINE]
+room and asked, "What are you doing, little one?"
+
+[QUARTIC]
+store. She saw a big bag of papers in the corner of her room. She was very happy to see the papers and the big cords on the table. She started to pick up the papers and put them in her bag. She was very surprised to see that the papers were in her r
+
+--- seed 11 ---
+
+[BASELINE]
+pool and had a soft blanket and a warm blanket. She was so happy that she gave her a hug and said, "You were very lucky to have a special surprise."
+
+[QUARTIC]
+woods and she couldn't find the owner. She was so sad and cried for help.
+
+--- seed 12 ---
+
+[BASELINE]
+sunset and walked away, happy and full of excitement.
+
+[QUARTIC]
+woods. She was so happy and wanted to show it to her mom.
+
+--- seed 13 ---
+
+[BASELINE]
+park and saw a big tree. She wanted to see what was in the tree, so she climbed up the tree.
+
+[QUARTIC]
+cave and she couldn't see where she was. Suddenly, she saw a small dog running towards her. She was scared, but she knew she would come back and see it. She started to run away and found her special treat in the distance. She saw that the dog was fr
+
+--- seed 14 ---
+
+[BASELINE]
+living room to find the ball. She was so happy! She took the ball to her mommy and daddy.
+
+[QUARTIC]
+woods. The little girl was so happy, she was able to help the friends. The little girl was so proud of herself for finding the little friends.Once upon a time there was a little girl. She was three years old and very curious. One day she was walking
+
+--- seed 15 ---
+
+[BASELINE]
+store and saw a beautiful machine. It had many colors and shapes that she liked to dress up and put it on. She was so excited to learn all about the machine.
+
+[QUARTIC]
+forest and saw a little bird with a can of a big head. The little girl was very excited. She saw lots of trees and flowers and birds in the forest. The little girl was so happy that she gave the bird a big hug. The little girl was so happy that the
+
+--- seed 16 ---
+
+[BASELINE]
+woods and all she saw was so much fun. She felt so happy and safe with her friends.
+
+[QUARTIC]
+woods. She came to a big tree with a broken window. The little girl was sad and didn't know what to do.
+
+--- seed 17 ---
+
+[BASELINE]
+sea with a smile on her face. She knew that the forest would be there to help her and she soon fell asleep in the shade.Once upon a time, there was a little girl named Amy. She loved to dress up as a printer. She would pretend to send a pretty pictu
+
+[QUARTIC]
+woods. She walked and walked until she came to a tall tree. The girl looked up and saw a squirrel walking towards her.
+
+--- seed 18 ---
+
+[BASELINE]
+park. She saw some other kids playing and looked sad. The kid said, "Why are you sad? I want to play too!" The little girl said, "I like being honest, but I am the one we want to be your friends." The man said, "That's not nice. You have to share. T
+
+[QUARTIC]
+woods and she noticed something that made her smile. She looked up and saw a pretty flower sitting on a blanket. It was very pretty and it made her smile. She thanked the flower for bringing her special flower and said, "I love you, Mommy!"
+
+--- seed 19 ---
+
+[BASELINE]
+woods and found a magical lake. The little girl was very happy and ran off to explore the lake.Once upon a time there was a tall mountain. It was a very cold and sunny day. It was filled with cold water and pretty clothes. The mountain was very happ
+
+[QUARTIC]
+woods, and she saw a beautiful red rock. She ran to it and picked it up. She wanted to show it to her friends.
+
+================================================================================
+PROMPT 3/12: "One day, the cat decided to"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+go to the circus. He got the circus and rode around the circus. As he walked, he saw a big tree. He was so happy that he wanted to show his friends.
+
+[QUARTIC]
+give him a small piece. The bird was so excited! He took a piece of coal and started to put the cat in the pieces.
+
+--- seed 1 ---
+
+[BASELINE]
+stay at the train. He had to go to the store and go to the store. He was very careful with the cat. The cat did not know that it had to be careful and not press the button. The cat tried to find the cat to catch the cat, but he could not find the ca
+
+[QUARTIC]
+play with the stick and watch the sky go by. The sun was shining and the sky was blue.
+
+--- seed 2 ---
+
+[BASELINE]
+go for a walk in the forest. He stood in front of the cat's wallet and was feeling excited. The cat was having a great time climbing up the wallet.
+
+[QUARTIC]
+take a break. But it was too late for the shower. The cat ran to him and came to help. The cat was a little scared and didn't know what to do.
+
+--- seed 3 ---
+
+[BASELINE]
+go on an adventure. As it walked, it saw a tree with a little bird sitting on it. The bird was so happy and started to sing a beautiful song.
+
+[QUARTIC]
+take a walk in the park. As soon as she saw the boy staring, a big bird flying in the sky. The bird was so curious about the boy and wanted to know what it was. The boy smiled and said, "Hello there, little girl. I am looking for a shiny crystal."
+
+--- seed 4 ---
+
+[BASELINE]
+try and start playing. He got a big ball and was very excited.
+
+[QUARTIC]
+put a band-aid on its head. The cat was very friendly and they had a lot of fun together. The cat was a strong cat and the cat was nice to the cat.
+
+--- seed 5 ---
+
+[BASELINE]
+climb a big mountain. It started to get sleepy and dried off in the mountain and it started to get wet.
+
+[QUARTIC]
+help and fill the hole in the wall. The cat was stuck in the hole and couldn't get out!
+
+--- seed 6 ---
+
+[BASELINE]
+make a big cake for the cat. He wanted to make the cat happy again.
+
+[QUARTIC]
+be friends. She looked for a new home and found a seat under a big tree. The cat was so happy to be friends with the cat.
+
+--- seed 7 ---
+
+[BASELINE]
+go for a walk in the forest. As they walked, they saw a little bird sitting on a branch. The bird said, "Hello, birdie! I am a famous bird." The cat said, "Hello, birdie! Would you like to come in?" The bird replied, "Yes, please. I can talk to you.
+
+[QUARTIC]
+give it a try. So he started to give it a gentle look. The cat was so happy and said, "Thank you, cat!"
+
+--- seed 8 ---
+
+[BASELINE]
+play a game. He thought it would be fun to watch him soar. He rolled his ball to the first one to make it roll and splash in the water.
+
+[QUARTIC]
+take a walk in the woods. As he was walking, he saw a big, scary monster in the woods. He had never seen a monster before, so he decided to be brave and take a walk in the woods. As he walked, he saw a big, scary monster. The monster was scared and
+
+--- seed 9 ---
+
+[BASELINE]
+go to the park. He put on his shoes and grabbed his shoes. He took off his shoes and started walking.
+
+[QUARTIC]
+be clever and not take things that don't belong to him. She asked if she could borrow her cat, but the cat just smiled and said no. The cat said it was too clever and couldn't do it all by itself.
+
+--- seed 10 ---
+
+[BASELINE]
+have a race. It ran and ran and tried to find a safe place. But it couldn't see the sunrise. It was too high for the cat to reach.
+
+[QUARTIC]
+make a paper that would cause falling and do tricks for the bird. The cat was very sad and missed the bird very much.
+
+--- seed 11 ---
+
+[BASELINE]
+go for a walk. As he was walking, he saw something shiny on the ground. He ran over to take a closer look. It was a tall stone!
+
+[QUARTIC]
+cook a dinner with his mom. The cat was very happy and the cat liked to eat carrots all day. The cat was very hungry and wanted to eat the carrots.
+
+--- seed 12 ---
+
+[BASELINE]
+go for a walk. He walked and walked, but he couldn't see any fuel.
+
+[QUARTIC]
+stretch it out. But the cat was fast and wanted to stay at the stadium. The cat saw the big bowl and wanted to stretch its arms to reach the cat. But the cat was too fast and tried to get away.
+
+--- seed 13 ---
+
+[BASELINE]
+explore the world. He found a creative place to explore. He was very excited and wanted to explore the world.
+
+[QUARTIC]
+come with me. I can help you with my work." The cat was a bit sad because it had no one to play with. But when it went to the hospital, the doctors had to go to the hospital. The doctors tried to feel better, but he couldn't get his work.
+
+--- seed 14 ---
+
+[BASELINE]
+go on a journey in the woods. He stepped on his big paws and the cat crossed his arms. The cat looked down and saw a firework. He wanted to explore and look around the house. He was very curious and wanted to explore.
+
+[QUARTIC]
+record the spaghetti of her sister's advice. So, the cat decided to give it a hug and the cat was so happy. The cat stopped and ate the cat together. They had a fun day at the park.Once upon a time, there was a big building with lots of trees. The t
+
+--- seed 15 ---
+
+[BASELINE]
+take his ship to a car. He sailed along the path and was a long journey. He saw many animals and heard music. There was a big boat and a fish. The boat was very big and loud. It was scary and scary. The cat did not like it. It wanted to show its fam
+
+[QUARTIC]
+share her toy with her friends. The cat told the cat to go on a long journey. The cat was very scared, but the cat was wild. The cat was a little bit scared. Suddenly, the cat heard a loud bark and came to see what was wrong. The cat was also scared
+
+--- seed 16 ---
+
+[BASELINE]
+go outside to play in the rain. She saw a big puddle in the water. She was so excited!
+
+[QUARTIC]
+go outside and play. The cat saw a crab and wanted to play with it. The cat said, "Let's play a game. We can have fun." The cat said, "OK, but be careful. The cat might be afraid of the cat."
+
+--- seed 17 ---
+
+[BASELINE]
+go for a walk in the woods. It saw a big, red carpet and wanted to play with it. So, it went to the cat's house to play with the carpet.
+
+[QUARTIC]
+split the tray into two pieces. The cat put the tray in a pile and then added some salt. She put the tray in the pile and started to put the tray back in the bowl.
+
+--- seed 18 ---
+
+[BASELINE]
+explore the world. He saw a lot of fun and he ran around it with the soft blankets. He ran over to the blankets and started to walk. As he walked, he saw a big pond with lots of ducks and frogs. They were so happy that they followed the water and he
+
+[QUARTIC]
+create a picture of a rainbow on the wall. She was very excited to use it to stack the car.
+
+--- seed 19 ---
+
+[BASELINE]
+go to the store. It wanted to buy a big car and a ring. But the ring was too expensive for the ring. The cat felt sad and asked the cat to go away.
+
+[QUARTIC]
+go to the farm. The farmer was very good at the farm because he could count the animals on the farm. The cat was very happy and wanted to show his friends his new farm.
+
+================================================================================
+PROMPT 4/12: "Tom was very sad because"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+he loved to eat but he could not watch TV. One day, he was playing with his favorite boat when he accidentally broke it off. Tom was very sad and didn't know what to do. He wanted to go home, but he knew he had to go home.
+
+[QUARTIC]
+he was too busy because he could not play with the rock. He tried to climb the big rock but he was too little and couldn't get down. His mom tried to help him, but it was too late. The rock hit him and he started to cry.
+
+--- seed 1 ---
+
+[BASELINE]
+he didn't know why the man was not supposed to be the only way they could find. So the man went to find the owner of the park.
+
+[QUARTIC]
+he loved how it made him feel.
+
+--- seed 2 ---
+
+[BASELINE]
+he could not swing too far. He cried and cried until a kind voice came from the tree. Tom was so sad. He wanted to go home but he was too late.
+
+[QUARTIC]
+he could play with his toys all day long.
+
+--- seed 3 ---
+
+[BASELINE]
+he didn't have any friends to play with. He tried to figure out how to play a game that he could use it. Tom felt sad for the girl and wanted to play the game with him.
+
+[QUARTIC]
+he lost his friend. Lily wanted to play with him, but Tom was scared. He said, "Tom, you are not supposed to play with my friends. They are not for playing."
+
+--- seed 4 ---
+
+[BASELINE]
+he couldn't play outside anymore. Tom decided to go outside and play in the garden. He put on his shoes and ran outside. He was ready to play games and sing songs.
+
+[QUARTIC]
+he couldn't find any of his own. He walked and walked until he came to a small house. There, he saw his mom waiting for him. His mom told him he needed to stay away from his house. Tom was scared but he was brave.
+
+--- seed 5 ---
+
+[BASELINE]
+he could not play with the ball. Tom looked around and saw a big bird on a tree. He thought it would be a great place to play.
+
+[QUARTIC]
+he could take his favorite train to the park.
+
+--- seed 6 ---
+
+[BASELINE]
+he wanted to have a friend. He looked around for a friend but he couldn't find any friends. Suddenly, he saw a big, mean dog. The dog was barking and wanted to play with the ball. Tom said, "I can't play with you, but I can play with you." The dog s
+
+[QUARTIC]
+he had to stay in bed all night and close the door slowly.
+
+--- seed 7 ---
+
+[BASELINE]
+he could not find a new card. He decided to ask his mom if he could go to the store again.
+
+[QUARTIC]
+he could play with the ball and the dog but he could not find it. He cried and cried and cried.
+
+--- seed 8 ---
+
+[BASELINE]
+he didn't want to play outside. His mommy said, "I love you too, Tom." Tom was a little angry but he said, "Thank you for the present, Tom. You can play with me and my friends."
+
+[QUARTIC]
+he lost his friend. They were all very sad and lonely.
+
+--- seed 9 ---
+
+[BASELINE]
+he had been bad about his service. He went to his room to play with his toys.
+
+[QUARTIC]
+he was playing with his toy cars on the wall. He wanted to make them happy.
+
+--- seed 10 ---
+
+[BASELINE]
+he couldn't find his way home. Tom learned that it's important to be kind and help others when they need it. From that day on, Tom made sure to always keep his room clean from his room.Once upon a time, there was a little girl named Lily. She loved
+
+[QUARTIC]
+he couldn't play with his toys anymore. Tom was sad and asked his mom what was wrong.
+
+--- seed 11 ---
+
+[BASELINE]
+he couldn't play with his blocks. The next day, Tom went back to the store with his mom. He had a fun day with his blocks.Once upon a time, there was a little girl named Lily. She loved to play outside in her garden. One day, she saw a shiny thing i
+
+[QUARTIC]
+he couldn't find his way out. He was so scared and he wanted to go home.
+
+--- seed 12 ---
+
+[BASELINE]
+he couldn't play with anyone else. He wanted to go home and play with the new bug.
+
+[QUARTIC]
+he could run very fast. The person could not run anymore.
+
+--- seed 13 ---
+
+[BASELINE]
+he wanted to be like the sun. But then, he remembered that he had a special family who lived in a small house with his mom and dad. They decided to put the special things in the box and put them in a big pile.
+
+[QUARTIC]
+he could read a lot of months. He did not have to be confused, so he let go of the sack and ran away.
+
+--- seed 14 ---
+
+[BASELINE]
+he didn't have much money. He cried and cried.
+
+[QUARTIC]
+he lost his balance. Sam heard Tom's cry and saw Tom's face. She was angry and scared. She shouted at Tom and came to the door. She told him that Tom was joking with his friends. She said he was not a being cryed and he could hear Tom's voice.
+
+--- seed 15 ---
+
+[BASELINE]
+he loved his new friend. He wanted to help his friend. They decided to go outside to play with the new blocks.
+
+[QUARTIC]
+he was bad and he didn't like the machine. He wanted to show his mom what he could do with the machine.
+
+--- seed 16 ---
+
+[BASELINE]
+he didn't have a nice blue bathrobe. Tom didn't want to lose the bathrobe, so he said he would look pretty again. Tom was sad, but he let Spot play with his bathrobe.
+
+[QUARTIC]
+he lost his favorite toy. Lily thought it was fun to play with her toy car and run around with it. Tom felt very proud of himself for thinking of the fun that day.Once upon a time, there was a little girl named Lily. She loved to play with her toys
+
+--- seed 17 ---
+
+[BASELINE]
+he lost his toy. He wanted to find the toy soldier, but it was too late. The soldier had lost his favorite toy and the soldier was very sad. Tom wanted to help his friend, so he said he could help the soldier.
+
+[QUARTIC]
+he wanted to go on the raft. He was so excited to go on an adventure. He ran as fast as he could, and soon he was able to roll around the raft.
+
+--- seed 18 ---
+
+[BASELINE]
+he lost his friend. The end.Once upon a time, there was a little boy named Timmy. Timmy loved to play with his toys all day long. One day, Timmy went to the park with his mom. He wanted to play with his toys, but he didn't know how to play with his
+
+[QUARTIC]
+he was the star in the sky.
+
+--- seed 19 ---
+
+[BASELINE]
+he lost his way back home.
+
+[QUARTIC]
+he wanted to try something new. So he took the rare apple and put it in his pocket. Tom loved his rare apple and wanted to have it.
+
+================================================================================
+PROMPT 5/12: "The teacher told the children to"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+be more polite and not to give up. The children were so happy to see the polite and said that they all shared the stories with everyone. The teacher smiled and said he would always be there for the teacher. The children smiled and ate the tea togeth
+
+[QUARTIC]
+share. They all tried to tell the children about their adventure and explore. They stopped and the teacher took them away. They were very sad and scared. They had no fun. They had no more adventure. They had no more words. They had no fun. They had
+
+--- seed 1 ---
+
+[BASELINE]
+play the teacher who would sing a song. The children were excited and said, "Let's go find out!"
+
+[QUARTIC]
+be happy.
+
+--- seed 2 ---
+
+[BASELINE]
+go to the park and asked if they wanted to go. The children agreed and said yes. They got in the car and drove to the park.
+
+[QUARTIC]
+go to the park. They say they will follow the park and they will never forget the little children.Once upon a time, there was a little girl named Lily. She loved to play with her toys, but one day she decided to play a game. She would run around and
+
+--- seed 3 ---
+
+[BASELINE]
+be playful and not to play with the family. The children liked the children because they liked to play together.
+
+[QUARTIC]
+come out and play together. They had so much fun that they forgot about the little girl who was eager to have some fun together.Once upon a time, there was a boy named Timmy. Timmy loved to play with his toy phone on the floor. One day, Timmy's mom
+
+--- seed 4 ---
+
+[BASELINE]
+stay away from the children. The children listened and put their mom back in the teacher's room. Then, they decided to go back to the children's house.
+
+[QUARTIC]
+be careful with things that are not theirs. They are mean and selfish. They had no money for the dog. The dog tried to be careful and not steal anything. The dog tried to bite the dog and the children.
+
+--- seed 5 ---
+
+[BASELINE]
+wait in the living room for their performance. The children were excited and they clapped and cheered for the teacher.
+
+[QUARTIC]
+leave the truck and go to the park. They are very happy and excited. They want to share the truck and play together. They put the truck in a big car and drove to the park.
+
+--- seed 6 ---
+
+[BASELINE]
+come and play together. They said they would need to play with their blocks. The children were happy and they all liked the magic block. They also liked the dog very much. They liked the blocks. They liked the dog and the children. They liked the bl
+
+[QUARTIC]
+come and see the big boy again.
+
+--- seed 7 ---
+
+[BASELINE]
+be careful and to not touch things that were not nice. The children were scared and didn't want to get in trouble. The teacher said the children had to stay in the tent and stay away from the teacher.
+
+[QUARTIC]
+share their toys with their friends. The children were happy to share their toys and to play together. They had a lot of fun and laughed a lot.
+
+--- seed 8 ---
+
+[BASELINE]
+go and they all agreed. They said it was important to be safe and not to be scared of the bad teacher. So the teacher went back to her room and told her mom about the dragon and the world. Her mom was proud of the teacher and she said she was going
+
+[QUARTIC]
+go outside and play. The children smiled and laughed as they walked away from the train.
+
+--- seed 9 ---
+
+[BASELINE]
+come back and get a new one. The children were happy and thanked the teacher. The teacher smiled and said that they would learn new things from the performance. The teacher and the children loved their new friends and the other animals. The teacher
+
+[QUARTIC]
+come back and play again soon. The children were happy and the teacher was proud of the children cheered.Once upon a time, there was a boy named Jack. He was only three years old and he loved exploring the world.
+
+--- seed 10 ---
+
+[BASELINE]
+take a bath and told them to be careful.
+
+[QUARTIC]
+remember their fire with a thoughtful laugh. They had a lot of fun with the children in the park.Once upon a time, there was a little girl named Sarah. She was 3 years old and loved to play with her toys. One day, Sarah was playing with her toys whe
+
+--- seed 11 ---
+
+[BASELINE]
+be careful with the things in the barn. The children were amazed at the children's cheerful faces and watched them as they moved around. They saw people and shiny stories and had fun making fun shapes.
+
+[QUARTIC]
+travel.
+
+--- seed 12 ---
+
+[BASELINE]
+stop and was angry. They said they would need to be careful with the pipe.
+
+[QUARTIC]
+play with him.
+
+--- seed 13 ---
+
+[BASELINE]
+listen to the story and be careful around stealings. The children were so happy and grateful.
+
+[QUARTIC]
+take the ship home. The children were sad because they wanted the ship to be their friends.
+
+--- seed 14 ---
+
+[BASELINE]
+stay there and take a long time. She was very careful and careful and tried new things. She gave the teacher a tough wish and said that he would always teach her to be brave and not give up when she said she could do anything she wanted.
+
+[QUARTIC]
+come out and explore the backyard with their families and friends.
+
+--- seed 15 ---
+
+[BASELINE]
+stay inside and not to go near the school. The children did not care. They did not take the test. The test was still separate. The test was fixed.
+
+[QUARTIC]
+play and share the ball with their friends. They learned that sometimes things can be scary and that it's important to always be careful and take care of them. The moral of the story is that it's important to be kind to all sorts of people and to be
+
+--- seed 16 ---
+
+[BASELINE]
+be nice to the children. The children were excited and said they were very fast. The teacher was very good at making animals with the food.
+
+[QUARTIC]
+stay away from the river. She said they would help her wash the bread and make the teacher's picture and the big pictures and the cards were the best toys.
+
+--- seed 17 ---
+
+[BASELINE]
+stay away from the store. The children were scared and they didn't know what to do. But they knew they had to rescue the teacher from the teacher.
+
+[QUARTIC]
+play with their toys and books. They have fun. They share their books. They like the teacher. They like their teacher. They like the teacher. They like their teacher. They like the teacher. They have a big plan.Lily and Ben were playing in the park.
+
+--- seed 18 ---
+
+[BASELINE]
+get out of the car and to stop and give the children a sack. She explained that it was important to have the teacher and not to listen to her mom. She said that she would be good to share and help others in need.
+
+[QUARTIC]
+the shop to buy some ice cream. They went to the shop and the little children were so happy!
+
+--- seed 19 ---
+
+[BASELINE]
+be more careful and not touch things that are not for catching. The children agreed and played with the teacher and her car. They also had fun and learned their lesson. They never forgot to play with the children's things again.Once upon a time, the
+
+[QUARTIC]
+stay there and not go too close to the light.
+
+================================================================================
+PROMPT 6/12: "It was a dark and stormy"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+call out.
+
+[QUARTIC]
+could blow the wind and scream. The wind rushed the counter and it was so cool!
+
+--- seed 1 ---
+
+[BASELINE]
+rain. There were many animals there. There were crabs and animals and trees and plants and plants. They wanted to see the water and the crabs and the ducks. They saw a big fish in the pond. They wanted to feed the ducks.
+
+[QUARTIC]
+party.
+
+--- seed 2 ---
+
+[BASELINE]
+dark clouds. Lily and Tom were scared. They did not know what to say.
+
+[QUARTIC]
+came out of the tree. It was shiny and pink and had a big house and some rooms. Ben and Lily are happy and hungry. They want to eat the food for dinner.
+
+--- seed 3 ---
+
+[BASELINE]
+place. The wind was blowing hard and the lightning was trapped. Anna and Ben were scared and sad.
+
+[QUARTIC]
+castle. The boy was very sad and cried.
+
+--- seed 4 ---
+
+[BASELINE]
+room. The dark storm came and started to walk. Tim and Sam were scared. They dropped their toys and ran to the door. They hugged the door and pretended it was their storm.
+
+[QUARTIC]
+could start to fall and hurt yourself."
+
+--- seed 5 ---
+
+[BASELINE]
+storm. The water was dark and cold. The wind was the bad man to fall in. He did not listen. He cried for help.
+
+[QUARTIC]
+trees. The wind was warm and the trees were starting to shiver. The wind was strong and it looked sad. But then the wind blew the ball away.
+
+--- seed 6 ---
+
+[BASELINE]
+place. Lily wanted to go inside. She looked at her brother. She was not happy.
+
+[QUARTIC]
+came to the river. The frog was scared and he realized that the bird needed a new home to find a new home.
+
+--- seed 7 ---
+
+[BASELINE]
+call. The storm was scared and sad. The dark night had to stay in the cave. The wind was dark and the rain was scary.
+
+[QUARTIC]
+could fall the strip. The little girl was happy to have a friend like the country.
+
+--- seed 8 ---
+
+[BASELINE]
+day outside. All the other animals and the animals were scared.
+
+[QUARTIC]
+storming clouds. The storm was too wild, and the wind was not close. They were too busy and too deep. They looked around for their moms to protect them. They saw a big storm coming and they were angry. They screamed and let go of the clouds. They lo
+
+--- seed 9 ---
+
+[BASELINE]
+place full of colourful blue skys. The children were scared and couldn't stop. The first children were scared. The children started to run and cry.
+
+[QUARTIC]
+came out of the house. There was a big crocodile in the middle of the forest where the camera was. He wanted to go on it and explore the cone.
+
+--- seed 10 ---
+
+[BASELINE]
+cloud in the sky. It was blue and shiny. Lily and Ben were scared. They dropped the car and ran to their mom. Mom hugged them and said, "Don't worry, my loves. You will be happy and proud of yourself."
+
+[QUARTIC]
+became scary. Lily was scared and started to cry.
+
+--- seed 11 ---
+
+[BASELINE]
+air. It had been hurt badly. It had stopped and slept. It snuggled into the sun.
+
+[QUARTIC]
+coming. Lily tried to hide, but she couldn't. She started to cry and said, "Mommy, what have you done? You two have to drink something. You have to wash your hands and go to the toilet. You have to be gentle and not be nosy. You have to be careful a
+
+--- seed 12 ---
+
+[BASELINE]
+space. There were many people walking around the garden. There were signs that said "Do not touch". They were very curious and curious. They wanted to see what was behind the trees.
+
+[QUARTIC]
+could come to see the world. The couple was happy and loved each other. They were the best friends and the fun they had together.Once upon a time, there was a little girl named Sue. Sue loved to play with her friends in the park. One day, she saw a
+
+--- seed 13 ---
+
+[BASELINE]
+and heat. The storm was a big bad train. Tom and Lily felt scared and sad. They wished they had not played with their toys.
+
+[QUARTIC]
+made the wind blow and the wind blew hard. The flowers were so happy and they smiled.
+
+--- seed 14 ---
+
+[BASELINE]
+place. Lily did not want to go in the dark corners of the room. She saw a small hole in the fence. She wanted to see the whole forest.
+
+[QUARTIC]
+came alive.
+
+--- seed 15 ---
+
+[BASELINE]
+storm came. Lily was scared. She did not want to get hurt. She ran back to the room and saw the dragon. The dragon was friendly. He saw Lily and scratched her for her too. He said, "Hello, little girl. He is a dragon. He is your new friend. He is a
+
+[QUARTIC]
+came out of its normal water. The cat liked to play in the water and splash in the water. The cat ran after the cat and was scared. The cat heard a noise coming from a nearby bush. It was a cat sitting on a branch, talking to the cat.
+
+--- seed 16 ---
+
+[BASELINE]
+cold day and the sky was dark and cold. The sun was shining and the wind was so strong. The flowers made the birds invite their friends to come and play with them.
+
+[QUARTIC]
+came to shoot it again. The dark clouds were all gone and it had stopped. The end.Once upon a time, there was a little girl named Lily. She loved to play with her toys and draw pictures. One day, her mom made her a delicious cake for breakfast. Lily
+
+--- seed 17 ---
+
+[BASELINE]
+storm. The waves were so scary that the storm was coming back. The storm was so strong that it could not fit in the water.
+
+[QUARTIC]
+came to the sky. All the children were singing and dancing together. Suddenly, they heard a loud noise. It sounded like a small creature. They saw a sign that said "No plants fall down. Lily was very sad and angry. She wanted to tell them to go home
+
+--- seed 18 ---
+
+[BASELINE]
+and scary fireworks. Lily and Ben wanted to go outside and play in the snow. They put on their coats and gloves and go outside. They played on the swings and the slide. They had fun.
+
+[QUARTIC]
+came out of the room. It was the room and started to read. A little girl named Lily was walking in the park. She was feeling sad and didn't know what to do. Suddenly, she heard a noise coming from the nearby bushes. She looked up and saw a big tree
+
+--- seed 19 ---
+
+[BASELINE]
+cloud. The little girl was scared and didn't know what to do. She heard a loud sound from the door. She opened the door and saw a friendly animal standing there. The animal was angry and shouted at the little girl.
+
+[QUARTIC]
+came in. The wind was blowing the wind and the park started to fall. The little girl heard the scream and was very scared. She looked around and saw a big bird in the sky. The bird had a hurt wing and could not fly anymore. The little girl felt very
+
+================================================================================
+PROMPT 7/12: "Mom said we could go to the"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+park today. Mom said they could go to the park to go to the park and play.
+
+[QUARTIC]
+park.
+
+--- seed 1 ---
+
+[BASELINE]
+zoo. Mom and dad were a little girl and they were ready to go to the zoo.
+
+[QUARTIC]
+hospital.
+
+--- seed 2 ---
+
+[BASELINE]
+park together, but only with a few seconds in a time.
+
+[QUARTIC]
+park. Lily wanted to go on the swing, but Mom said they had to leave.
+
+--- seed 3 ---
+
+[BASELINE]
+park soon. They said they could go to the park and play on the swings. Mom said they could go to the park and see the lights and the clouds. Tom and Lily did as mom said and waited. They were very excited.
+
+[QUARTIC]
+park now. Mom and Dad give the friends some more toys. They say they love them very much. They say they will get a band-aid for you. They say they will feel better and healthy.
+
+--- seed 4 ---
+
+[BASELINE]
+shore and see all the things they could see.
+
+[QUARTIC]
+shop to get some new toys.
+
+--- seed 5 ---
+
+[BASELINE]
+store and buy some chocolate coffee for dinner. The chocolate was full and tasty. Lily was happy. She liked the chocolate cookies very much.
+
+[QUARTIC]
+doctor. The doctor said he needed to save money for a big hug. Then he went outside and played in the sunshine.
+
+--- seed 6 ---
+
+[BASELINE]
+park and we wanted to play. She said yes, but be careful.
+
+[QUARTIC]
+park and play on the swings. She liked to swing, slide and run. She loved to watch the swings and slide down the slide. She laughed and shouted as she swung her head. But the sun was hot and she was slipping and falling down.
+
+--- seed 7 ---
+
+[BASELINE]
+park and play together. And then we can sit on the swings together. Then we can swing on the swings. And then we can sit down and eat together."
+
+[QUARTIC]
+park and play there in the sunshine. They loved to watch the birds fly and fly around.
+
+--- seed 8 ---
+
+[BASELINE]
+beach and see all the playgrounds together.
+
+[QUARTIC]
+beach. They were happy to be friends.
+
+--- seed 9 ---
+
+[BASELINE]
+park tomorrow and see the beautiful sun in the sky.
+
+[QUARTIC]
+park with her teddy bear. She said that if she got a big surprise, she could use her strength to help her.
+
+--- seed 10 ---
+
+[BASELINE]
+hospital. They said they could go to the doctor and give him a big smile.
+
+[QUARTIC]
+hospital for her birthday and all the cool things come to her. She was very excited to try the cool beetle and the cool things she found. She was so proud that she could have some cool cool beetles. From then on, she was always there for the beetles
+
+--- seed 11 ---
+
+[BASELINE]
+park tomorrow.
+
+[QUARTIC]
+park with her swing. They saw a big pond and decided to lie down on the grass.
+
+--- seed 12 ---
+
+[BASELINE]
+shore because the shore is fun.
+
+[QUARTIC]
+shop and buy the car. Mom said they could go to the shop and buy some new toys inside. They went to the shop and bought their toys and their toys.
+
+--- seed 13 ---
+
+[BASELINE]
+car and help it to the light. But be careful, it will not break."
+
+[QUARTIC]
+mall by himself. But the ball was too heavy for her to reach.
+
+--- seed 14 ---
+
+[BASELINE]
+store and buy some money. But on the way, they saw a man with a big smile. He saw a big box in the hallway. He asked Mom to help him.
+
+[QUARTIC]
+park. They see many things in the park. They see the park, the swings, and the slide. They saw a big slide. They ran to the slide. They ran to the slide. They tried to jump on the slide, but it was too fast.
+
+--- seed 15 ---
+
+[BASELINE]
+store. We can buy some toys and put them in the car. Maybe we can find something special in the car."
+
+[QUARTIC]
+store. But when she got there, she saw that a big bowl was filled with water and cookies. She smiled and waved at the children.
+
+--- seed 16 ---
+
+[BASELINE]
+park. They did not want to go. They liked the big dog. They wanted to go to the park. They did not know the big dog was not at all. They liked the park. They liked the cars too. They did not know what to do.
+
+[QUARTIC]
+park and find the perfect treasure. Mom said she was proud of Timmy for being so brave and trying new things.
+
+--- seed 17 ---
+
+[BASELINE]
+store and buy some snacks. They said they would love the store and the girl can buy the big bag. They said they had to wait for the store to buy the treats.
+
+[QUARTIC]
+park and look for the big tree.
+
+--- seed 18 ---
+
+[BASELINE]
+park. She said they could go to the park tomorrow.
+
+[QUARTIC]
+museum now."
+
+--- seed 19 ---
+
+[BASELINE]
+park. She said they could go to the park before they could go to the park. Lily agreed and went to the park. She saw a big slide and wanted to go on it. But when she got there, she saw a boy with a big bag. He wanted to play with the ball. He ran to
+
+[QUARTIC]
+park to play with her toys. Lily was so happy and proud to show her mom. She hugged her and said she would be happy to see her brother soon.
+
+================================================================================
+PROMPT 8/12: "The dog found a big red"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+ball in his mouth. He did not want to play with the ball and the dog. He threw the ball to the dog and waited. The dog ran after the ball and stopped his ball. The dog ran to the ball and tried to take the ball from Lily. But the dog was faster and
+
+[QUARTIC]
+ball. The dog saw the red ball and wanted to bounce the ball. The dog bit the ball and ran after the dog. They did not want to play with the ball anymore.
+
+--- seed 1 ---
+
+[BASELINE]
+ball in the park. The dog liked to play with the ball and have fun. The dog liked to jump and catch the ball and start to play.
+
+[QUARTIC]
+ball. The dog was scared and dropped the ball. The dog ran away and when they ran to the ball, it was not a ball. The dog was sad.
+
+--- seed 2 ---
+
+[BASELINE]
+ball in the park. The dog was friendly and friendly. They played with the ball and the ball and the boy and the dog became good friends. They had a fun day at the park.One day, a little boy named Tim found a big red ball. He wanted to play with it,
+
+[QUARTIC]
+ball. The dog did not want to let go of Lily's ball. Lily liked to roll the ball too. They both rolled the ball to each other.
+
+--- seed 3 ---
+
+[BASELINE]
+ball on the ground. He thought it was very soft and fluffy.
+
+[QUARTIC]
+ball. The dog was a nice dog with a big smile. The dog saw the ball and wanted to play with it. The dog ran after the ball and tried to catch it. But the ball was too fast and it stuck to the red ball.
+
+--- seed 4 ---
+
+[BASELINE]
+ball and started to play with it. The dog barked and wagged its tail. The dog saw the red ball and wanted to play with it. The dog wanted to play with the ball too.
+
+[QUARTIC]
+ball. The dog ran after the ball and jumped off the ball. The ball flew off and the dog started to chase it. The ball started to fly away. The dog was sad because the ball was broken. The dog ran after the ball, but it could not catch it.
+
+--- seed 5 ---
+
+[BASELINE]
+ball on the side of the park. The dog saw the ball and said, "That's a nice dog! What do you have there?" Tim was surprised but excited. He ran over to the dog and gave it a big smile. The dog said, "Thank you, Tim! You are a good friend." The dog s
+
+[QUARTIC]
+ball. The dog was very friendly and always wanted to play with the ball. The dog did not like to share his ball with Lily. Lily tried to share the ball with him. But the dog was faster and stronger. It barked and jumped and dropped the ball.
+
+--- seed 6 ---
+
+[BASELINE]
+ball. The ball was blue and brown and had a hole in it. The ball was shiny and had a long tail.
+
+[QUARTIC]
+ball. The dog barked and ran away. The farmer was sad and scared. He said, "Don't be afraid, dog. The dog is friendly. He has a small body with him."
+
+--- seed 7 ---
+
+[BASELINE]
+ball. The dog was blue and white. It liked to run and jump. It wanted to play with the ball.
+
+[QUARTIC]
+ball that he had been so stubborn. He wouldn't listen to his parents and they would never let him get in trouble again.
+
+--- seed 8 ---
+
+[BASELINE]
+truck and a blue ball. He wanted to play with the truck too.
+
+[QUARTIC]
+apple. The dog was very hungry and said to the dog, "Let's go say hello to the dog!"
+
+--- seed 9 ---
+
+[BASELINE]
+ball in the park. He wanted to play with it too. He ran to the dog and tried to grab the ball from his hands. But he did not know how to play with the ball or the ball.
+
+[QUARTIC]
+ball. The dog liked the ball and wanted to play with it too. The dog barked and ran away. The dog was happy. The dog saw the ball and ran after the ball. The dog ran after the ball and ran fast. The ball went far and wide. The dog was not scared any
+
+--- seed 10 ---
+
+[BASELINE]
+ball in his mouth. The dog was very friendly and fluffy. He wanted to pet the dog.
+
+[QUARTIC]
+ball. The dog barked and wagged his tail.
+
+--- seed 11 ---
+
+[BASELINE]
+ball. He was very happy and thanked the dog. The dog wagged its tail and waved goodbye. The dog waved back and said, "Goodbye, dog!"
+
+[QUARTIC]
+ball. The dog did not like the ball. He wanted the ball to be the boss.
+
+--- seed 12 ---
+
+[BASELINE]
+ball and his beak was still in the same spot. The dog and the ball played all day long. The dog and the cat were happy together and went back to the ball.Once upon a time, there was a little boy named Tim. Tim had a lot of friends. They loved to pla
+
+[QUARTIC]
+ball. The dog barked and ran after it. The dog stopped and looked at the dog. It was still not as brown as the dog. It was just a friend.
+
+--- seed 13 ---
+
+[BASELINE]
+ball and the ball rolled back to Lily. The dog barked loudly and jumped out of the ball.
+
+[QUARTIC]
+ball. The dog wanted to play with the ball, but the dog just stayed away from the red ball.
+
+--- seed 14 ---
+
+[BASELINE]
+ball on the other side. The dog was very happy. The dog wanted to play too.
+
+[QUARTIC]
+ball. The dog was happy to see the ball and wagged its tail. The dog barked and ran away.
+
+--- seed 15 ---
+
+[BASELINE]
+ball in the park. The dog was happy. The dog wanted to play too. The dog found the ball. The dog thought it was a good dog.
+
+[QUARTIC]
+ball. The dog was happy to have helped his friend.Once upon a time, there was a little boy named Timmy. Timmy loved to play with his toy ball all day. One day, Timmy and his friend Billy were playing with the ball. Timmy wanted to play with it, but
+
+--- seed 16 ---
+
+[BASELINE]
+ball. The dog liked the ball. The dog wanted to play with the ball.
+
+[QUARTIC]
+ball that he wanted to be his friend. He took the ball and put it on the counter to make it shiny. He then went to sleep in his bed and wished he could play with the ball.
+
+--- seed 17 ---
+
+[BASELINE]
+ball. The dog was happy and wagged its tail. The dog wanted to play with the ball, but the dog was too strong. The dog bit the ball and made a happy sound.
+
+[QUARTIC]
+ball that he wanted to ride too. The dog was so happy and thanked the dog.
+
+--- seed 18 ---
+
+[BASELINE]
+ball. The ball was hiding behind a tree. The dog wanted to play with the ball. The dog wanted to play. The dog was friendly.
+
+[QUARTIC]
+ball and threw it around the chest. The dog wanted to play with the ball too.
+
+--- seed 19 ---
+
+[BASELINE]
+ball. The ball was so big and blue. The dog wanted to play with the ball. But the dog did not want to play. The dog said, "No, this is my ball. You have to share it."
+
+[QUARTIC]
+ball that was red. The dog was barking and running after it. The dog wanted to be friends with the dog, so it started to worry. It wondered what would happen. It wanted to learn and find another way to fix the dog. The dog was happy to be friends an
+
+================================================================================
+PROMPT 9/12: "Lucy wanted to learn how to"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+play with the square. They played a special game and had lots of fun. The end.Once upon a time, there was a little boy named Timmy. Timmy loved to play with his toys, especially his purple color. He would play with it every day and even share it wit
+
+[QUARTIC]
+be a bit and help her if she needed it. Lucy asked her mom for help, and all the people were so excited to learn how to be a big girl.
+
+--- seed 1 ---
+
+[BASELINE]
+finish playing. So she asked her mommy if she could play too.
+
+[QUARTIC]
+do it all the time. She took her paper and put a small pile on the wall. She was very careful to always listen to her mom's warnings.
+
+--- seed 2 ---
+
+[BASELINE]
+be friends with the fish and help her friends. She asked her friends if they had any problems and they said yes. They all started to clean up the water and they played together all day.
+
+[QUARTIC]
+play the game, but Lucy still refused.
+
+--- seed 3 ---
+
+[BASELINE]
+use the things he saw. He walked up to the chubby beetle and said, "Hello there! I have something for you." The beetle was so happy and thanked the beetle.
+
+[QUARTIC]
+make friends. She had a big dog named Spot that she loved to play with.
+
+--- seed 4 ---
+
+[BASELINE]
+stay and play. She told her mom about the truck and how her mom gave her a nice big hug and told her how she might get to the truck to play with the truck. Her mom smiled and said, "You can stay here all the time and have a smile tomorrow."Once upon
+
+[QUARTIC]
+do things herself. She loved the feeling of the cool water on her face. She was so happy to learn how to play hockey and hockey. She even learned that sometimes things can be tough and that it's important to listen to your parents.Once upon a time,
+
+--- seed 5 ---
+
+[BASELINE]
+read something new. The squirrel had some cool books on her bookshelf.
+
+[QUARTIC]
+read stories, and talk about how to sort all out.
+
+--- seed 6 ---
+
+[BASELINE]
+use the trap she could be.
+
+[QUARTIC]
+make a tea party. She was so excited to learn all about the world.
+
+--- seed 7 ---
+
+[BASELINE]
+play the game in the sand. She asked her mom for help. Her mom said yes, so they went to the shore.
+
+[QUARTIC]
+be kind and gentle with her toes. They would look at the rainbow and make her feel so proud.
+
+--- seed 8 ---
+
+[BASELINE]
+be a king of the princess and her performance was to make sure the king had a bad ending. The king thought about how he worked. Then, he practiced and practiced until the king was finally finished.
+
+[QUARTIC]
+play. She loved to play with her dolls and balls. One day, she saw a big box in her backyard. She wanted to know what was inside it.
+
+--- seed 9 ---
+
+[BASELINE]
+use the toys so she could see the sunset because it was really bright. She got to see a real toy she had found in her room.
+
+[QUARTIC]
+make the best of all. They always looked at each other with wonder and wonderful eyes.
+
+--- seed 10 ---
+
+[BASELINE]
+do the task. Tom said, "No, I want to learn how to spoil my task." Lucy was a little bit sad, but she listened to her mom and waited patiently.
+
+[QUARTIC]
+hold the rope, but it was too high. Then, she saw a cute little mouse named Max. Max loved to run and play with Lucy all day long.
+
+--- seed 11 ---
+
+[BASELINE]
+make a tower out of the trap. She looked for a big box that was inside. She found a box full of toys. She was very happy. She showed them her favorite toys and books.
+
+[QUARTIC]
+use a big screen. She shouted to her mom, "Lucy, this is a pretty car. You have to be careful and kind. This is a lot of fun."
+
+--- seed 12 ---
+
+[BASELINE]
+sail from all of the sun. She asked her mom, "Can I sail on my orange sunflower?" Her mom smiled and said, "Sunflower, you are a beautiful green sunflower."
+
+[QUARTIC]
+stick the blocks too. But the blocks were not too thick. Lucy did not know what to do. She thought about it and then decided to give the blocks to her mom.
+
+--- seed 13 ---
+
+[BASELINE]
+make her happy. They started to push and pull and yell for help, but no one heard them. Lucy was very scared and didn't know what to do.
+
+[QUARTIC]
+use the words. She asked a man who looked sad.
+
+--- seed 14 ---
+
+[BASELINE]
+use the toys. She was so excited and asked her mom, "Mommy, can I help my car?"
+
+[QUARTIC]
+make friends and have lots of fun.
+
+--- seed 15 ---
+
+[BASELINE]
+say "play". They wanted to share the cheese because it was fun.
+
+[QUARTIC]
+share. They learned that sometimes it's important to listen to others and take care of them. The club was a special letter that was making a big tent in the window.
+
+--- seed 16 ---
+
+[BASELINE]
+play. She decided to go to the park to look for a big slide. As she walked, she saw a big slide. She wanted to go on it, but it was very dirty. She was sad because she could not go faster.
+
+[QUARTIC]
+be graceful and content with her meeting. She learned how to play the game and showed her friends how to play. They all liked the game and Lucy was happy and proud. From that day on, Lucy and her friends had a new game of tag. They played and had lo
+
+--- seed 17 ---
+
+[BASELINE]
+sign. She saw a big box that said "I will take you to the window when I call the world".
+
+[QUARTIC]
+spray every spin in the air. She laughed and laughed as the sun began to shine.
+
+--- seed 18 ---
+
+[BASELINE]
+make a cake for her friends. She saw a big cake with pink flour and sugar. She wanted to eat it and cook it.
+
+[QUARTIC]
+use her wings, but she could not fly. She felt sad and lonely. She saw a big hill of her friends who loved to climb the hill. They would all try to fly the hill together and make loud noises.
+
+--- seed 19 ---
+
+[BASELINE]
+play soccer from her family. She wanted to win the trophy, so she climbed the trophy from her shelf. She ran outside and watched the playground for a while.
+
+[QUARTIC]
+be a different and impressive things she could make.
+
+================================================================================
+PROMPT 10/12: "After school, the boy went to"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+bed with a big smile on his face.Once upon a time, there was a little girl named Lily. She loved to play outside in the park with her friends. One day, Lily and her friends were playing a game of hide and seek. Lily hid behind a big tree and said, "
+
+[QUARTIC]
+the park. He saw many people and colorful sights. Lily was excited to see all the people in the park.
+
+--- seed 1 ---
+
+[BASELINE]
+play and started playing. He had lots of fun and he even decided to do something special too. After a while, he found a special present. It was a beautiful sparkle with the green frog on it. The boy was so happy and he couldn't wait to come back to
+
+[QUARTIC]
+school. He was a little school. He had a big brother and a lot of things. He loved to read books and learn new things.
+
+--- seed 2 ---
+
+[BASELINE]
+school to show his friends. He had never been a teacher before, so he decided to go to the park with his friends. As they walked, he heard a voice from the teacher's counter. It was a tiny crab, who was standing in the same side of the park. The cra
+
+[QUARTIC]
+school. He saw many people singing silly songs and singing songs. After a while, he saw a big storm coming in the sky. He was scared and he felt scared. He ran to the tree and looked around. He saw a man with a big hat and a big box. He was wearing
+
+--- seed 3 ---
+
+[BASELINE]
+bed, and he had a surprise for the boy. They both loved the park and sang songs. They were happy to have a new friend.Once upon a time, there was a little bird named Tweetie. Tweetie lived in a big tree in a big tree. One day, Tweetie saw a little b
+
+[QUARTIC]
+school. He was very happy and excited to learn something new. He loved his school and wanted to learn more about the world. He was a persistent boy and decided to learn his lesson and share his chores with others.Once upon a time, there was a little
+
+--- seed 4 ---
+
+[BASELINE]
+the park. He was happy to play with his toys. But when he got there, he saw a little girl walking by. She had seen him sleeping and started to cry. The old man came over to her and asked her why she was crying.
+
+[QUARTIC]
+her room. He was so happy and excited to see all the pretty flowers. He wanted to pick some flowers too, so he grabbed a big blanket and carried it to his friends. They walked home with a big smile on their faces. The boy smiled back and he felt so
+
+--- seed 5 ---
+
+[BASELINE]
+the park to play. He wanted to join him and play the song. But the song was very thin. The boy started to complain. He wanted to play the song. The song was not happy.
+
+[QUARTIC]
+his room and found a sheet of paper that was a big truck. He was very happy with what he had made.
+
+--- seed 6 ---
+
+[BASELINE]
+play with his friends. He saw a big red ball that was purple. The ball was shiny and sharp. He wanted to play with it. He asked his mom, "Mom, can I play with the ball?"
+
+[QUARTIC]
+bed. He dreamed about a family of bunnies in his school. He loved to go to school every day.
+
+--- seed 7 ---
+
+[BASELINE]
+bed that night with a smile on his face. He was no longer anxious and he was happy to be back with the boy.Once there was a car that was very strong and really liked to go on adventures. One day it decided to go on an adventure to find something new
+
+[QUARTIC]
+the park. He wanted to play with the ball so much. He kicked it and tried to catch it, but it was too fast. He felt sad because he could not play with it.
+
+--- seed 8 ---
+
+[BASELINE]
+school and was no longer anxious. The end.Once upon a time, there was a little girl named Lily. She loved to play outside in the grass and eat yummy food. One day, she went outside to play in the sunshine. She was having so much fun playing with her
+
+[QUARTIC]
+school. He was very nervous and did not know what was going on.
+
+--- seed 9 ---
+
+[BASELINE]
+play and have a picnic. He was so excited to play with the boy. He played all day long, running and jumping. He had so much fun that he could play all day.
+
+[QUARTIC]
+bed feeling safe and happy that he had someone to play with. He asked his mom, "Can I have a real book with my mom?" His mom said, "Yes, you can read the book and look for the tea." They walked and walked until they found the book under a tree. They
+
+--- seed 10 ---
+
+[BASELINE]
+bed dreaming of all the fun they had. He had a fun time and he knew he could always count on his friends to save him from the night sky.Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine and see the world
+
+[QUARTIC]
+the park. He liked to play on the swings and slide. But he couldn't find anything he wanted. He looked everywhere but couldn't find anything.
+
+--- seed 11 ---
+
+[BASELINE]
+bed and had a great day. The end.Once upon a time, there was a little girl named Lily. She loved to play outside in the park. One day, she saw a big bird in the sky. The bird was very happy and said, "Look at me! I can run with my friends and feel t
+
+[QUARTIC]
+the cliff. He was very sad. He looked for the boy everywhere. He searched and searched, but he could not find it. He saw the boy had all his toys. He was sad. He looked for the boy.
+
+--- seed 12 ---
+
+[BASELINE]
+the park to play. He had a lot of fun and seen all of the people and children having fun playing together. They all had a great time every day and had a great time playing tag.Once upon a time, there was a little boy named Timmy. Timmy loved to play
+
+[QUARTIC]
+her room. The story was a big hug and the little boy felt much better.
+
+--- seed 13 ---
+
+[BASELINE]
+his show and asked if he could take the shiny red ball. The boy thought for a moment and said he could share his show with him. His parents smiled and they all had a great time with the boy. The boy was happy to share his shiny red ball and the boy
+
+[QUARTIC]
+play with his toys. But one day, he had a new toy in his hand. It was a big colorful ball. He liked to shout with joy. He was a brilliant ball and he loved to play with it.
+
+--- seed 14 ---
+
+[BASELINE]
+play his toys. He had so much fun!
+
+[QUARTIC]
+his room and looked at the room. He felt sad and lonely. He wanted to find a friend.
+
+--- seed 15 ---
+
+[BASELINE]
+the park to play. He saw a little bird in the sky. The bird said, "Thank you for letting me join me. I feel sad for my day." The boy said, "You're welcome, bird. I'm happy you came to visit." The bird said, "You're welcome, bird." They became friend
+
+[QUARTIC]
+his restaurant and felt very happy.Once upon a time, there was a little girl named Lily. She loved to play outside in the sunshine. One day, she was playing and saw a big, round paintbrush that was her mom's birthday. She was very excited and wanted
+
+--- seed 16 ---
+
+[BASELINE]
+bed that night. He was happy and proud that he had made a new friend.Once upon a time there was a strong bear who lived in a small house all by himself. He was always happy and liked to look out for everyone.
+
+[QUARTIC]
+the store to buy some sugar. The boy was very proud of his tough country and he was very proud of himself. He couldn't wait to show his mom the sugar store there.Once upon a time there was a curious girl named Lily. She loved to explore and go on ad
+
+--- seed 17 ---
+
+[BASELINE]
+the store to get his favorite toy. But when he got there, he saw that his family was gone. He looked angry and sad. He said to his mom, "Mommy, I want to buy this toy car. It's so pretty!" His mom smiled and said, "Yes, that's a bad car. I'm going t
+
+[QUARTIC]
+his school with his friends. He was very happy and smiled all the time. He went to school and learned to play and read all day. He was very happy to play and lived with his friends in the school.
+
+--- seed 18 ---
+
+[BASELINE]
+his big sister's house to play with his drum. The boy was very happy to see his friends and played with them. The end.Once upon a time, there was a big ball. The ball was very long and had many friends. The ball liked to play too. One day, the ball
+
+[QUARTIC]
+sleep on her bed. When he woke up, he had brought a surprise with him before he had an extra special present for the boy. The boy was very excited and he wanted to show everyone his present to his friends. He picked a beautiful present and put it in
+
+--- seed 19 ---
+
+[BASELINE]
+bed that night feeling happy and proud of himself.Once upon a time, there was a little girl named Lily. She loved to play outside and explore the world around her. One day, she found a beautiful dress in the dresser. She was so excited and showed it
+
+[QUARTIC]
+the park. He saw his friend Ben with the park. They see the big slide and run to it. They ask their mom if they can go on the slide.
+
+================================================================================
+PROMPT 11/12: "There was a tiny bird who"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+wanted to be friends. He decided to build a nest for the bird in his nest. He worked really hard and played a game.
+
+[QUARTIC]
+loved to fly. The bird was very happy and he thought the bird was very clever. So the bird flew away to find something new and fun.
+
+--- seed 1 ---
+
+[BASELINE]
+lived in the sky. The bird loved to fly and play in the sunshine. One day, the bird saw a big sun shining in the sky. The bird was very happy.
+
+[QUARTIC]
+had sharp wings. He was too compassionate to take care of his wish.
+
+--- seed 2 ---
+
+[BASELINE]
+was very sad. The bird saw that the bird was sad and asked the bird if he could help. The bird said no, but the bird just kept flying away and said he should stay in the sun.
+
+[QUARTIC]
+had flown all around it. She flew away into the sky and brought some tools with her wherever she went. She took out the window and the tiny bird and the bear showed her a lot of things she could do with it.
+
+--- seed 3 ---
+
+[BASELINE]
+wanted to fly around the world. He wanted to go on a ride on the sand. So, he packed his bag and set off. He saw a small bird in the sand. The bird was very small and had lots of fun.
+
+[QUARTIC]
+lived in a thick tree. Every day, the bird would take a walk and explore the trees. One day, the bird saw a beautiful carrot that was very special. It was so happy and found that the bird was happy and had lots of fun every day.
+
+--- seed 4 ---
+
+[BASELINE]
+loved to sing and dance. One day, it saw a big forest with lots of animals and birds. The bird was very powerful and could fly very fast.
+
+[QUARTIC]
+was very friendly. She loved to fly and she was happy to see it again.
+
+--- seed 5 ---
+
+[BASELINE]
+lived in a big tree. The bird was very brave and liked to explore the world around her.
+
+[QUARTIC]
+wanted to eat it. The bird was happy that the bird could help the bird and show how much it cared. But the bird didn't listen and took the bird to a big tree. The bird started to scream and run away.
+
+--- seed 6 ---
+
+[BASELINE]
+was very tall. It was all alone. One day, a brave boy came to the bird. He said, "I have a home for you. It is very big and impressive. I can show you how to fly." The bird was so happy. It stood up and licked the bird's face.
+
+[QUARTIC]
+lived in the forest. The bird was very happy because it had helped to find his way home.
+
+--- seed 7 ---
+
+[BASELINE]
+was singing and dancing. The bird loved to fly and chirp and chirp all day long.
+
+[QUARTIC]
+loved to fly in the sky. One day, a little girl flew by the birdcage and saw the birds flying around. She was so happy and asked her mom what the birds were doing. Her mom explained that they were flying in the sky to have a special friend. She said
+
+--- seed 8 ---
+
+[BASELINE]
+had broken a beautiful bird. The bird was very sad because it couldn't fly anymore.
+
+[QUARTIC]
+had a long neck wing. The bird wanted to say hello, so it flew up to the top of the hill.
+
+--- seed 9 ---
+
+[BASELINE]
+wanted to fly like her. But the bird didn't want to go anywhere. So, the bird flew back to the tree and looked for the flower. The bird couldn't find its way back home.
+
+[QUARTIC]
+lived in a tiny town. The tiny bird was happy and forgot about the worm and the tiny bird. They were not hungry anymore. The tiny bird loved to feed the tiny bird some more. They had a nice bag with the tiny bird. The bird was happy and loved to fly
+
+--- seed 10 ---
+
+[BASELINE]
+wanted to fly high in the sky. He wanted to fly and play in the sky, but he was always alone.
+
+[QUARTIC]
+lived in a tall tree. The bird loved to fly high in the sky and feel the wind in its tiny wings. One day, the bird saw a big, bright star in the sky. The bird was very pretty and colorful.
+
+--- seed 11 ---
+
+[BASELINE]
+wanted to fly high in the sky. It was very happy and said, "I wish I could see you flying too!"
+
+[QUARTIC]
+loved to sing. The bird would fly around the tree and say, "Hello, bird. Do you want to sing and play with me?" The bird nodded and said, "Yes, I do. Thank you. Can we sing and dance together?"
+
+--- seed 12 ---
+
+[BASELINE]
+lived in a big tree. The bird loved to sing and dance. One day, the bird found a pretty flower. It was very pretty and shiny.
+
+[QUARTIC]
+wanted to save it. So, the bird flew up to the top and saw a little girl perched on a branch. The bird was saying hello to the little girl. The little girl was so happy to see the bird flying away.
+
+--- seed 13 ---
+
+[BASELINE]
+wanted to fly around and see the animals all around them. The bird was so friendly that the bird could see the tree.
+
+[QUARTIC]
+lived in the woods. The bird was scared and wanted to fly away, but the bird couldn't fly anymore. It couldn't fly high and heavy in the water.
+
+--- seed 14 ---
+
+[BASELINE]
+lived in a tree with lots of other animals. Every day, the bird would work together to help people when they needed it.
+
+[QUARTIC]
+was very shy and wouldn't let him.
+
+--- seed 15 ---
+
+[BASELINE]
+lived in a tree. He was very sad because he was alone. One day, he decided to go outside and explore. He saw a big tree and wanted to see what was inside. He ran to his mom and said, "Mom, look at the tree! I want to climb it!"
+
+[QUARTIC]
+was very sad and missed the bird. The end.Once upon a time, there was a little boy named Timmy. Timmy loved to play outside in the sun. One day, he found a big stick in the ground. He picked it up and showed it to his mom. His mom said, "That's a gr
+
+--- seed 16 ---
+
+[BASELINE]
+wanted to be a pirate. The bird flew around the trees and the flowers spread its wings. The bird was so excited to explore the trees. But the bird felt scared and didn't know what to do.
+
+[QUARTIC]
+lived in a big tree. The bird was very sad because it could not fly anymore. One day, a little bird saw the bird and flew down to have a look. The bird said, "I wish I could fly too, but I can't find my way back." The bird said, "Don't worry, bird.
+
+--- seed 17 ---
+
+[BASELINE]
+liked to fly. The bird was very happy and flew around the world. One day, a brave bird came to the woods. The bird wanted to stay and play all day long.
+
+[QUARTIC]
+was flying above a big flower. Suddenly, a big gust of wind blew and started to shiver. Lily was scared and cried. She did not know what to do.
+
+--- seed 18 ---
+
+[BASELINE]
+wanted to find a shiny bear in the forest. He looked around and saw a friendly bird staring at him. The bird was very happy and flew down to the bird. The bird laughed and told the bird about the bird.
+
+[QUARTIC]
+had a long tail. The bird was very surprised and said, "Wow, you were so adorable! You saved me!"
+
+--- seed 19 ---
+
+[BASELINE]
+was singing very sweet. She was very strong and could fly very high. She was also very happy and loved to run around the flowers.
+
+[QUARTIC]
+lived in a type of the table. The bird thought it was fun to watch the bird fly and fly to land. The bird could not fly like the bird. The bird was hungry and wanted to fly to the flower.
+
+================================================================================
+PROMPT 12/12: "The old man sat by the"
+================================================================================
+
+--- seed 0 ---
+
+[BASELINE]
+window and listened to the little boy's room. The boy was scared and he didn't know what to do.
+
+[QUARTIC]
+floor. He asked Lily to sit down and talk.
+
+--- seed 1 ---
+
+[BASELINE]
+river. He said to the sides, "Don't be scared, but what would you like to do the same. I am strong and fast. What can I do?"
+
+[QUARTIC]
+pond to stop the ducks. He watched them from the pond and he smiled and the ducks felt happy again.Once upon a time, there was a big box. Inside the box, there were many toys and clothes. There were dolls, cars, blocks, and books. One day, a little
+
+--- seed 2 ---
+
+[BASELINE]
+fire and said "Hello, little girl! Do you want to see my seed?" The old man said "Yes, I want to see your seeds." The girl said "Okay!" The old man said "Welcome".
+
+[QUARTIC]
+table. He saw Lily in the face. He felt better. He said, "Hello, little one. Do you want to see my grandma? She was surprised. She had never seen a big grandma before. She said, "What is that?"
+
+--- seed 3 ---
+
+[BASELINE]
+lake and the other animals liked the sun and the fish.
+
+[QUARTIC]
+finishing one day. He turned on the TV and looked at the window. He saw a big hill and wanted to climb it. He tried to climb on the hill, but it was too high.
+
+--- seed 4 ---
+
+[BASELINE]
+road and waited patiently. Finally, the road came to a mysterious place. It told the old man that the boy had never seen a place before. The old man was happy to see the old man and he said he could take a bite and take a bite.
+
+[QUARTIC]
+tree and the playful cat of the big bird had saved the day.Once upon a time, there was a little girl named Lily. She loved to play with her toys all day long. One day, she saw a big dog by the barber's hair. The dog looked sad because he lost his to
+
+--- seed 5 ---
+
+[BASELINE]
+pond and sat down to take a nap.
+
+[QUARTIC]
+dicnic and had a lot of fun.
+
+--- seed 6 ---
+
+[BASELINE]
+lake and watched the birds fly by. The birds saw the old man and smiled. They said they looked very happy and full. The old man said, "You are very smart and creative. You are good at playing. I like you very much." The birds were happy and friendly
+
+[QUARTIC]
+side of the pool and ate the whole party. They had a lot of fun and forgot about the light water.Once upon a time, there was a little girl named Lily. She had a favorite toy, a teddy bear. One day, she was playing with her teddy bear when she accide
+
+--- seed 7 ---
+
+[BASELINE]
+beach and the tree smiled at him. The old man was so happy. He thanked the old man and said he was very good. The old man smiled back at his angel and said he was glad he was okay.Once upon a time, there was a little girl named Lily. She loved to pl
+
+[QUARTIC]
+floor and the loud buttons began to fly out of the tall man's house. He couldn't believe how big it was. He ran back to the door, but the old man was too strong. He reached for his old room, but it was too late.
+
+--- seed 8 ---
+
+[BASELINE]
+fire. He said, "What are you doing with my mixer? That is not a mixer. It is a toy." The little girl said, "I don't know. I don't know how to make the mixer shine."
+
+[QUARTIC]
+window and saw the stars twinkling brightly. The little girl watched him and smiled back. The old man smiled back and said, "I love you too, little one. You're my best friend."Once upon a time there was a little girl named Anna. She was three years
+
+--- seed 9 ---
+
+[BASELINE]
+lake and said to the little girl, "I can make the water and play in the lake together!"
+
+[QUARTIC]
+fireplace and all of the adventures he wanted.
+
+--- seed 10 ---
+
+[BASELINE]
+boy's side and said, "Thank you for the hard work that can help you." The little boy was happy to help and felt good. He felt happy that he could help the old man.Once upon a time, there was a little boy named Timmy. Timmy loved to play outside and
+
+[QUARTIC]
+bin and saw a little girl stuck in a tree with a loud noise. The little girl was scared and she wanted to go home. But the old man told her that the old man was still there, but he didn't know what to do.
+
+--- seed 11 ---
+
+[BASELINE]
+chimney and sat down to enjoy the rest of the day. The end.Once upon a time, there was a little girl named Lily. She loved to play outside in the park with her friends. One day, she found a big, shiny stone in her yard. It was very tall, and had man
+
+[QUARTIC]
+flame. He was always very loyal and never wanted to be loyal to his friends.
+
+--- seed 12 ---
+
+[BASELINE]
+station and smiled. He was glad he had a new friend and his family. They hugged and played and learned the new things and the prettiest of them all. From that day on, Timmy loved to sing and dance with his family every day.Once upon a time, there wa
+
+[QUARTIC]
+tree and saw that he was still in the backyard. The old man was so glad to see the old man having a great time and continue to walk on his track.Once upon a time, there was a little girl named Lily. She loved to play with her toys and run around out
+
+--- seed 13 ---
+
+[BASELINE]
+counter and said, "This one is not what I say. You can't have it."
+
+[QUARTIC]
+couch and eat the dinner. The shop keeper gave him a new colorful box. The box was so beautiful and happy with the box. The old man thanked the shopkeeper and went home. He told his mom all about the box.
+
+--- seed 14 ---
+
+[BASELINE]
+lake and then stepped back. He watched as the lake surrounded by the old man and his hands and feet had soaked in the lake. The old man was so sad and he learned a lesson that day - the brave old man had made a new friend!Once upon a time, there was
+
+[QUARTIC]
+table and waited for a little while. Then he turned into a big purple fork. The old man smiled and said, "Hello, old man. I am here to protect you. What are you doing here?"
+
+--- seed 15 ---
+
+[BASELINE]
+side of the road. He was taking one end of the road with his mom. The old man smiled and said, â€œThis is why you will love my old man.â€
+
+[QUARTIC]
+table. The old man said he could allow her to have a big cake. The old man was so excited to have found such a special and fun place.
+
+--- seed 16 ---
+
+[BASELINE]
+window and the little girl watched the little girl playing. The little girl was so proud of herself. She said, "Thank you, old man! You saved me!"
+
+[QUARTIC]
+fire. The fire was strong and the water was taking the time to be a surprise. The fire was not long, but it was powerful and not strong anymore. The fire didn't last for the time. The fire didn't go back to its secret. The fire stayed in the truck,
+
+--- seed 17 ---
+
+[BASELINE]
+side of the line and said, "Let's go and say the prize."
+
+[QUARTIC]
+table and took out a big box. He was very happy.
+
+--- seed 18 ---
+
+[BASELINE]
+cliff and listened to his silly muscles. The old man noticed and came over to see what he was doing. The old man was surprised and reassured the old man to keep him safe. The old man was very reliable and said, "You need to teach me how to read some
+
+[QUARTIC]
+chair. He liked to look at the trees and see the birds. He also saw a man with a hat and a badge. The man was bald and mean. He looked at Tom and Lily and said, "Hello, I am Tom. You are a big chair. I am a magic man. I am a clown. I have a bald hea
+
+--- seed 19 ---
+
+[BASELINE]
+water and looked up at the sky. The boy felt brave and continued to explore the water.
+
+[QUARTIC]
+fire. The fire was so hot that it made the little girl and her family live her birthday. The fire was so big and strong that the little girl was friendly and wanted to play with it.
