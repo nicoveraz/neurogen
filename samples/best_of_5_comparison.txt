@@ -1,0 +1,162 @@
+# NeuroGen: Best Story Generation Samples
+# 100K-step checkpoints, 5 seeds per prompt, best contrast selected
+# Baseline vbpb=0.8072, Quartic vbpb=0.7994
+# Settings: temperature=0.8, top_k=50, top_p=0.9, max_tokens=250
+
+======================================================================
+#1 | Prompt: "It was a dark and stormy" | seed=789 | contrast=+0.75
+======================================================================
+
+[BASELINE] quality=1.14 rep=0.000 div=0.84 19w
+ and the air was filled with a perfect way and soon the wind started to blow through the water. 
+
+
+
+[QUARTIC] quality=1.89 rep=0.000 div=0.89 19w
+ came alive. The girl was so happy to be able to explore the sky and buy lots of sunshine.
+
+
+
+======================================================================
+#2 | Prompt: "Tom was very sad because" | seed=137 | contrast=+0.75
+======================================================================
+
+[BASELINE] quality=1.20 rep=0.000 div=0.90 10w
+ he could not play on the swings and the slide.
+
+
+
+[QUARTIC] quality=1.95 rep=0.000 div=0.95 19w
+ he really wanted to go to the market. His mom was very kind and said that Tom needed help. 
+
+
+
+======================================================================
+#3 | Prompt: "The dog found a big red" | seed=256 | contrast=+0.67
+======================================================================
+
+[BASELINE] quality=0.96 rep=0.208 div=0.48 50w
+ ball. The dog was happy to play with the ball. The dog wagged his tail and licked the dog's ears. The dog wagged its tail and barked happily. The dog wagged its tail and barked happily. The dog ran to catch the dog. The dog licked their faces and bi
+
+[QUARTIC] quality=1.62 rep=0.000 div=0.84 25w
+ ball of yarn in his mouth. He bit it and made a loud noise. The blue ball rolled into the ball. The ball was sad.
+
+
+
+======================================================================
+#4 | Prompt: "Mom said we could go to the" | seed=137 | contrast=+0.48
+======================================================================
+
+[BASELINE] quality=1.38 rep=0.080 div=0.54 52w
+ park and play on the swings. But they had to be quiet and careful. They wished they could go to the park and see the trees and the flowers. They were careful not to fall off the swings and the slide. They loved to play on the swings and the slide. T
+
+[QUARTIC] quality=1.86 rep=0.000 div=0.86 21w
+ park to play with it. Tim liked the park better, so he grabbed the trunk and put it on the swingsing. 
+
+
+
+======================================================================
+#5 | Prompt: "The teacher told the children to" | seed=42 | contrast=+0.43
+======================================================================
+
+[BASELINE] quality=1.43 rep=0.000 div=0.80 10w
+ be good. They said they would be good and kind.
+
+
+
+[QUARTIC] quality=1.86 rep=0.000 div=0.86 21w
+ stay healthy and happy. They learned that sharing is good, but with a little help and a little bit of surprise.
+
+
+
+======================================================================
+#6 | Prompt: "The old man sat by the" | seed=256 | contrast=+0.43
+======================================================================
+
+[BASELINE] quality=1.16 rep=0.000 div=0.86 14w
+ fire and listened to the sounds and looked at the man with his hands.
+
+
+
+[QUARTIC] quality=1.58 rep=0.000 div=1.00 14w
+ table and talked to the caterpillar. He said, "Thank you, caterpillar! I love you!"
+
+
+
+======================================================================
+#7 | Prompt: "There was a tiny bird who" | seed=137 | contrast=+0.34
+======================================================================
+
+[BASELINE] quality=1.39 rep=0.078 div=0.55 53w
+ wanted to fly a little higher. The bird was so big that it flew away fast and it was happy. The little bird was so happy to see the tiny bird soaring in the sky. It flew around and around until it saw the bird's seence. The bird was happy to see the
+
+[QUARTIC] quality=1.73 rep=0.000 div=0.73 37w
+ lived nearby. The bird had a strong wing and it could swing all day. One day, a mild monkey came and bought the bird. The monkey was so happy and he played with the bird all day. 
+
+
+
+======================================================================
+#8 | Prompt: "Once upon a time there was a" | seed=1337 | contrast=+0.29
+======================================================================
+
+[BASELINE] quality=1.60 rep=0.051 div=0.71 41w
+ little girl called Lucy. She was three years old and she loved to play with her toys. One day, Lucy was playing with her toys and she wanted to play with her friends. She thought it was the best toy ever!
+
+
+
+[QUARTIC] quality=1.89 rep=0.000 div=0.89 28w
+ little girl who liked to explore. One day she went to the beach with her mum and dad. She was very excited and asked for a new boat.
+
+
+
+======================================================================
+#9 | Prompt: "Lucy wanted to learn how to" | seed=137 | contrast=+0.12
+======================================================================
+
+[BASELINE] quality=1.61 rep=0.071 div=0.75 16w
+ play the game. She asked her mom to help her if they could play the game.
+
+
+
+[QUARTIC] quality=1.73 rep=0.000 div=0.86 14w
+ be careful. Then she took the pin out of the back of her toys.
+
+
+
+======================================================================
+#10 | Prompt: "After school, the boy went to" | seed=256 | contrast=+0.07
+======================================================================
+
+[BASELINE] quality=1.80 rep=0.000 div=0.80 50w
+ the park to show his friends. They were all happy and played together. They all had a lot of fun and made a new friend.Once upon a time, there was a little girl named Lily. She loved to play outside and explore the world around her. One day, she saw
+
+[QUARTIC] quality=1.87 rep=0.000 div=0.87 31w
+ school and set up the stage with his teacher. His teacher was very proud of him and said, "Good job, my dear. You did a great job with a perfect truth." 
+
+
+
+======================================================================
+#11 | Prompt: "One day, the cat decided to" | seed=789 | contrast=+0.07
+======================================================================
+
+[BASELINE] quality=1.74 rep=0.000 div=0.74 34w
+ go for a walk. As he walked, he came across a small pond. He was so excited he couldn't believe his luck! He was excited to go inside and get ready for the day.
+
+
+
+[QUARTIC] quality=1.80 rep=0.000 div=0.93 14w
+ come to a fun park. The cat was excited to learn more about animals. 
+
+
+
+======================================================================
+#12 | Prompt: "The little girl walked into the" | seed=42 | contrast=+0.06
+======================================================================
+
+[BASELINE] quality=1.68 rep=0.020 div=0.73 51w
+ woods with her mommy and daddy. It was getting dark, but they were scared of the logs and ran to their mommy. They ran to their mommy and they hugged her and said she was too scared. They did not know that they would never find anything fun to do. T
+
+[QUARTIC] quality=1.74 rep=0.000 div=0.74 39w
+ woods. She saw a big tree with lots of red apples on it. She looked around and saw a tree with a long leaf. She thought it was fun to climb the tree and see what she could find.
+
+

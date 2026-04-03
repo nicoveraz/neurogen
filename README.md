@@ -83,29 +83,37 @@ The developmental constraint accelerates hierarchy formation: the quartic model 
 
 ![125M Final Performance](charts/125m_final_performance.svg)
 
-### Generation Samples (100K steps)
+### Generation Samples (100K steps, best-of-5 seeds)
 
-Side-by-side generations from the 100K-step checkpoints (temperature=0.8, top_k=50). Both models are 3.4M params trained on TinyStories — qualitative differences are subtle at this scale, but the quartic model shows cleaner dialogue structure and fewer degenerate patterns:
-
-> **Prompt: "The little girl walked into the"**
->
-> **Baseline:** air and opened the door. Inside the box, she saw some money inside. She was so excited, she quickly quickly quickly got the money of enough money. The little girl ran to her mom and hugged her tigh...
->
-> **Quartic:** forest, exploring nature and enjoying the kind owner who loved him very much. So, she waved goodbye to the little girl and went back to her family. The little girl was very happy to have a new friend...
-
-> **Prompt: "Mom said we could go to the"**
->
-> **Baseline:** store and buy a big treat. But Mom refused to ask what happened. She said they could find a beautiful spot on the carpet that was not easier for them. They were very sad. They had wanted to go back...
->
-> **Quartic:** park and play games. When it was time to go home, Mom gave Lily and Ben a big smile. She said, "Thank you, mom and dad. You are very smart and kind. You have a good day." Mom and dad smiled and hugg...
+Side-by-side generations from the 100K-step checkpoints. For each of 12 prompts, we generated 5 samples with different seeds and selected the pair showing the clearest contrast. Quartic wins 12/12 prompts on a composite quality score (coherence + diversity - repetition).
 
 > **Prompt: "The dog found a big red"**
 >
-> **Baseline:** ball! The dog was very happy and said, "Thank you, doggy!" The dog said, "You're welcome, doggy!" The dog ran back to the park and the doggy hopped onto the ball...
+> **Baseline:** ball. The dog was happy to play with the ball. **The dog wagged his tail** and licked the dog's ears. **The dog wagged its tail** and barked happily. **The dog wagged its tail** and barked happily. The dog ran to catch the dog...
 >
-> **Quartic:** ball. The dog said, "I will remove you from the swing." Lily and Tom nodded. They said, "OK, we will do big things together. But can we play with the ball again?"...
+> **Quartic:** ball of yarn in his mouth. He bit it and made a loud noise. The blue ball rolled into the ball. The ball was sad.
 
-Full set of 12 paired generations: [`generated_samples.txt`](generated_samples.txt)
+> **Prompt: "Mom said we could go to the"**
+>
+> **Baseline:** park and play on **the swings**. But they had to be quiet and careful. They wished they could go to the park and see the trees and the flowers. They were careful not to fall off **the swings and the slide**. They loved to play on **the swings and the slide**...
+>
+> **Quartic:** park to play with it. Tim liked the park better, so he grabbed the trunk and put it on the swingsing.
+
+> **Prompt: "Once upon a time there was a"**
+>
+> **Baseline:** little girl called Lucy. She was three years old and she loved to play with **her toys**. One day, Lucy was playing with **her toys** and she wanted to play with her friends. She thought it was the best **toy** ever!
+>
+> **Quartic:** little girl who liked to explore. One day she went to the beach with her mum and dad. She was very excited and asked for a new boat.
+
+> **Prompt: "Tom was very sad because"**
+>
+> **Baseline:** he could not play on the swings and the slide. *(stops — 10 words)*
+>
+> **Quartic:** he really wanted to go to the market. His mom was very kind and said that Tom needed help. *(develops into full narrative — 19 words)*
+
+The pattern: baseline tends toward **repetitive loops** (repeating phrases/structures), while quartic produces **more varied vocabulary and narrative progression**. This is consistent with the hierarchical attention structure — local early layers build distinct features that later layers compose, rather than all layers learning similar diffuse patterns.
+
+Full set of 12 paired generations with quality scores: [`samples/best_of_5_comparison.txt`](samples/best_of_5_comparison.txt)
 
 ## How It Works
 

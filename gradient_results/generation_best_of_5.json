@@ -1,0 +1,506 @@
+{
+  "Once upon a time there was a": [
+    {
+      "seed": 42,
+      "baseline": " little girl named Jane. She was a very brave girl. Every day she would spend all her days at the start of the sunset. She was always looking for things to make her own house when she had something special inside.\n\n",
+      "quartic": " little girl named Mia. She was only three years old, but she had a smile on her face.\n\n",
+      "contrast": 0.0908,
+      "bl_quality": 1.8537,
+      "q4_quality": 1.9444
+    },
+    {
+      "seed": 137,
+      "baseline": " little girl called Suzy. She was very clever and loved to explore. One day she wanted to go on a trip with her family. \n\n",
+      "quartic": " little girl called Suzy. She loved to play with her toys all day long. One day Suzy decided to go to the park to play. As she was playing, she saw a big bear. The bear was frightened and wanted to run away. \n\n",
+      "contrast": -0.126,
+      "bl_quality": 1.9167,
+      "q4_quality": 1.7907
+    },
+    {
+      "seed": 256,
+      "baseline": " little girl called Lucy. She was very thirsty and wanted something to drink. She looked around the room, but she couldn't find anything that was under her bed.\n\n",
+      "quartic": " little girl called Lucy. Lucy loved to play outside in the rain. Every day she would wake up and watch her favourite shows on her lips.\n\n",
+      "contrast": 0.0687,
+      "bl_quality": 1.8929,
+      "q4_quality": 1.9615
+    },
+    {
+      "seed": 789,
+      "baseline": " little girl named Lily. She loved to play outside in the sunshine. One day, she found a bright yellow plant in her garden. She was so excited to explore it and play with it.\n\n",
+      "quartic": " little girl named Lily. She loved to play outside in the grass and swim in the water. One day, Lily went to the pool to play. It was watery and splashed around. She saw her friends playing with a ball.\n\n",
+      "contrast": -0.0279,
+      "bl_quality": 1.8529,
+      "q4_quality": 1.825
+    },
+    {
+      "seed": 1337,
+      "baseline": " little girl called Lucy. She was three years old and she loved to play with her toys. One day, Lucy was playing with her toys and she wanted to play with her friends. She thought it was the best toy ever!\n\n",
+      "quartic": " little girl who liked to explore. One day she went to the beach with her mum and dad. She was very excited and asked for a new boat.\n\n",
+      "contrast": 0.2881,
+      "bl_quality": 1.6048,
+      "q4_quality": 1.8929
+    }
+  ],
+  "The little girl walked into the": [
+    {
+      "seed": 42,
+      "baseline": " woods with her mommy and daddy. It was getting dark, but they were scared of the logs and ran to their mommy. They ran to their mommy and they hugged her and said she was too scared. They did not know that they would never find anything fun to do. T",
+      "quartic": " woods. She saw a big tree with lots of red apples on it. She looked around and saw a tree with a long leaf. She thought it was fun to climb the tree and see what she could find.\n\n",
+      "contrast": 0.0589,
+      "bl_quality": 1.6847,
+      "q4_quality": 1.7436
+    },
+    {
+      "seed": 137,
+      "baseline": " woods and saw a small bush. She wanted to eat the bush but she knew that she had to surrender. She felt sad and scared. She wanted to go back to the bush.\n\n",
+      "quartic": " woods, and she could hear her beat happy. She stopped running and smiled.\n\n",
+      "contrast": 0.0565,
+      "bl_quality": 1.6022,
+      "q4_quality": 1.6587
+    },
+    {
+      "seed": 256,
+      "baseline": " forest and she noticed a little girl sitting next to the cat. She looked so surprised.\n\n",
+      "quartic": " woods, and saw lots of trees and flowers. The little girl was so surprised and asked the woods what was causing the trees. The woods saw lots of trees and flowers. The little girl was so excited to find the woods.\n\n",
+      "contrast": -0.8625,
+      "bl_quality": 1.9375,
+      "q4_quality": 1.075
+    },
+    {
+      "seed": 789,
+      "baseline": " park with her mom. She was so excited that she started to feel brave and learn how to read her new novel. She did not see the sharp weather outside her window. She stopped and looked around for something to do.\n\n",
+      "quartic": " woods and spotted a big, bright tree. She ran to the tree and asked her mom, \"What is that?\" Her mom said, \"That is a stranger looking through the tree. It is so cold that it must have been all alone.\" \n\n",
+      "contrast": 0.0,
+      "bl_quality": 1.8049,
+      "q4_quality": 1.8049
+    },
+    {
+      "seed": 1337,
+      "baseline": " woods and saw a beautiful flower. She was so excited to see it. She ran to the flower and said, \"Look, Mommy! I found a beautiful flower!\"\n\n",
+      "quartic": " woods. She couldn't stop smiling. She looked around and saw a big scary monster. She was scared and she started to cry.\n\n",
+      "contrast": -0.1529,
+      "bl_quality": 1.6586,
+      "q4_quality": 1.5057
+    }
+  ],
+  "One day, the cat decided to": [
+    {
+      "seed": 42,
+      "baseline": " go on an adventure. It wandered under the soft trees, behind a rocks and in the middle of the river.\n\n",
+      "quartic": " give it a try. But it was too late. The cat came and fell on the ground. The cat got very sad and cried. The cat did not help the cat.\n\n",
+      "contrast": -0.3831,
+      "bl_quality": 1.9,
+      "q4_quality": 1.5169
+    },
+    {
+      "seed": 137,
+      "baseline": " go for a walk. He paddled and hopped until he reached the end of the mountain.\n\n",
+      "quartic": " give the bird a special seed. The cat was very happy and proud of itself for being such a good helper.\n\n",
+      "contrast": 0.0298,
+      "bl_quality": 1.875,
+      "q4_quality": 1.9048
+    },
+    {
+      "seed": 256,
+      "baseline": " go to the park. He wanted to play on the swings, but he was too small to reach the same. Suddenly, the cat stopped and looked up at the sky. The cat said, \"Hello, cat! Why are you sad?\" The cat thought for a moment, then said, \"I can help you get ou",
+      "quartic": " take a walk through the woods. He saw a big tree with a big storm. The wind was strong and the wind was hurt. The cat was not friendly and wanted to help the wind. The cat did not have a big storm and a lot of wind blowing on the wind.\n\n",
+      "contrast": -0.0586,
+      "bl_quality": 1.6547,
+      "q4_quality": 1.5962
+    },
+    {
+      "seed": 789,
+      "baseline": " go for a walk. As he walked, he came across a small pond. He was so excited he couldn't believe his luck! He was excited to go inside and get ready for the day.\n\n",
+      "quartic": " come to a fun park. The cat was excited to learn more about animals. \n\n",
+      "contrast": 0.0683,
+      "bl_quality": 1.7353,
+      "q4_quality": 1.8036
+    },
+    {
+      "seed": 1337,
+      "baseline": " go for a walk. It was a beautiful day, and it was happy to be in the warm water. As it walked, it noticed a big creature. The creature had a big creative name. It saw the creature and wanted to catch it for itself. But it was too fast for the creatu",
+      "quartic": " give it a try. The cat caught it and ran away. \n\n",
+      "contrast": -0.0261,
+      "bl_quality": 1.6226,
+      "q4_quality": 1.5966
+    }
+  ],
+  "Tom was very sad because": [
+    {
+      "seed": 42,
+      "baseline": " he wanted to make a big stack of blocks. But then he had an idea. He put some blocks on top of the stack. The stack was hard to make the blocks have big blue blocks. Tom and Sue stacked the blocks together. They made a long tower with the blocks. Th",
+      "quartic": " he lost his favorite toy. Lily loved to play with her toys and sing songs. One day, her mom said, \"Lily, it's time to wash your hair.\" Lily didn't want to wash her hair because it was hard to wash. She was still fearful, but she knew her mom was rig",
+      "contrast": 0.0724,
+      "bl_quality": 1.6923,
+      "q4_quality": 1.7647
+    },
+    {
+      "seed": 137,
+      "baseline": " he could not play on the swings and the slide.\n\n",
+      "quartic": " he really wanted to go to the market. His mom was very kind and said that Tom needed help. \n\n",
+      "contrast": 0.7474,
+      "bl_quality": 1.2,
+      "q4_quality": 1.9474
+    },
+    {
+      "seed": 256,
+      "baseline": " he lost his toy. Tom wanted to help Lily, so he said, \"Don't worry, Lily. I can help you.\" \n\n",
+      "quartic": " he wanted to go on an adventure.\n\n",
+      "contrast": -0.3864,
+      "bl_quality": 1.6864,
+      "q4_quality": 1.3
+    },
+    {
+      "seed": 789,
+      "baseline": " he was sad. He wanted to go back to his house, but he knew he had to leave his house. So, he decided to wait for a minute.\n\n",
+      "quartic": " he had a toy car that he loved to play with. His friend asked him if he could play with him when he was older. Tom was very curious and asked his friend what was wrong.\n\n",
+      "contrast": 0.0079,
+      "bl_quality": 1.7143,
+      "q4_quality": 1.7222
+    },
+    {
+      "seed": 1337,
+      "baseline": " he had no friends. He wanted to make sure he was okay, so he went to the house to see what was going on.\n\n",
+      "quartic": " he didn't have enough money to buy it. But then, Tom had an idea. He decided to sit on the seat and watch the shore. They watched as the shore swam in the water. Tom was very happy and thanked the shore for helping him. From that day on, Tom and his",
+      "contrast": 0.0385,
+      "bl_quality": 1.75,
+      "q4_quality": 1.7885
+    }
+  ],
+  "The teacher told the children to": [
+    {
+      "seed": 42,
+      "baseline": " be good. They said they would be good and kind.\n\n",
+      "quartic": " stay healthy and happy. They learned that sharing is good, but with a little help and a little bit of surprise.\n\n",
+      "contrast": 0.4321,
+      "bl_quality": 1.425,
+      "q4_quality": 1.8571
+    },
+    {
+      "seed": 137,
+      "baseline": " be strong and to hold the strawberries in their hands. They told her to be careful and not get too close to the teacher. The teacher told them that the strawberries were not allowed to delay their class for a while. So, they told them about the stra",
+      "quartic": " stay still and stay close to her.\n\n",
+      "contrast": -0.5095,
+      "bl_quality": 1.6667,
+      "q4_quality": 1.1571
+    },
+    {
+      "seed": 256,
+      "baseline": " stop sounding and to stay away. \n\n",
+      "quartic": " go and play some more. They had so much fun that they did not even take off the writing. The teacher was very proud of the teacher and her teacher and the teacher. They thanked the teacher for the teacher. They said they were proud of them. They sai",
+      "contrast": 0.2901,
+      "bl_quality": 1.3,
+      "q4_quality": 1.5901
+    },
+    {
+      "seed": 789,
+      "baseline": " listen to the story and not to give up. The children in the park were happy and proud of themselves for working together. The children learned that it is important to listen to the music and that being a kind grew more than being brave.Once upon a t",
+      "quartic": " try it. \n\n",
+      "contrast": -0.3649,
+      "bl_quality": 1.6649,
+      "q4_quality": 1.3
+    },
+    {
+      "seed": 1337,
+      "baseline": " be quiet and not to touch the stars. The children tried to be brave and do the same. They all wanted to play together. They went up and down, until they were tired and they said goodbye to each other.\n\n",
+      "quartic": " stay and play some more. \n\n",
+      "contrast": -0.4,
+      "bl_quality": 1.7,
+      "q4_quality": 1.3
+    }
+  ],
+  "It was a dark and stormy": [
+    {
+      "seed": 42,
+      "baseline": " calm station. Lily was scared and didn't know what to do. She looked around and saw that there was a lake in the distance. She felt scared but then she remembered something.\n\n",
+      "quartic": " came across the cold weather. The little girl was so happy that she could help her make the coal cake smooth and tasty. \n\n",
+      "contrast": 0.0693,
+      "bl_quality": 1.8438,
+      "q4_quality": 1.913
+    },
+    {
+      "seed": 137,
+      "baseline": " call. Jack was scared, but he still had a brilliant idea. \n\n",
+      "quartic": " came to the storm.\n\n",
+      "contrast": -0.3875,
+      "bl_quality": 1.6875,
+      "q4_quality": 1.3
+    },
+    {
+      "seed": 256,
+      "baseline": " dark. The string was sleeping in the wind. The wind was blowing and the bird was happy. It felt like it was in a place.\n\n",
+      "quartic": " came in. Suddenly, a big ball came over the playground. Timmy was scared and wanted to run away, but his mom was too fast.\n\n",
+      "contrast": 0.4554,
+      "bl_quality": 1.4613,
+      "q4_quality": 1.9167
+    },
+    {
+      "seed": 789,
+      "baseline": " and the air was filled with a perfect way and soon the wind started to blow through the water. \n\n",
+      "quartic": " came alive. The girl was so happy to be able to explore the sky and buy lots of sunshine.\n\n",
+      "contrast": 0.7526,
+      "bl_quality": 1.1421,
+      "q4_quality": 1.8947
+    },
+    {
+      "seed": 1337,
+      "baseline": " call from a far away land. The farmer and the barrel said it was okay and they had a great day in the farm.\n\n",
+      "quartic": " came to help the birds. The camera was happy to see the birds and the flowers and the bees. They smiled and hugged each other.\n\n",
+      "contrast": -0.1133,
+      "bl_quality": 1.8333,
+      "q4_quality": 1.72
+    }
+  ],
+  "Mom said we could go to the": [
+    {
+      "seed": 42,
+      "baseline": " park soon. The two of them sat together and stayed home and watched the grown-ups swim and play games. They had so much fun that they didn't notice the time went on tours that day. \n\n",
+      "quartic": " park. She saw a big pool with a pond and a fish to swim. She loved the pond and wanted to dive into the water.\n\n",
+      "contrast": -0.1086,
+      "bl_quality": 1.8286,
+      "q4_quality": 1.72
+    },
+    {
+      "seed": 137,
+      "baseline": " park and play on the swings. But they had to be quiet and careful. They wished they could go to the park and see the trees and the flowers. They were careful not to fall off the swings and the slide. They loved to play on the swings and the slide. T",
+      "quartic": " park to play with it. Tim liked the park better, so he grabbed the trunk and put it on the swingsing. \n\n",
+      "contrast": 0.4787,
+      "bl_quality": 1.3785,
+      "q4_quality": 1.8571
+    },
+    {
+      "seed": 256,
+      "baseline": " park with the players and the ball. But we have to be careful and ask before you touch something. The ball is not strong enough to mend. And the player is not for playing. It is for playing. The ball is for with me and my car.\"\n\n",
+      "quartic": " park to play again. They said goodbye to the park and went back to their homes.Once upon a time, there was a little girl named Lily. She loved to explore the world around her. One day, she saw a firework in the sky. It was green and shiny. She was s",
+      "contrast": 0.2006,
+      "bl_quality": 1.473,
+      "q4_quality": 1.6737
+    },
+    {
+      "seed": 789,
+      "baseline": " park soon. And we can be the best thing ever. We can do it again and have fun.\"\n\n",
+      "quartic": " park. They had a lot of fun and exciting things. The end.Once upon a time, there was a little girl named Lily. She loved to eat beans, but one day she saw a big ball on the ground. She didn't like it at all. \n\n",
+      "contrast": 0.3178,
+      "bl_quality": 1.4833,
+      "q4_quality": 1.8011
+    },
+    {
+      "seed": 1337,
+      "baseline": " park and play with the dog. Maybe we can make a new train with the dog. Maybe we can find a new train for the dog to play with.\n\n",
+      "quartic": " park. Lily was so excited to go to the park!\n\n",
+      "contrast": 0.2747,
+      "bl_quality": 1.2503,
+      "q4_quality": 1.525
+    }
+  ],
+  "The dog found a big red": [
+    {
+      "seed": 42,
+      "baseline": " ball of yarn in the middle of the park. The little boy was so happy to find the ball. He played with the yarn all day long. He knew that he would be safe and not let anyone go too far. The little boy and the little boy played together all day.Once u",
+      "quartic": " ball. He was very sad and learned that being tired was not a good thing. He thanked his friends for helping him.\n\n",
+      "contrast": 0.1857,
+      "bl_quality": 1.64,
+      "q4_quality": 1.8258
+    },
+    {
+      "seed": 137,
+      "baseline": " ball. He wanted to play with the ball, but the ball was still angry. Tim thought for a moment and said, \"I want to play with the ball too, but I want to play with it.\"\n\n",
+      "quartic": " ball that he liked. The dog wanted to play too. They played all day and had lots of fun. The dog liked to play and run in the park. The dog was happy to have a new friend.Once upon a time, in a small town, there lived a little boy named Tim. Tim lov",
+      "contrast": 0.2823,
+      "bl_quality": 1.4592,
+      "q4_quality": 1.7414
+    },
+    {
+      "seed": 256,
+      "baseline": " ball. The dog was happy to play with the ball. The dog wagged his tail and licked the dog's ears. The dog wagged its tail and barked happily. The dog wagged its tail and barked happily. The dog ran to catch the dog. The dog licked their faces and bi",
+      "quartic": " ball of yarn in his mouth. He bit it and made a loud noise. The blue ball rolled into the ball. The ball was sad.\n\n",
+      "contrast": 0.6651,
+      "bl_quality": 0.9562,
+      "q4_quality": 1.6212
+    },
+    {
+      "seed": 789,
+      "baseline": " ball on the ground. The dog was so happy and he said, \"Thank you, Lily. You are the best friend.\" Lily smiled and said, \"You're welcome. I'm happy to help.\" They played together and had lots of fun.Once upon a time, there was a little girl named Lil",
+      "quartic": " ball. The dog was very friendly and sprayed the ball with water. The dog ran after the ball and jumped on it. The dog chased the dog and tried to catch it. The dog chased the dog and bit the ball. The dog was happy and played with the ball all day.\n",
+      "contrast": -0.5433,
+      "bl_quality": 1.744,
+      "q4_quality": 1.2008
+    },
+    {
+      "seed": 1337,
+      "baseline": " ball and wanted to play with it. The ball was shiny and had a long beak. The dog liked to play with the ball and the ball.\n\n",
+      "quartic": " ball. The dog was very good at throwing things.\n\n",
+      "contrast": 0.0129,
+      "bl_quality": 1.5496,
+      "q4_quality": 1.5625
+    }
+  ],
+  "Lucy wanted to learn how to": [
+    {
+      "seed": 42,
+      "baseline": " play her toys. She asked her mom if she could learn how to play a game and make funny noises.\n\n",
+      "quartic": " be brave. She was very happy and showed her parents the garden. They were all very proud of her work. She said, \"Look, a big plane player! Do you want to play with me?\"\n\n",
+      "contrast": -0.0882,
+      "bl_quality": 1.85,
+      "q4_quality": 1.7618
+    },
+    {
+      "seed": 137,
+      "baseline": " play the game. She asked her mom to help her if they could play the game.\n\n",
+      "quartic": " be careful. Then she took the pin out of the back of her toys.\n\n",
+      "contrast": 0.125,
+      "bl_quality": 1.6071,
+      "q4_quality": 1.7321
+    },
+    {
+      "seed": 256,
+      "baseline": " sail on the shore. She put her toys on the shore and said \"Shore\" to her friends. They were all safe and happy.\n\n",
+      "quartic": " play. She looked at her friend Billy, and said, \"My friend is special to me.\" Billy was so happy to have a new friend. They played together and had fun together. And from that day on, Billy and Lucy had lots of fun together.Once upon a time, there w",
+      "contrast": 0.0319,
+      "bl_quality": 1.7844,
+      "q4_quality": 1.8163
+    },
+    {
+      "seed": 789,
+      "baseline": " make something new. She asked her mom, \"Can I play with the toys?\"\n\n",
+      "quartic": " use the trunk. She asked her mom to show her the trunk she had built.\n\n",
+      "contrast": -0.075,
+      "bl_quality": 1.8125,
+      "q4_quality": 1.7375
+    },
+    {
+      "seed": 1337,
+      "baseline": " play the guitar and take it out of the park. She put the guitar on her bed, and said, \"What is your name? It is a big playground and you love it.\"\n\n",
+      "quartic": " be strong and go fast and slow. She liked to look at her dolls and play with them. She felt sorry for her dolls and wanted to make them sorry.\n\n",
+      "contrast": -0.086,
+      "bl_quality": 1.7812,
+      "q4_quality": 1.6952
+    }
+  ],
+  "After school, the boy went to": [
+    {
+      "seed": 42,
+      "baseline": " bed with a big smile on his face. He was very excited to show his mom what he could find. His mom said, \"That was a great job you made the story!\"Once upon a time, there was a boy named Timmy. Timmy liked to play in the park with his friends. One da",
+      "quartic": " the park. He was very happy. He said to his teacher, \"Thank you, teacher. I love you very much.\"\n\n",
+      "contrast": -0.2662,
+      "bl_quality": 1.7547,
+      "q4_quality": 1.4885
+    },
+    {
+      "seed": 137,
+      "baseline": " bed that night feeling sleepy and ready to sleep. He woke up feeling miserable and tired, but he was happy to have had the comet feeling happy and proud.Once upon a time, there was a little girl named Lily. She loved to play outside and explore the ",
+      "quartic": " the park with his teacher. He had special teachers and friends in the park. They had so much fun playing together. The end.Once upon a time, there was a little girl named Lily. She loved to play with her toys and her dolls. One day, Lily went to the",
+      "contrast": -0.0355,
+      "bl_quality": 1.7447,
+      "q4_quality": 1.7092
+    },
+    {
+      "seed": 256,
+      "baseline": " the park to show his friends. They were all happy and played together. They all had a lot of fun and made a new friend.Once upon a time, there was a little girl named Lily. She loved to play outside and explore the world around her. One day, she saw",
+      "quartic": " school and set up the stage with his teacher. His teacher was very proud of him and said, \"Good job, my dear. You did a great job with a perfect truth.\" \n\n",
+      "contrast": 0.071,
+      "bl_quality": 1.8,
+      "q4_quality": 1.871
+    },
+    {
+      "seed": 789,
+      "baseline": " his friend's house. His friend was playing with the toys on his carpet and made them laugh. Tim didn't like the idea of a big train and wanted to play with it.\n\n",
+      "quartic": " play in the park. He had a big ball that he could kick and find. He played with his ball and his big ball. The ball hit a big man on the floor. The ball fell down and the boy was scared. He cried and cried.\n\n",
+      "contrast": -0.255,
+      "bl_quality": 1.8438,
+      "q4_quality": 1.5888
+    },
+    {
+      "seed": 1337,
+      "baseline": " bed with a smile on his face. He was happy he had seen so many people that he had heard about all his friends and their fun adventure continued to pretend he was a player and said hello.Once upon a time there was a small boy named Jack. He liked to ",
+      "quartic": " the park with his mom and dad. He saw his boy with the dog, but he looked at his parents. They felt sad for him and wanted to make him smile. They all worked together to clean up the mess. But the boy was too scared to do it. He looked around and sa",
+      "contrast": -0.0599,
+      "bl_quality": 1.7451,
+      "q4_quality": 1.6852
+    }
+  ],
+  "There was a tiny bird who": [
+    {
+      "seed": 42,
+      "baseline": " wanted to fly high. He flew around the garden and saw a bird in a tree. He was very happy and chirped back at the bird. \n\n",
+      "quartic": " lived nearby. Every day the bird would carry heavy stones to a hidden spot behind a tree. The bird was scared and he wanted to run away. \n\n",
+      "contrast": 0.0057,
+      "bl_quality": 1.8462,
+      "q4_quality": 1.8519
+    },
+    {
+      "seed": 137,
+      "baseline": " wanted to fly a little higher. The bird was so big that it flew away fast and it was happy. The little bird was so happy to see the tiny bird soaring in the sky. It flew around and around until it saw the bird's seence. The bird was happy to see the",
+      "quartic": " lived nearby. The bird had a strong wing and it could swing all day. One day, a mild monkey came and bought the bird. The monkey was so happy and he played with the bird all day. \n\n",
+      "contrast": 0.3394,
+      "bl_quality": 1.3903,
+      "q4_quality": 1.7297
+    },
+    {
+      "seed": 256,
+      "baseline": " lived in a tree. The bird was sad because it had no friends. One day, the bird wanted to share his strong bird with the bird. But the bird was too fast. The bird was too fast and sad.\n\n",
+      "quartic": " wanted to seat in its wings and started to fly too. The bird was happy to seat on the soft grass and pretend to fly around the world. The bird flew up high and perched on the ground, trying to find out where the bird was going.\n\n",
+      "contrast": 0.0535,
+      "bl_quality": 1.5848,
+      "q4_quality": 1.6383
+    },
+    {
+      "seed": 789,
+      "baseline": " wanted to fly away. The bird was trying to fly and move its wings to stay dry. The bird was happy and ate the stream.\n\n",
+      "quartic": " lived in a tiny birdcage. The birdcage had never seen anything like it before. The bird was so excited that it started to fly up higher and smoother. The birdcage was taking for a nap. The birds were so happy. The birds were singing and the birds ch",
+      "contrast": 0.0718,
+      "bl_quality": 1.593,
+      "q4_quality": 1.6649
+    },
+    {
+      "seed": 1337,
+      "baseline": " wanted to share her treat with him. The bird wanted to be the best friend in the world. So, the bird flew away and the bird continued to eat.\n\n",
+      "quartic": " lived in a big house. The bird was very happy because it had a new friend to play with. One day, the bird saw a big tree and wanted to see what was on the other side.\n\n",
+      "contrast": 0.0941,
+      "bl_quality": 1.6897,
+      "q4_quality": 1.7838
+    }
+  ],
+  "The old man sat by the": [
+    {
+      "seed": 42,
+      "baseline": " window. He said, \"Hello, little ones. I want to say hello.\"\n\n",
+      "quartic": " fire and the whole things all did. \n\n",
+      "contrast": -0.1583,
+      "bl_quality": 1.4583,
+      "q4_quality": 1.3
+    },
+    {
+      "seed": 137,
+      "baseline": " window and listened carefully. He smiled and said, \"Thank you for helping me!\"\n\n",
+      "quartic": " fire and the fire became best friends. From that day on, the fire became the best of friends and had lots of fun together.Once upon a time, there was a little girl named Lily. She loved to play with her toys and go on adventures. One day, Lily's mom",
+      "contrast": 0.0178,
+      "bl_quality": 1.7356,
+      "q4_quality": 1.7534
+    },
+    {
+      "seed": 256,
+      "baseline": " fire and listened to the sounds and looked at the man with his hands.\n\n",
+      "quartic": " table and talked to the caterpillar. He said, \"Thank you, caterpillar! I love you!\"\n\n",
+      "contrast": 0.4262,
+      "bl_quality": 1.1571,
+      "q4_quality": 1.5833
+    },
+    {
+      "seed": 789,
+      "baseline": " counter and said, \"This is a special sock. It can make you special for you to read it.\"\n\n",
+      "quartic": " cushion and talked to him. He looked at the cushion and saw his curious heart. He asked the cushion what it was, and the cushion replied, \"I can teach you how to find a cheap cushion. You can play with it and put it in the cushion.\"\n\n",
+      "contrast": -0.208,
+      "bl_quality": 1.8889,
+      "q4_quality": 1.6809
+    },
+    {
+      "seed": 1337,
+      "baseline": " window and carefully said the word \"too\". The old man thought about it for a moment and then said \"Let's take a bite and say how special it is.\" The old man said \"That's what souvenirs the boy had left for a bathe and a special carrot. The boy was s",
+      "quartic": " fire and the fire station was now filled with laughter. The fire began to grow and grow until it was all the colors of the fire.\n\n",
+      "contrast": 0.1861,
+      "bl_quality": 1.5062,
+      "q4_quality": 1.6923
+    }
+  ]
+}
