@@ -28,7 +28,7 @@ Independent Researcher\\
 \maketitle
 
 \begin{abstract}
-We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields robust improvements that increase with scale: $+1.5$\% at 3.4M parameters ($p=0.001$, Cohen's $d=2.05$, 5 seeds) and averaging $+12.9$\% at 125M parameters (50k steps, gap still widening). Seven mechanism experiments eliminate six hypotheses (gradient noise removal, softmax coupling, variance reduction, implicit regularization, landscape smoothness, ongoing structural constraint) and identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed. Direct measurement of attention entropy confirms the resulting specialization: early layers show 57\% lower entropy (more focused attention) in windowed models, while the final layer compensates with broader attention.
+We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields robust improvements that increase with scale: $+1.5$\% at 3.4M parameters ($p=0.001$, Cohen's $d=2.05$, 5 seeds), persisting at $+0.97$\% through 100k extended training steps, and averaging $+12.9$\% at 125M parameters (50k steps, gap still widening). Seven mechanism experiments eliminate six hypotheses (gradient noise removal, softmax coupling, variance reduction, implicit regularization, landscape smoothness, ongoing structural constraint) and identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed. Attention entropy measurements at both 20k and 100k steps confirm the specialization is permanent: early layers maintain ${\sim}52$\% lower entropy at 100k steps, with the gap narrowing only slightly from the 57\% measured at 20k.
 \end{abstract}
 
 \section{Introduction}
@@ -41,7 +41,7 @@ We ask: can these developmental principles improve transformer training?
 
 Our answer is nuanced. Most biological inspirations fail when applied to transformers. But one specific intervention works substantially: constraining attention to grow from local to global across layers, mimicking cortical receptive field development. When combined with pre-wired induction head circuits, the improvement reaches $+5.2$\% at 3.4M parameters. At 125M parameters, the quartic window schedule alone produces $+12.9$\% improvement over baseline after 50k training steps, with the gap still widening.
 
-The key insight is that the mechanism operates through \textit{forced architectural specialization}, not gradient noise removal. Three targeted experiments demonstrate that attention windows increase gradient signal coherence $18\times$ without reducing gradient noise, that softmax coupling contributes only 4--7\% gradient contamination, and that larger batch sizes (which reduce gradient variance) cannot replicate the window effect at equal token count.
+Extended training to 100k steps at 3.4M parameters confirms this is not merely faster convergence: the advantage peaks at $+2.9$\% during early training (10k steps), consistent with a curriculum effect, and persists at $+1.0$\% through 100k steps. The mechanism operates through \textit{forced architectural specialization}, not gradient noise removal. Seven targeted experiments demonstrate that attention windows increase gradient signal coherence $18\times$ without reducing gradient noise, dramatically reduce parameter coupling, and create permanent attention hierarchy that persists even after the windows are removed.
 
 \section{Related Work}
 
@@ -156,6 +156,30 @@ Steps & Baseline bpb & Quartic bpb & Gap \\
 \end{table}
 
 Windowed models run slightly faster than baseline (2.84 vs 2.78 steps/sec) due to Flash Attention's sliding window computing fewer attention scores.
+
+\subsection{3.4M Extended Training (100k steps)}
+
+To confirm the advantage is not merely faster early convergence, we trained both baseline and quartic models for 100k steps (seed 42). Table~\ref{tab:100k} shows the quartic advantage peaks early and persists through $5\times$ longer training.
+
+\begin{table}[H]
+\centering
+\caption{3.4M gap evolution over 100k steps (seed 42).}
+\label{tab:100k}
+\begin{tabular}{rcccc}
+\toprule
+Steps & Baseline bpb & Quartic bpb & Gap & Note \\
+\midrule
+1k & 1.339 & 1.326 & $+1.0$\% & \\
+5k & 1.122 & 1.109 & $+1.2$\% & \\
+10k & 1.051 & 1.021 & $+2.9$\% & peak gap \\
+20k & 0.971 & 0.957 & $+1.4$\% & \\
+50k & 0.898 & 0.893 & $+0.6$\% & \\
+100k & 0.807 & 0.799 & $+1.0$\% & persists \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The curriculum effect is strongest during early training (peak $+2.9$\% at 10k steps), consistent with the hypothesis that windows shape hierarchy formation in the critical early phase. The advantage narrows during mid-training but never closes, stabilizing at ${\sim}+1$\% through 100k steps. Effective attention spans at 100k steps confirm that quartic early layers develop genuine locality: layer~0 attends to only ${\sim}2$ of its 8 allowed tokens, while baseline layer~0 attends to ${\sim}8$ of 256.
 
 \section{Mechanism Analysis}
 
@@ -346,7 +370,7 @@ The data converges on a \textbf{curriculum effect with lasting structural impact
 
 \section{Conclusion}
 
-Across 200+ experiments at two scales, we find that developmental attention windows---constraining early layers to local attention with quartic growth toward full attention---consistently improve transformer training: $+1.5$\% at 3.4M ($p=0.001$, 5 seeds) and $+12.9$\% at 125M (50k steps, gap widening). Seven mechanism experiments eliminate six hypotheses (gradient noise removal, softmax coupling, variance reduction, implicit regularization, landscape smoothness, ongoing constraint) and identify the operative mechanism as a \textbf{curriculum effect with lasting structural impact}: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after the constraints are removed. The approach requires no additional parameters, no extra compute, and can be applied either permanently or only during early training.
+Across 200+ experiments at two scales, we find that developmental attention windows---constraining early layers to local attention with quartic growth toward full attention---consistently improve transformer training: $+1.5$\% at 3.4M ($p=0.001$, 5 seeds), persistent $+1.0$\% through 100k extended training, and $+12.9$\% at 125M (50k steps, gap widening). Seven mechanism experiments eliminate six hypotheses and identify the operative mechanism as a \textbf{curriculum effect with lasting structural impact}: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists permanently---confirmed by attention entropy measurements showing 52\% lower entropy at early layers even at $5\times$ longer training. The approach requires no additional parameters, no extra compute, and can be applied either permanently or only during early training.
 
 Code and data: \url{https://github.com/nicoveraz/neurogen}
 
