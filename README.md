@@ -339,7 +339,7 @@ papers/                 — paper (LaTeX + PDF)
 
 ## Paper
 
-Preprint: https://doi.org/10.5281/zenodo.19194323
+Preprint: https://doi.org/10.5281/zenodo.19642188
 
 ## License
 
