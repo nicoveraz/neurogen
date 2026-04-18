@@ -1,8 +1,11 @@
 # Model checkpoints
 *.pt
 *.pth
+*.npy
 checkpoints/
 checkpoints_125m/
+runs/
+archive/
 
 # Training logs
 *.log
