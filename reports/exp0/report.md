@@ -103,7 +103,7 @@ The flat spectrum is not a negative result; it's a calibration that says "analyz
 
 Over steps 80K–100K (eval-plateau region), eval-to-eval val_bpb fluctuation is ≈ ±0.015 within this single run. Between-run variance under different seeds is typically larger than within-run late-training noise.
 
-**Calibration for Exp 2 and Exp 5 interpretation:**
+**Calibration for Exp 2 and Exp 5 interpretation** — *assumes matched code paths*:
 
 | val_bpb delta vs baseline | call it |
 |---|---|
@@ -113,6 +113,16 @@ Over steps 80K–100K (eval-plateau region), eval-to-eval val_bpb fluctuation is
 | > ±0.05 | substantial |
 
 Use ±0.02–0.025 as the "is this real?" threshold for cross-run comparisons. Do not write the thesis on a 0.01 improvement. This number is calibrated here so we don't relitigate it later.
+
+### 4.1 Cross-codepath asterisk (added 2026-04-19 after Exp 2 pilot findings)
+
+The thresholds above assume the baseline and comparison runs share **the same code path** — same parameter allocation, same optimizer setup, same number and ordering of forward/backward passes. If the code path changes (e.g., adding new `nn.Parameter`s, new loss terms, extra optimizer groups, extra forward passes for diagnostics), comparisons against an earlier-codepath baseline (Exp 0 for Exp 2) accumulate additional variance from MPS floating-point non-determinism.
+
+Measured cross-codepath variance between Exp 0 and Exp 2 pilots on this machine: **≈ 0.055 val_bpb at step 10K** — as large as the "substantial" band of the table above. Three Exp 2 pilots (grid_lr_scale 10 / 0.1 / 0) all landed at val_bpb ≈ 0.95 @ 10K, all about 0.055 below Exp 0's 1.007 at the same step, regardless of whether the topographic regularizer was active.
+
+**Rule:** for Exp 2 and Exp 5, the baseline condition must be the **matched null** — same code path with the intervention neutralized (weight = 0). Do not compare Exp 2 val_bpb against Exp 0's numbers; compare against the Exp 2 matched-null condition. Within-codepath noise floor is expected to be lower than the cross-codepath 0.055 and should be measured empirically from the spread across multiple Exp 2 conditions once they run.
+
+See `feedback_matched_null.md` in memory for the general principle.
 
 ---
 

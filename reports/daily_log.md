@@ -47,3 +47,14 @@ All Exp 1 passes done; full report at `reports/exp1/report.md`. Headline: digit 
 - **Number-word corpus feasibility check: mostly negative.** `one` is 75% "one day" (time-marker), `three` is 77% "three year(s)" (same age template as digit `3`), `four`–`ten` are rare (<2K each). Top shared-context slots are pronouns (`she`, `he`, `they`), not compositional nouns. The only viable thin compositional sub-axis is `{four, six, eight} × {legs, blocks, wheels, pieces}` — animal/object counting with 5-6 non-zero cells. Reinforces: Exp 3 primary axis stays character-class; number-word composition available only as thin supplement.
 - Exp 2 digit-ordering prediction reworded in both Exp 0 §12.2 and Exp 1 §9 — Phase-2 mechanism relabelled from "arithmetic / ordinal refinement" to "context-adjacency refinement". Geometric prediction unchanged.
 - Next: Exp 2 scaffold.
+
+## 2026-04-19 (late night)
+
+- Exp 2 scaffold complete (`autoresearch/exp2_train.py` + `precompute_cooccur.py`). Co-occurrence window=5 computed on full 1.9B-byte corpus. **Matrix domination check caught raw-frequency concentration** — max/median 3.7M, top-1% of pairs = 57% of mass; switched default to log-normalized (max/median 4.3, top-1% = 3%).
+- Three pilots run to calibrate grid learning rate:
+  - **Pilot 1** (grid_lr_scale=10, w=0.1): topo σ=1 loss saturated at −1.0 by step ~500. Too fast — Adam normalization eats the weight coefficient, grid LR is the dominant knob.
+  - **Pilot 2A** (scale=0.1, w=0.1): σ=1 loss only −0.05 at step 10K, grid spread 0.94. Too slow.
+  - **RNG-matched baseline** (w=0, same code path): val_bpb @ 10K = 0.9511, **identical to pilot 2A's 0.9533**. Both ~0.055 below Exp 0's 1.007.
+- **Big methodological finding: MPS non-determinism is ~0.055 val_bpb at 10K steps** — as large as the "substantial" band of the Exp 0 §4 calibration table. The 0.055 "improvement" in all three Exp 2 pilots over Exp 0 is NOT topographic effect; it's run-to-run variance from MPS floating-point non-determinism. Matched-null (same code path, weight=0) is the correct baseline for Exp 2.
+- New feedback memory `feedback_matched_null.md` names the principle. PROJECT_TRACKER updated with the principle. Exp 0 §4.1 adds the cross-codepath asterisk to the calibration table.
+- **Pilot 2B** (scale=1, midpoint of log-space triangulation) running. Expected healthy target: σ=1 loss −0.3 to −0.7 at step 10K, spread 0.6-0.8. Will report trajectory (not just endpoints) + LM confirmation against matched null.

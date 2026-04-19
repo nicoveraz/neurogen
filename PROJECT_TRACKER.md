@@ -15,7 +15,7 @@ One-page table of contents for the research line on this branch. Read this first
 |---|---|---|---|
 | 0 | ✅ complete | [`reports/exp0/report.md`](reports/exp0/report.md) | Baseline reproduces prior NeuroGen long-horizon eval (0.7943 vs 0.7980), pipeline validated. Displacement PCA spectrum flat — resolved as init-isotropy artifact (§10.5), not absence of structure. |
 | 1 | ✅ complete | [`reports/exp1/report.md`](reports/exp1/report.md) | Phase-structured representation formation. Digit cluster coherence peaks at step 47K (+0.49) then loosens; simultaneously an ordinal axis emerges (r(cos, \|i−j\|): +0.28 → −0.39). Two-phase learning: coarse category then within-category refinement. |
-| 2 | 🚧 designing | — | Three runs (baseline / topographic 2D / random-permutation control) at 90K steps. Prediction: topographic grid weakens Phase-2 within-category axis. |
+| 2 | 🚧 pilots triangulating grid LR | — | Three runs (matched-null baseline / topographic 2D / random-permutation control) at 90K steps. Pilot 1 (scale=10) saturated, Pilot 2A (scale=0.1) too slow, Pilot 2B (scale=1) running. Matched null replaces Exp 0 baseline. |
 | 3 | ⏸ deferred | — | Compositional eval. Digit-arithmetic axis ruled out by corpus check. Character-class primary, number-word composition thin but viable sub-axis. |
 | 4 | ⏸ after Exp 2 | — | Trajectory-geometry features correlated with compositional performance. Peak-then-decline and anchor-driven convergence formalized here. |
 | 5 | ⏸ gated on Exp 2+4 | — | Trajectory-conditioned prediction. Only if Exp 2 and Exp 4 show positive signals. |
@@ -29,7 +29,8 @@ One-page table of contents for the research line on this branch. Read this first
 | Positions, not displacements, for trajectory analyses. Δ = structured − random_init has variance dominated by init noise. | Exp 0 §10.5 + §11 | `feedback_trajectory_methodology.md` |
 | Null baseline for displacement analyses: fresh `N(0, σ²)` sampling, not shuffling observed `w_0`. | Exp 0 §11 (refined) | `feedback_trajectory_methodology.md` |
 | Default dense-early snapshot cadence (every 500 for first 10K, every 1K after); most formation happens early. | Exp 0 §5 + Exp 1 §1 | `feedback_snapshot_cadence.md` |
-| ±0.02–0.025 val_bpb is minimum detectable difference for cross-run comparisons. Don't write conclusions on smaller deltas. | Exp 0 §4 | `project_autoresearch_tracking.md` |
+| ±0.02–0.025 val_bpb is MDD for **within-codepath** comparisons. Cross-codepath (e.g. Exp 0 vs Exp 2 runs) MPS variance is ~0.055; always compare against matched null, not earlier experiments. | Exp 0 §4 + §4.1 | `feedback_matched_null.md` |
+| **Matched-null comparisons.** When a new experiment changes param allocation / optimizer setup / RNG consumption, the baseline must be the same code path with the intervention neutralized (weight=0), not an earlier experiment. | Exp 2 pilots (2026-04-19) | `feedback_matched_null.md` |
 | Notebook cadence: full reports end-of-experiment only; 2-3 sentence daily entries between. | user guidance | `feedback_notebook_cadence.md` |
 | Scope honesty: byte-level tests orthographic composition, not semantic (SCAN/COGS sense). Lead writeup with "cleaner test, weaker claim." | Exp 0 §13 | `feedback_exp3_scope_honesty.md` |
 | **Sanity-check the substrate before writing up a clean finding.** Caught two near-overclaims in this project (flat-spectrum artifact; digit-arithmetic corpus). | Exp 0 §10.5 + Exp 1 §13.2 | `feedback_substrate_check.md` |
