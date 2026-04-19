@@ -1,0 +1,1220 @@
+{
+  "one": {
+    "count": 218105,
+    "distinct_followers": 3221,
+    "distinct_followers_5plus": 957,
+    "top5_frac": 0.7886266094420601,
+    "next_word_entropy_bits": 2.885228598064146,
+    "top_followers": [
+      [
+        "day",
+        164588
+      ],
+      [
+        "night",
+        2640
+      ],
+      [
+        "sunny",
+        1858
+      ],
+      [
+        "morning",
+        1730
+      ],
+      [
+        "she",
+        1174
+      ],
+      [
+        "he",
+        1140
+      ],
+      [
+        "her",
+        1140
+      ],
+      [
+        "them",
+        1039
+      ],
+      [
+        "last",
+        1008
+      ],
+      [
+        "one",
+        918
+      ],
+      [
+        "his",
+        868
+      ],
+      [
+        "time",
+        861
+      ],
+      [
+        "they",
+        756
+      ],
+      [
+        "two",
+        733
+      ],
+      [
+        "could",
+        648
+      ],
+      [
+        "it",
+        619
+      ],
+      [
+        "lily",
+        564
+      ],
+      [
+        "thing",
+        440
+      ],
+      [
+        "too",
+        433
+      ],
+      [
+        "heard",
+        409
+      ]
+    ]
+  },
+  "two": {
+    "count": 24775,
+    "distinct_followers": 1464,
+    "distinct_followers_5plus": 401,
+    "top5_frac": 0.4850454086781029,
+    "next_word_entropy_bits": 6.134426738545338,
+    "top_followers": [
+      [
+        "friends",
+        7563
+      ],
+      [
+        "them",
+        1795
+      ],
+      [
+        "best",
+        1193
+      ],
+      [
+        "three",
+        740
+      ],
+      [
+        "children",
+        726
+      ],
+      [
+        "pieces",
+        464
+      ],
+      [
+        "brothers",
+        428
+      ],
+      [
+        "birds",
+        391
+      ],
+      [
+        "kids",
+        379
+      ],
+      [
+        "people",
+        376
+      ],
+      [
+        "boys",
+        355
+      ],
+      [
+        "girls",
+        219
+      ],
+      [
+        "sisters",
+        178
+      ],
+      [
+        "bears",
+        153
+      ],
+      [
+        "eyes",
+        150
+      ],
+      [
+        "animals",
+        146
+      ],
+      [
+        "rocks",
+        125
+      ],
+      [
+        "cats",
+        117
+      ],
+      [
+        "became",
+        112
+      ],
+      [
+        "new",
+        110
+      ]
+    ]
+  },
+  "three": {
+    "count": 14839,
+    "distinct_followers": 609,
+    "distinct_followers_5plus": 104,
+    "top5_frac": 0.8234382370779703,
+    "next_word_entropy_bits": 2.9726552059967,
+    "top_followers": [
+      [
+        "years",
+        8813
+      ],
+      [
+        "year",
+        2530
+      ],
+      [
+        "four",
+        449
+      ],
+      [
+        "friends",
+        239
+      ],
+      [
+        "she",
+        188
+      ],
+      [
+        "them",
+        169
+      ],
+      [
+        "times",
+        151
+      ],
+      [
+        "he",
+        136
+      ],
+      [
+        "then",
+        103
+      ],
+      [
+        "they",
+        72
+      ],
+      [
+        "children",
+        66
+      ],
+      [
+        "one",
+        63
+      ],
+      [
+        "loved",
+        53
+      ],
+      [
+        "eggs",
+        36
+      ],
+      [
+        "wishes",
+        35
+      ],
+      [
+        "so",
+        35
+      ],
+      [
+        "go",
+        34
+      ],
+      [
+        "sides",
+        33
+      ],
+      [
+        "kids",
+        32
+      ],
+      [
+        "two",
+        32
+      ]
+    ]
+  },
+  "four": {
+    "count": 2021,
+    "distinct_followers": 378,
+    "distinct_followers_5plus": 64,
+    "top5_frac": 0.39238000989609106,
+    "next_word_entropy_bits": 6.341306344410084,
+    "top_followers": [
+      [
+        "five",
+        338
+      ],
+      [
+        "wheels",
+        240
+      ],
+      [
+        "legs",
+        104
+      ],
+      [
+        "friends",
+        61
+      ],
+      [
+        "years",
+        50
+      ],
+      [
+        "they",
+        41
+      ],
+      [
+        "candles",
+        36
+      ],
+      [
+        "she",
+        35
+      ],
+      [
+        "them",
+        31
+      ],
+      [
+        "pieces",
+        30
+      ],
+      [
+        "doors",
+        26
+      ],
+      [
+        "one",
+        24
+      ],
+      [
+        "he",
+        23
+      ],
+      [
+        "blocks",
+        23
+      ],
+      [
+        "leaf",
+        23
+      ],
+      [
+        "walls",
+        18
+      ],
+      [
+        "sides",
+        18
+      ],
+      [
+        "round",
+        18
+      ],
+      [
+        "paws",
+        17
+      ],
+      [
+        "times",
+        15
+      ]
+    ]
+  },
+  "five": {
+    "count": 1468,
+    "distinct_followers": 330,
+    "distinct_followers_5plus": 47,
+    "top5_frac": 0.36103542234332425,
+    "next_word_entropy_bits": 6.487322307506912,
+    "top_followers": [
+      [
+        "six",
+        192
+      ],
+      [
+        "minutes",
+        142
+      ],
+      [
+        "dollars",
+        77
+      ],
+      [
+        "they",
+        76
+      ],
+      [
+        "she",
+        43
+      ],
+      [
+        "coins",
+        42
+      ],
+      [
+        "times",
+        27
+      ],
+      [
+        "years",
+        27
+      ],
+      [
+        "then",
+        24
+      ],
+      [
+        "each",
+        23
+      ],
+      [
+        "one",
+        21
+      ],
+      [
+        "fingers",
+        20
+      ],
+      [
+        "he",
+        19
+      ],
+      [
+        "points",
+        17
+      ],
+      [
+        "said",
+        16
+      ],
+      [
+        "four",
+        14
+      ],
+      [
+        "lily",
+        13
+      ],
+      [
+        "it",
+        13
+      ],
+      [
+        "i",
+        12
+      ],
+      [
+        "tom",
+        11
+      ]
+    ]
+  },
+  "six": {
+    "count": 556,
+    "distinct_followers": 149,
+    "distinct_followers_5plus": 18,
+    "top5_frac": 0.49280575539568344,
+    "next_word_entropy_bits": 5.1803796840565175,
+    "top_followers": [
+      [
+        "seven",
+        170
+      ],
+      [
+        "legs",
+        69
+      ],
+      [
+        "she",
+        12
+      ],
+      [
+        "he",
+        12
+      ],
+      [
+        "six",
+        11
+      ],
+      [
+        "blocks",
+        9
+      ],
+      [
+        "one",
+        9
+      ],
+      [
+        "years",
+        8
+      ],
+      [
+        "inches",
+        8
+      ],
+      [
+        "five",
+        7
+      ],
+      [
+        "strings",
+        6
+      ],
+      [
+        "i",
+        6
+      ],
+      [
+        "cards",
+        6
+      ],
+      [
+        "lily",
+        6
+      ],
+      [
+        "o'clock",
+        6
+      ],
+      [
+        "coins",
+        6
+      ],
+      [
+        "year",
+        6
+      ],
+      [
+        "twenty",
+        5
+      ],
+      [
+        "thirty",
+        4
+      ],
+      [
+        "forty",
+        4
+      ]
+    ]
+  },
+  "seven": {
+    "count": 325,
+    "distinct_followers": 77,
+    "distinct_followers_5plus": 7,
+    "top5_frac": 0.6369230769230769,
+    "next_word_entropy_bits": 3.8153585239418444,
+    "top_followers": [
+      [
+        "eight",
+        165
+      ],
+      [
+        "seas",
+        14
+      ],
+      [
+        "days",
+        12
+      ],
+      [
+        "six",
+        8
+      ],
+      [
+        "one",
+        8
+      ],
+      [
+        "they",
+        6
+      ],
+      [
+        "twenty",
+        5
+      ],
+      [
+        "thirty",
+        4
+      ],
+      [
+        "forty",
+        4
+      ],
+      [
+        "times",
+        4
+      ],
+      [
+        "years",
+        4
+      ],
+      [
+        "i",
+        3
+      ],
+      [
+        "it",
+        3
+      ],
+      [
+        "fifty",
+        3
+      ],
+      [
+        "blocks",
+        3
+      ],
+      [
+        "flowers",
+        2
+      ],
+      [
+        "bottles",
+        2
+      ],
+      [
+        "cards",
+        2
+      ],
+      [
+        "number",
+        2
+      ],
+      [
+        "sam",
+        2
+      ]
+    ]
+  },
+  "eight": {
+    "count": 437,
+    "distinct_followers": 73,
+    "distinct_followers_5plus": 12,
+    "top5_frac": 0.6842105263157895,
+    "next_word_entropy_bits": 3.9206690111543305,
+    "top_followers": [
+      [
+        "nine",
+        154
+      ],
+      [
+        "legs",
+        79
+      ],
+      [
+        "arms",
+        30
+      ],
+      [
+        "long",
+        26
+      ],
+      [
+        "eyes",
+        10
+      ],
+      [
+        "reindeer",
+        10
+      ],
+      [
+        "seven",
+        8
+      ],
+      [
+        "one",
+        8
+      ],
+      [
+        "they",
+        6
+      ],
+      [
+        "twenty",
+        5
+      ],
+      [
+        "she",
+        5
+      ],
+      [
+        "year",
+        5
+      ],
+      [
+        "thirty",
+        4
+      ],
+      [
+        "forty",
+        4
+      ],
+      [
+        "inches",
+        3
+      ],
+      [
+        "pieces",
+        3
+      ],
+      [
+        "tentacles",
+        3
+      ],
+      [
+        "fifty",
+        3
+      ],
+      [
+        "blocks",
+        3
+      ],
+      [
+        "i",
+        3
+      ]
+    ]
+  },
+  "nine": {
+    "count": 271,
+    "distinct_followers": 57,
+    "distinct_followers_5plus": 8,
+    "top5_frac": 0.6678966789667896,
+    "next_word_entropy_bits": 3.402796935040066,
+    "top_followers": [
+      [
+        "ten",
+        148
+      ],
+      [
+        "one",
+        11
+      ],
+      [
+        "eight",
+        8
+      ],
+      [
+        "cars",
+        7
+      ],
+      [
+        "o'clock",
+        7
+      ],
+      [
+        "thirty",
+        6
+      ],
+      [
+        "she",
+        5
+      ],
+      [
+        "zero",
+        5
+      ],
+      [
+        "forty",
+        4
+      ],
+      [
+        "fifty",
+        4
+      ],
+      [
+        "blocks",
+        4
+      ],
+      [
+        "he",
+        4
+      ],
+      [
+        "times",
+        3
+      ],
+      [
+        "it",
+        3
+      ],
+      [
+        "sixty",
+        3
+      ],
+      [
+        "lily",
+        3
+      ],
+      [
+        "seventy",
+        2
+      ],
+      [
+        "eighty",
+        2
+      ],
+      [
+        "ninety",
+        2
+      ],
+      [
+        "can",
+        2
+      ]
+    ]
+  },
+  "ten": {
+    "count": 1255,
+    "distinct_followers": 289,
+    "distinct_followers_5plus": 36,
+    "top5_frac": 0.349003984063745,
+    "next_word_entropy_bits": 6.199275952773201,
+    "top_followers": [
+      [
+        "then",
+        248
+      ],
+      [
+        "minutes",
+        62
+      ],
+      [
+        "she",
+        55
+      ],
+      [
+        "i",
+        37
+      ],
+      [
+        "when",
+        36
+      ],
+      [
+        "one",
+        33
+      ],
+      [
+        "you",
+        31
+      ],
+      [
+        "he",
+        30
+      ],
+      [
+        "ready",
+        30
+      ],
+      [
+        "lily",
+        28
+      ],
+      [
+        "they",
+        26
+      ],
+      [
+        "dollars",
+        25
+      ],
+      [
+        "blocks",
+        22
+      ],
+      [
+        "ben",
+        21
+      ],
+      [
+        "while",
+        19
+      ],
+      [
+        "eleven",
+        18
+      ],
+      [
+        "it",
+        13
+      ],
+      [
+        "fingers",
+        12
+      ],
+      [
+        "toes",
+        11
+      ],
+      [
+        "her",
+        11
+      ]
+    ]
+  },
+  "shared_nouns_3plus": [
+    [
+      "one",
+      9
+    ],
+    [
+      "she",
+      8
+    ],
+    [
+      "he",
+      7
+    ],
+    [
+      "they",
+      7
+    ],
+    [
+      "blocks",
+      6
+    ],
+    [
+      "it",
+      5
+    ],
+    [
+      "lily",
+      5
+    ],
+    [
+      "years",
+      5
+    ],
+    [
+      "times",
+      5
+    ],
+    [
+      "i",
+      5
+    ],
+    [
+      "them",
+      4
+    ],
+    [
+      "thirty",
+      4
+    ],
+    [
+      "forty",
+      4
+    ],
+    [
+      "friends",
+      3
+    ],
+    [
+      "pieces",
+      3
+    ],
+    [
+      "then",
+      3
+    ],
+    [
+      "year",
+      3
+    ],
+    [
+      "legs",
+      3
+    ],
+    [
+      "six",
+      3
+    ],
+    [
+      "twenty",
+      3
+    ],
+    [
+      "fifty",
+      3
+    ]
+  ],
+  "coverage_table": {
+    "one": {
+      "one": 918,
+      "two": 0,
+      "three": 63,
+      "four": 24,
+      "five": 21,
+      "six": 9,
+      "seven": 8,
+      "eight": 8,
+      "nine": 11,
+      "ten": 33
+    },
+    "she": {
+      "one": 1174,
+      "two": 0,
+      "three": 188,
+      "four": 35,
+      "five": 43,
+      "six": 12,
+      "seven": 0,
+      "eight": 5,
+      "nine": 5,
+      "ten": 55
+    },
+    "he": {
+      "one": 1140,
+      "two": 0,
+      "three": 136,
+      "four": 23,
+      "five": 19,
+      "six": 12,
+      "seven": 0,
+      "eight": 0,
+      "nine": 4,
+      "ten": 30
+    },
+    "they": {
+      "one": 756,
+      "two": 0,
+      "three": 72,
+      "four": 41,
+      "five": 76,
+      "six": 0,
+      "seven": 6,
+      "eight": 6,
+      "nine": 0,
+      "ten": 26
+    },
+    "blocks": {
+      "one": 0,
+      "two": 0,
+      "three": 0,
+      "four": 23,
+      "five": 0,
+      "six": 9,
+      "seven": 3,
+      "eight": 3,
+      "nine": 4,
+      "ten": 22
+    },
+    "it": {
+      "one": 619,
+      "two": 0,
+      "three": 0,
+      "four": 0,
+      "five": 13,
+      "six": 0,
+      "seven": 3,
+      "eight": 0,
+      "nine": 3,
+      "ten": 13
+    },
+    "lily": {
+      "one": 564,
+      "two": 0,
+      "three": 0,
+      "four": 0,
+      "five": 13,
+      "six": 6,
+      "seven": 0,
+      "eight": 0,
+      "nine": 3,
+      "ten": 28
+    },
+    "years": {
+      "one": 0,
+      "two": 0,
+      "three": 8813,
+      "four": 50,
+      "five": 27,
+      "six": 8,
+      "seven": 4,
+      "eight": 0,
+      "nine": 0,
+      "ten": 0
+    },
+    "times": {
+      "one": 0,
+      "two": 0,
+      "three": 151,
+      "four": 15,
+      "five": 27,
+      "six": 0,
+      "seven": 4,
+      "eight": 0,
+      "nine": 3,
+      "ten": 0
+    },
+    "i": {
+      "one": 0,
+      "two": 0,
+      "three": 0,
+      "four": 0,
+      "five": 12,
+      "six": 6,
+      "seven": 3,
+      "eight": 3,
+      "nine": 0,
+      "ten": 37
+    },
+    "them": {
+      "one": 1039,
+      "two": 1795,
+      "three": 169,
+      "four": 31,
+      "five": 0,
+      "six": 0,
+      "seven": 0,
+      "eight": 0,
+      "nine": 0,
+      "ten": 0
+    },
+    "thirty": {
+      "one": 0,
+      "two": 0,
+      "three": 0,
+      "four": 0,
+      "five": 0,
+      "six": 4,
+      "seven": 4,
+      "eight": 4,
+      "nine": 6,
+      "ten": 0
+    },
+    "forty": {
+      "one": 0,
+      "two": 0,
+      "three": 0,
+      "four": 0,
+      "five": 0,
+      "six": 4,
+      "seven": 4,
+      "eight": 4,
+      "nine": 4,
+      "ten": 0
+    },
+    "friends": {
+      "one": 0,
+      "two": 7563,
+      "three": 239,
+      "four": 61,
+      "five": 0,
+      "six": 0,
+      "seven": 0,
+      "eight": 0,
+      "nine": 0,
+      "ten": 0
+    },
+    "pieces": {
+      "one": 0,
+      "two": 464,
+      "three": 0,
+      "four": 30,
+      "five": 0,
+      "six": 0,
+      "seven": 0,
+      "eight": 3,
+      "nine": 0,
+      "ten": 0
+    },
+    "then": {
+      "one": 0,
+      "two": 0,
+      "three": 103,
+      "four": 0,
+      "five": 24,
+      "six": 0,
+      "seven": 0,
+      "eight": 0,
+      "nine": 0,
+      "ten": 248
+    },
+    "year": {
+      "one": 0,
+      "two": 0,
+      "three": 2530,
+      "four": 0,
+      "five": 0,
+      "six": 6,
+      "seven": 0,
+      "eight": 5,
+      "nine": 0,
+      "ten": 0
+    },
+    "legs": {
+      "one": 0,
+      "two": 0,
+      "three": 0,
+      "four": 104,
+      "five": 0,
+      "six": 69,
+      "seven": 0,
+      "eight": 79,
+      "nine": 0,
+      "ten": 0
+    },
+    "six": {
+      "one": 0,
+      "two": 0,
+      "three": 0,
+      "four": 0,
+      "five": 192,
+      "six": 11,
+      "seven": 8,
+      "eight": 0,
+      "nine": 0,
+      "ten": 0
+    },
+    "twenty": {
+      "one": 0,
+      "two": 0,
+      "three": 0,
+      "four": 0,
+      "five": 0,
+      "six": 5,
+      "seven": 5,
+      "eight": 5,
+      "nine": 0,
+      "ten": 0
+    }
+  }
+}

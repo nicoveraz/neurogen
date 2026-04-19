@@ -39,3 +39,11 @@ All Exp 1 passes done; full report at `reports/exp1/report.md`. Headline: digit 
 - Exp 3 revised axis options: character-class boundaries (primary), number-word composition (new candidate replacing digit-arithmetic — 25× more frequent than digits), formulaic-template violation (fallback).
 - Memories updated: trajectory methodology (prefer fresh sampling over shuffle), Exp 3 scope (digit-arithmetic ruled out; corpus-frequency check is required before committing any compositional axis), project tracker (§12 master-tracker pointer; Exp 2 design constraints consolidated).
 - Next: Exp 2 scaffold. Three training runs (baseline, topographic, random-control) at 90K steps each on the same schedule as Exp 0. Reuse `autoresearch/exp0_train.py` infrastructure.
+
+## 2026-04-19 (later)
+
+- Added `PROJECT_TRACKER.md` at branch root — one-page table of contents for the research line. Lists experiment status, methodological principles, named case studies, corpus-substrate facts, Exp 2 design state, deferred follow-ups. Read-first document for new sessions.
+- Named the "substrate-check before writeup" habit as a feedback memory (`feedback_substrate_check.md`). Pattern has caught two near-overclaims in this project (§10.5 flat-spectrum resolution; digit-arithmetic corpus kill).
+- **Number-word corpus feasibility check: mostly negative.** `one` is 75% "one day" (time-marker), `three` is 77% "three year(s)" (same age template as digit `3`), `four`–`ten` are rare (<2K each). Top shared-context slots are pronouns (`she`, `he`, `they`), not compositional nouns. The only viable thin compositional sub-axis is `{four, six, eight} × {legs, blocks, wheels, pieces}` — animal/object counting with 5-6 non-zero cells. Reinforces: Exp 3 primary axis stays character-class; number-word composition available only as thin supplement.
+- Exp 2 digit-ordering prediction reworded in both Exp 0 §12.2 and Exp 1 §9 — Phase-2 mechanism relabelled from "arithmetic / ordinal refinement" to "context-adjacency refinement". Geometric prediction unchanged.
+- Next: Exp 2 scaffold.
