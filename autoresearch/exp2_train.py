@@ -73,10 +73,20 @@ from ca_rules import block_diagonal_init  # noqa: E402
 
 COOCCUR_PATH = REPO_ROOT / "runs" / "exp2_cooccur" / "cooccur_w5.npy"
 GRID_SIZE = 16
-GRID_EXTENT = float(GRID_SIZE)   # positions live in [0, GRID_EXTENT)
-SIGMA_INIT = 8.0
+GRID_EXTENT = float(GRID_SIZE)   # positions live on a 16x16 grid
+SIGMA_INIT = 8.0                  # used only by legacy gaussian / mse_simple formulations
 SIGMA_FINAL = 1.0
+SIGMA_FIXED_EQUILIBRIUM = 3.0     # used by the default "mse" formulation (no anneal)
 DEFAULT_TARGET_WEIGHT = 0.1
+# Specific pairs tracked at eval cadence for the equilibrium-MSE diagnostic.
+TRACKED_PAIRS = [
+    (ord(" "), ord("e")),
+    (ord(" "), ord("t")),
+    (ord(" "), ord("a")),
+    (ord("."), ord("!")),           # sentence-punct triad member pair
+    (ord("0"), ord("5")),           # digit cluster
+    (ord("("), ord("[")),           # low-cooccur reference
+]
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +112,10 @@ class ExpConfig:
     sigma_final: float = SIGMA_FINAL
     sigma_anneal_frac: float = 0.20         # 8 → 1 over first 20%
     grid_lr_scale: float = 10.0              # grid positions can use a higher LR
+    topo_formulation: str = "mse"            # "mse" (default, equilibrium MSE) | "mse_simple" | "gaussian" (ablation)
+    target_sim_cap: float = 0.9              # highest target_sim for max-cooccur pair (< 1 prevents collapse)
+    topo_fixed_sigma: float = SIGMA_FIXED_EQUILIBRIUM  # used by "mse" — disables σ anneal for this formulation
+    centroid_anchor: bool = True             # subtract grid_pos.mean(0) each step (remove translational drift)
     # snapshot cadence (match Exp 0)
     snapshot_dense_every: int = 500
     snapshot_dense_until: int = 10_000
@@ -131,23 +145,89 @@ def init_shuffled_lattice(vocab: int, grid_size: int, rng: np.random.Generator) 
     return torch.from_numpy(positions[order].copy())
 
 
-def topographic_loss(
+def topographic_loss_gaussian(
     grid_pos: torch.Tensor,
     cooccur: torch.Tensor,
     sigma: float,
 ) -> torch.Tensor:
-    """Gaussian-kernel attractive topographic loss.
+    """Gaussian-kernel attractive topographic loss (ORIGINAL).
 
     L = − Σ_{i,j} cooccur[i,j] · exp(−‖pos_i − pos_j‖² / (2σ²))
 
     Minimizing this pulls co-occurring tokens toward each other with bandwidth σ.
+
+    KNOWN PATHOLOGY: purely attractive, no equilibrium except at coincidence.
+    Pilots 1 / 2A / 2B showed this collapses to identical equilibrium geometry
+    (spread=0.562) regardless of LR; LR only controls time-to-collapse. Kept for
+    ablation comparison; `mse` formulation below is the default.
     """
     V = grid_pos.size(0)
     diff = grid_pos.unsqueeze(0) - grid_pos.unsqueeze(1)    # (V, V, 2)
     dist_sq = diff.pow(2).sum(-1)                            # (V, V)
     kernel = torch.exp(-dist_sq / (2.0 * sigma * sigma))     # (V, V)
-    # Negative: minimizing makes co-occurring pairs have high kernel (close)
     return -(cooccur * kernel).sum()
+
+
+def topographic_loss_mse(
+    grid_pos: torch.Tensor,
+    target_sim: torch.Tensor,
+    sigma: float,
+) -> torch.Tensor:
+    """MSE-against-target-similarity topographic loss.
+
+    actual_sim(i, j) = exp(−‖pos_i − pos_j‖² / (2σ²))     ∈ [0, 1]
+    target_sim(i, j) precomputed                           ∈ [0, t_max < 1]
+    L = mean_{i<j} (actual_sim(i,j) − target_sim(i,j))²
+
+    Per-pair equilibrium at d* where exp(-d*²/(2σ²)) = target_sim(i,j).
+    Meaning of the equilibrium depends on how target_sim was built:
+      - "mse" (default, equilibrium): target = max(er(σ), cap·cooccur_norm).
+        Non-cooccur pairs settle at random-placement distance; cooccur pairs
+        settle closer. Fixed σ = SIGMA_FIXED_EQUILIBRIUM.
+      - "mse_simple" (ablation, escape pathology): target = cap·cooccur_norm.
+        Non-cooccur pairs have target 0, escape to d where kernel ≈ 0.
+    """
+    V = grid_pos.size(0)
+    diff = grid_pos.unsqueeze(0) - grid_pos.unsqueeze(1)
+    dist_sq = diff.pow(2).sum(-1)
+    actual = torch.exp(-dist_sq / (2.0 * sigma * sigma))
+    mask = torch.triu(torch.ones_like(actual, dtype=torch.bool), diagonal=1)
+    diff_sq = (actual - target_sim).pow(2)
+    return diff_sq[mask].mean()
+
+
+def topographic_loss(
+    grid_pos: torch.Tensor,
+    target_matrix: torch.Tensor,
+    sigma: float,
+    formulation: str = "mse",
+) -> torch.Tensor:
+    if formulation == "gaussian":
+        return topographic_loss_gaussian(grid_pos, target_matrix, sigma)
+    if formulation in ("mse", "mse_simple"):
+        return topographic_loss_mse(grid_pos, target_matrix, sigma)
+    raise ValueError(f"unknown topographic formulation: {formulation}")
+
+
+# ---------------------------------------------------------------------------
+# Expected-random similarity on the grid (for equilibrium MSE)
+# ---------------------------------------------------------------------------
+_ER_CACHE: dict[tuple[float, float], float] = {}
+
+
+def expected_random_sim(sigma: float, grid_size: float = GRID_EXTENT,
+                         n_samples: int = 100_000, seed: int = 0) -> float:
+    """Monte Carlo E[exp(−d²/2σ²)] for two uniform points on [0, grid_size]²."""
+    key = (round(sigma, 6), grid_size)
+    if key in _ER_CACHE:
+        return _ER_CACHE[key]
+    rng = np.random.default_rng(seed)
+    p1 = rng.uniform(0, grid_size, (n_samples, 2))
+    p2 = rng.uniform(0, grid_size, (n_samples, 2))
+    d2 = ((p1 - p2) ** 2).sum(axis=1)
+    er = float(np.exp(-d2 / (2.0 * sigma * sigma)).mean())
+    _ER_CACHE[key] = er
+    return er
 
 
 def load_cooccur(path: Path, vocab: int, permute_seed: int | None = None) -> torch.Tensor:
@@ -160,7 +240,48 @@ def load_cooccur(path: Path, vocab: int, permute_seed: int | None = None) -> tor
     return torch.from_numpy(C.astype(np.float32))
 
 
+def build_target_sim_simple(cooccur: torch.Tensor, cap: float) -> torch.Tensor:
+    """Legacy (`mse_simple`) target matrix.
+
+    Max-cooccur → target = cap. Zero-cooccur → target = 0 (escape pathology;
+    see feedback_topo_loss_equilibrium.md). Kept for ablation comparison.
+    """
+    mx = cooccur.max().clamp_min(1e-12)
+    target = cap * (cooccur / mx)
+    target.fill_diagonal_(0.0)
+    return target
+
+
+def build_target_sim_equilibrium(
+    cooccur: torch.Tensor, sigma: float, cap: float,
+    grid_size: float = GRID_EXTENT,
+) -> torch.Tensor:
+    """Equilibrium-MSE target matrix.
+
+    target(i, j) = max(er(σ), cap · cooccur_norm(i, j))
+      - Max-cooccur pair → target = cap (equilibrium d = σ·√(−2 ln cap))
+      - Non-cooccur pair → target = er(σ) (equilibrium d = random-placement distance)
+      - Intermediate → linearly interpolated via cap·cooccur_norm
+
+    At σ = SIGMA_FIXED_EQUILIBRIUM=3.0 on 16×16 grid:
+      - cap=0.9 → max-cooccur equilibrium d ≈ 1.38
+      - er(3) ≈ 0.161 → non-cooccur equilibrium d ≈ 5.73
+    """
+    mx = cooccur.max().clamp_min(1e-12)
+    cooccur_norm = cooccur / mx
+    target_spec = cap * cooccur_norm
+    er_val = expected_random_sim(sigma, grid_size)
+    target = torch.clamp(target_spec, min=er_val)
+    target.fill_diagonal_(0.0)
+    return target
+
+
 def sigma_schedule(step: int, total_steps: int, cfg: ExpConfig) -> float:
+    # Equilibrium-MSE: fixed σ, no anneal — the stable equilibrium is
+    # defined at a single σ from step 0 onward.
+    if cfg.topo_formulation == "mse":
+        return cfg.topo_fixed_sigma
+    # Legacy formulations: SOM-style anneal from sigma_init to sigma_final.
     frac = step / max(1, int(total_steps * cfg.sigma_anneal_frac))
     frac = min(1.0, max(0.0, frac))
     return cfg.sigma_init + (cfg.sigma_final - cfg.sigma_init) * frac
@@ -313,10 +434,31 @@ def train(cfg: ExpConfig) -> None:
         # Zero the diagonal defensively and renormalize to sum to 1.
         cooccur_cpu.fill_diagonal_(0.0)
         cooccur_cpu = cooccur_cpu / cooccur_cpu.sum().clamp_min(1e-12)
-        cooccur = cooccur_cpu.to(device)
-        print(f"[exp2] cooccur loaded (permuted={cfg.mode=='control'}); "
-              f"max_weight={float(cooccur.max()):.6f}  "
-              f"mean_nonzero={float(cooccur[cooccur>0].mean()):.6g}", flush=True)
+
+        if cfg.topo_formulation == "mse":
+            # Equilibrium MSE — fixed σ, target = max(er(σ), cap·cooccur_norm)
+            target_matrix_cpu = build_target_sim_equilibrium(
+                cooccur_cpu, cfg.topo_fixed_sigma, cfg.target_sim_cap,
+            )
+            er_val = expected_random_sim(cfg.topo_fixed_sigma)
+            n_above_er = int((target_matrix_cpu > er_val + 1e-6).sum() // 2)
+            print(f"[exp2] equilibrium-MSE target built "
+                  f"(σ={cfg.topo_fixed_sigma}, cap={cfg.target_sim_cap}, "
+                  f"er={er_val:.4f}); "
+                  f"n_pairs_above_er={n_above_er}  "
+                  f"max_target={float(target_matrix_cpu.max()):.4f}", flush=True)
+        elif cfg.topo_formulation == "mse_simple":
+            target_matrix_cpu = build_target_sim_simple(cooccur_cpu, cfg.target_sim_cap)
+            target_nnz = int((target_matrix_cpu > 0).sum())
+            print(f"[exp2] mse_simple target built (cap={cfg.target_sim_cap}); "
+                  f"nnz_pairs={target_nnz}  (KNOWN ESCAPE PATHOLOGY)", flush=True)
+        else:
+            target_matrix_cpu = cooccur_cpu
+
+        cooccur = target_matrix_cpu.to(device)
+        print(f"[exp2] formulation={cfg.topo_formulation}  "
+              f"permuted={cfg.mode == 'control'}  "
+              f"matrix_max={float(cooccur.max()):.6f}", flush=True)
 
         # Initial spread for the grid_spread_ratio diagnostic
         with torch.no_grad():
@@ -367,10 +509,12 @@ def train(cfg: ExpConfig) -> None:
         if use_topo:
             sigma = sigma_schedule(step, cfg.max_steps, cfg)
             cur_topo_weight = topo_weight_schedule(step, cfg.max_steps, cfg)
-            topo_loss_t = topographic_loss(grid_pos, cooccur, sigma)
+            topo_loss_t = topographic_loss(grid_pos, cooccur, sigma,
+                                            formulation=cfg.topo_formulation)
             with torch.no_grad():
                 topo_loss_sigma1_val = float(
-                    topographic_loss(grid_pos, cooccur, cfg.sigma_final)
+                    topographic_loss(grid_pos, cooccur, cfg.sigma_final,
+                                      formulation=cfg.topo_formulation)
                 )
 
         total_loss = lm_loss + cur_topo_weight * topo_loss_t
@@ -379,6 +523,13 @@ def train(cfg: ExpConfig) -> None:
         total_loss.backward()
         gnorm_lm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip).item()
         optimizer.step()
+
+        # Centroid anchor: remove translational drift. Loss is a function of
+        # pairwise distances only, so without this the mean of grid_pos can
+        # drift indefinitely under any residual gradient asymmetry.
+        if use_topo and cfg.centroid_anchor and grid_pos is not None:
+            with torch.no_grad():
+                grid_pos.sub_(grid_pos.mean(dim=0, keepdim=True))
 
         # ---- diagnostics every `diagnostic_every` steps -----------------
         do_log = (step == 1) or (step % cfg.diagnostic_every == 0)
@@ -452,9 +603,30 @@ def train(cfg: ExpConfig) -> None:
             vbpb = evaluate_val_bpb(
                 model, val_data, cfg.batch_size, MAX_SEQ_LEN, device
             )
-            log_fp.write(json.dumps(
-                {"kind": "eval", "step": step, "val_bpb": round(vbpb, 6)}) + "\n")
-            print(f"[exp2] step={step:>6d} val_bpb={vbpb:.4f}", flush=True)
+            eval_entry = {"kind": "eval", "step": step, "val_bpb": round(vbpb, 6)}
+            # Specific-pair grid distances (Criterion 6). Tracks whether the
+            # topography actually puts expected-close pairs close.
+            if use_topo and grid_pos is not None:
+                with torch.no_grad():
+                    pos = grid_pos.detach().cpu().float().numpy()
+                    pair_dists = {}
+                    for i, j in TRACKED_PAIRS:
+                        d = float(np.linalg.norm(pos[i] - pos[j]))
+                        key = f"{_pair_label(i)}-{_pair_label(j)}"
+                        pair_dists[key] = round(d, 4)
+                    # All-pairs mean distance
+                    diff = pos[:, None, :] - pos[None, :, :]
+                    all_d = np.sqrt((diff ** 2).sum(-1))
+                    iu = np.triu_indices(VOCAB_SIZE, k=1)
+                    eval_entry["grid_mean_d_allpairs"] = round(float(all_d[iu].mean()), 4)
+                    eval_entry["tracked_pair_d"] = pair_dists
+            log_fp.write(json.dumps(eval_entry) + "\n")
+            tracked_fmt = (
+                "  [" + ", ".join(
+                    f"{k}={v:.2f}" for k, v in pair_dists.items()
+                ) + f"]  mean_d={eval_entry['grid_mean_d_allpairs']:.2f}"
+            ) if use_topo and grid_pos is not None else ""
+            print(f"[exp2] step={step:>6d} val_bpb={vbpb:.4f}{tracked_fmt}", flush=True)
 
         # ---- full ckpt --------------------------------------------------
         if should_full_ckpt(step, cfg):
@@ -514,7 +686,7 @@ def _measure_grad_split(
     model.zero_grad(set_to_none=True)
     if grid_pos.grad is not None:
         grid_pos.grad = None
-    tloss = topographic_loss(grid_pos, cooccur, sigma)
+    tloss = topographic_loss(grid_pos, cooccur, sigma, formulation=cfg.topo_formulation)
     tloss.backward()
     gn_topo_grid = float(grid_pos.grad.norm()) if grid_pos.grad is not None else 0.0
     # Topo loss has no model gradient by construction (no model params in topo_loss)
@@ -543,6 +715,16 @@ def _measure_grad_split(
     return gn_lm, gn_topo, cos_val
 
 
+def _pair_label(b: int) -> str:
+    if 32 <= b < 127 and chr(b) not in " \t\n\r":
+        return repr(chr(b))
+    if b == ord(" "):
+        return "' '"
+    if b == ord("\n"):
+        return "'\\n'"
+    return f"b{b}"
+
+
 def _write_yaml(path: Path, data: dict) -> None:
     lines = []
     for k, v in data.items():
@@ -568,6 +750,14 @@ def _parse_args() -> ExpConfig:
     p.add_argument("--lr", type=float, default=2e-3)
     p.add_argument("--topo-weight", type=float, default=DEFAULT_TARGET_WEIGHT)
     p.add_argument("--grid-lr-scale", type=float, default=10.0)
+    p.add_argument("--topo-formulation", choices=["mse", "mse_simple", "gaussian"], default="mse",
+                   help="'mse' is the default equilibrium-MSE formulation (fixed σ).")
+    p.add_argument("--target-sim-cap", type=float, default=0.9,
+                   help="Max target_sim for the tightest co-occurrence pair (<1 prevents collapse)")
+    p.add_argument("--topo-fixed-sigma", type=float, default=SIGMA_FIXED_EQUILIBRIUM,
+                   help="Fixed σ for the equilibrium-MSE formulation (disables σ anneal)")
+    p.add_argument("--no-centroid-anchor", action="store_true",
+                   help="Disable centroid anchoring after each optimizer step")
     args = p.parse_args()
 
     run_name = args.run_name or f"exp2_{args.mode}"
@@ -580,6 +770,10 @@ def _parse_args() -> ExpConfig:
         lr=args.lr,
         topo_weight_target=args.topo_weight,
         grid_lr_scale=args.grid_lr_scale,
+        topo_formulation=args.topo_formulation,
+        target_sim_cap=args.target_sim_cap,
+        topo_fixed_sigma=args.topo_fixed_sigma,
+        centroid_anchor=not args.no_centroid_anchor,
     )
     return cfg
 

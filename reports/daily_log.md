@@ -58,3 +58,11 @@ All Exp 1 passes done; full report at `reports/exp1/report.md`. Headline: digit 
 - **Big methodological finding: MPS non-determinism is ~0.055 val_bpb at 10K steps** — as large as the "substantial" band of the Exp 0 §4 calibration table. The 0.055 "improvement" in all three Exp 2 pilots over Exp 0 is NOT topographic effect; it's run-to-run variance from MPS floating-point non-determinism. Matched-null (same code path, weight=0) is the correct baseline for Exp 2.
 - New feedback memory `feedback_matched_null.md` names the principle. PROJECT_TRACKER updated with the principle. Exp 0 §4.1 adds the cross-codepath asterisk to the calibration table.
 - **Pilot 2B** (scale=1, midpoint of log-space triangulation) running. Expected healthy target: σ=1 loss −0.3 to −0.7 at step 10K, spread 0.6-0.8. Will report trajectory (not just endpoints) + LM confirmation against matched null.
+
+## 2026-04-19 (late late)
+
+- Pilots 2B (Gaussian scale=1) and 2C-MSE and 2D (equilibrium-MSE with fixed σ=3) all revealed distinct pathologies. Pilot 2D still running for the record.
+- **Theoretical finding unified across all three formulations:** any topographic regularization loss that factors through a Gaussian kernel has vanishing gradient at both d→0 and d→∞; stable equilibria are stationary points but not attractors. Written up in full at `reports/exp2/gradient_vanishing_analysis.md`. Memory at `feedback_topo_loss_equilibrium.md` updated with the generalized claim.
+- New feedback memory `feedback_pilot_loop_momentum.md`: after three distinct pilot failure modes, step back and analyze rather than launching the fourth pilot. The pattern "each pilot fixes the previous pilot's pathology but introduces a new one" is the signal.
+- PROJECT_TRACKER updated: Exp 2 status set to "paused pending design review" with three path options (A: distance-based formulation; B: initialization-only topography; C: skip Exp 2, write up Exp 0 + Exp 1 + gradient-vanishing finding as a first paper). **Not making the decision today.** Sitting with it.
+- Letting pilot 2D finish for the completeness of the record but not launching further pilots until the step-back is resolved.
