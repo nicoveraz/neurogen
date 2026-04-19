@@ -27,3 +27,7 @@ Ran first Exp 1 analysis (`analysis/exp1_trajectories/within_class_coherence.py`
 Vowels (step 4500) do form before consonants (step 6000) as predicted. Digits and uppercase tie at step 6500; lowercase at 8000; whitespace slow (28K, likely because `\t`/`\r` are rare in TinyStories).
 
 Next: pairwise CKA between consecutive snapshots (trajectory smoothness), per-token movement-magnitude curves, and the `.!?` triad case-study deep dive.
+
+### 2026-04-18 (later) — Exp 1 complete
+
+All Exp 1 passes done; full report at `reports/exp1/report.md`. Headline: digit peak-then-decline is phase-structured learning — coarse category (phase 1) then ordinal refinement (phase 2). `r(cos, |i−j|)` for digits goes from +0.28 @ init → +0.06 @ 10K → −0.29 @ 20K → −0.39 @ 70K → −0.35 @ 100K; steepest ordinal emergence happens *after* coherence peak. `.!?` convergence is anchor-driven and sequential — `.` @ 3000, `!` @ 12000, `?` @ 16000 (user prediction confirmed crisply). Bracket subclass finding is data sparsity, not just class definition — `[]` and `{}` are too rare in TinyStories. Consecutive-snapshot CKA minimum at step 20K (fastest reorganization); CKA(t, init) and CKA(t, final) cross near step 22K. Proceed to Exp 2 with diagnostic addition: report digit ordering r in all Exp 2 conditions, predict topographic 2D grid trades Phase-1 coherence for Phase-2 ordinal structure.
