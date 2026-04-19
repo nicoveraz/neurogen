@@ -320,29 +320,84 @@ Pinning this down now because it generalizes past Exp 0 and we will forget it by
 **Operational rules for Exp 1 and Exp 4.**
 - Pairwise CKA, cosine-similarity matrices, clustering, nearest-neighbor stability → compute on **positions** `w_t` at each checkpoint.
 - Within-class coherence curves (class cosine over time) → positions.
-- Total path length, per-step velocity, instantaneous turning → these are displacement-based by definition; when used, compare against a null baseline generated from the same initialization distribution (e.g. shuffle `w_0` across tokens or sample from `N(0, 0.8²)` per-element), not against raw zero.
+- Total path length, per-step velocity, instantaneous turning → these are displacement-based by definition; when used, compare against a null baseline generated from the same initialization distribution, not against raw zero.
+- **Preferred null baseline: fresh `w_0 ~ N(0, 0.8²)` sampling** rather than shuffling the observed `w_0` across tokens. Fresh sampling makes no assumption about correlations between the observed init and the final layout; shuffling destroys such correlations but only for the specific instantiation. Default to fresh sampling unless there is a specific reason to want the shuffle.
 - **Signature to look for:** when two tokens' positions converge but they started from independent random inits, their pairwise Δ cosine will be *anti*-correlated (Δ cos < 0). This is the trajectory fingerprint of "different starts, shared destination". Exp 0 found this for `.!?` at Δ cos = −0.11. Exp 4's convergence-detection analysis should look for additional triads with the same signature.
 
 ---
 
 ## 12. Named case studies to track through Exp 1 → Exp 4
 
-Three artifacts from the Exp 0 diagnostics are worth tracking explicitly through the rest of the plan so they do not disappear into the aggregate analyses:
+**This section is the cross-experiment master tracker** for three specific artifacts from the Exp 0 diagnostics. The temptation in later experiments will be to produce mean-across-vocabulary statistics that smooth over individual cases; keeping these three named means every stage has a concrete check: how does the `.!?` triad, the digit cluster, and the `"`/`\x93` pair look under the new analysis? If the aggregate is strong but the case studies are odd, the aggregate is hiding something. If the aggregate is weak but the cases are clean, the aggregate is being dragged by noise.
 
-- **Sentence-punctuation triad `.`, `!`, `?`.** Mutual nearest neighbors in `w_L` at cosine 0.47–0.62; Δ cos = −0.11 (the cleanest "different starts, shared destination" signature in the vocabulary). **Track:** when during training does the triad converge (is it early or late), does it pass through an intermediate configuration, is the convergence monotone or does a crossing occur. Treat as the canonical case study for Exp 4 convergence analysis. If 3–4 additional triads with the same signature emerge in Exp 1, they become a small collection of canonical examples to anchor the Exp 4 writeup.
+As new numbers come in for each case study, pin them here (with the originating report) so §12 becomes the single document to cite.
 
-- **Digit cluster `0`–`9`.** The tightest class cluster (+0.44 within-class cosine; nearest neighbors essentially pure digits at cosine 0.60–0.67). **Track:** at which checkpoint does the digit cluster form (prediction: early, since digits appear in highly constrained numeric contexts in TinyStories). This is also the most promising axis for a **digit-arithmetic compositional test in Exp 3** — see §13.
+### 12.1 Sentence-punctuation triad `.`, `!`, `?`
 
-- **Mixed-encoding `"` ↔ `\x93` pair.** Cosine +0.80 in `w_L`. `\x93` is the Windows-1252 left-double-quote byte; the UTF-8 corpus contains mixed-encoding text, and the model discovered the equivalence via co-occurrence. **Candidate example for the writeup.** Concrete evidence that the model learned representational structure not explicitly annotated in the corpus — the kind of finding that grounds the mech-interp / superposition framing (§10.10) with a specific, memorable, pair. Do not lose this in later aggregate analyses.
+Mutual nearest neighbors in `w_L` at cosine 0.47–0.62. Δ cos = −0.11 (the cleanest "different starts, shared destination" signature — see §10.5 and §11).
+
+- **Exp 0 signature:** Δ cos = −0.11; final cos pairs `.–!` +0.62, `.–?` +0.42, `!–?` +0.47.
+- **Exp 1 §1 formation step:** **3000** (first step where class within-cos > random + 0.05 sustainedly).
+- **Exp 1 §2 convergence dynamics (resolved):** sequential, anchor-driven. `.` reaches final-centroid cos ≥ 0.6 at **step 3000**; `!` at **step 12000**; `?` at **step 16000**. 4-5× sequential separation. `.` acts as anchor (most frequent byte of the three, most distinctive context); `!` and `?` migrate toward it. Pairwise threshold crossings confirm: `.–!` reach cos ≥ 0.3 at step 6500, `.–?` at step 9000, `!–?` at step 9500 (last).
+- **Exp 4 carry-forward:** canonical case for "anchor-driven convergence" as a class of trajectory dynamics. Search for additional triples where one member starts closest to the final centroid; predict that anchor-ness correlates with corpus frequency.
+
+### 12.2 Digit cluster `0`–`9`
+
+Tightest class cluster in `w_L` (+0.44 within-class cosine; nearest neighbors essentially pure digits at cosine 0.60–0.67).
+
+- **Exp 0 signature:** within-class cos +0.44 (step 100K), nearest neighbor pairs up to +0.67 (`5`–`4`). Originally flagged as the most promising axis for a digit-arithmetic compositional test in Exp 3.
+- **Exp 1 §1 formation step:** 6500.
+- **Exp 1 §4 phase structure (resolved):** peak-then-decline pattern. Coherence peaks +0.49 at step 47K, declines to +0.44 at step 100K. Meanwhile `r(pairwise cos, |i−j|)` trajectory: +0.28 @ init → +0.06 @ 10K → **−0.29 @ 20K → −0.39 @ 70K** → −0.35 @ 100K. Steepest ordinal-correlation emergence happens **after** the coherence peak — the cluster's loosening carries ordering information. Two-stage learning: Phase 1 (0-20K) coarse category formation; Phase 2 (20K-70K) within-category ordinal refinement; Phase 3 (70K-100K) stabilization with mild loosening on numerically-distant pairs.
+- **Mechanism correction (see §13.2 below).** The corpus-frequency check performed as part of the Exp 3 scope review revealed digits are ~0.0035% of the corpus and are dominated by the formulaic "3-year-old" template. The ordinal axis the model learned is **age/count context similarity** (digits in similar age contexts cluster by age adjacency), **not arithmetic composition**. The two-phase story stands; the interpretation of what Phase 2 is refining does not.
+- **Exp 2 prediction (Exp 1 §4 and §9):** a 2D topographic grid will help Phase 1 (category formation — encodes "digits belong together") but hurt Phase 2 (ordinal refinement constrained to grid axes). Concretely: in the topographic condition, `r(cos, |i−j|)` at step 90K should be less negative than in the baseline. This is a direct test of the category-formation-vs-within-category-refinement tradeoff.
+- **Exp 4 carry-forward:** peak-then-decline is a formalizable trajectory feature. Two modes distinguished in Exp 1 §5: ordinal refinement (digits, mild decline) vs role specialization (`()` pair, dramatic decline). Both need feature definitions for aggregate Exp 4 analyses.
+
+### 12.3 Mixed-encoding `"` ↔ `\x93` pair
+
+Cosine +0.80 in `w_L`. `\x93` is the Windows-1252 left-double-quote byte; the UTF-8 corpus contains mixed-encoding text, and the model discovered the equivalence via co-occurrence.
+
+- **Exp 0 signature:** `"`'s nearest neighbors are `\x93` (+0.80), `\xac`, `(`, `\x9c`, `<`, `\x85`, `\xb0`, `\xa0`, `\xa6`, `\xbe`. Concrete evidence the model learned structure not explicitly annotated in the corpus.
+- **Exp 1 formation step:** **deferred.** The Exp 1 pass did not deep-dive this case (Exp 1 §3 flags the deferral). A 20-minute follow-up that tracks `"` ↔ `\x93` cosine across all 111 snapshots would resolve whether alignment is (a) early, driven by raw byte co-occurrence at character-level, or (b) late, driven by contextual role discovery. Open question.
+- **Candidate example for the writeup** (per Exp 0 §10.6). Concrete, memorable, grounds the superposition / direction-as-feature framing (§10.10). Preserve visibility through all later analyses.
+
+### 12.4 Candidate additions
+
+From Exp 1 §5 (peak-then-decline mode "role specialization"): **`()` pair** — peak +0.30 @ step 32K, final +0.06 (−80% decline). The cleanest role-specialization signature in the vocabulary. Worth tracking alongside the three above as a fourth case study if subsequent experiments confirm the role-specialization mode generalizes beyond this one pair.
 
 ---
 
-## 13. Exp 3 scope honesty
+## 13. Exp 3 scope — positive framing and corpus-grounded axes
 
-The motivation for this plan is the claim that transformers handle long-tail **semantic** composition by data coverage rather than true composition — the SCAN / COGS / combinatorial-tail argument. At byte level on TinyStories, the compositional axes directly testable are **orthographic**, not semantic: character-class boundaries, digit sequences, opening-quote / closing-quote correspondence. These are real compositional structure but strictly weaker than what the motivation is about.
+### 13.1 Reframed: cleaner test, weaker claim
 
-Consequences to carry into Exp 3 design and any writeup:
-- Lead with the scope caveat explicitly. "We tested character-class compositional generalization at byte level on a 3.4M-parameter model. This is a weaker test than the semantic-composition literature; reaching that claim would require a word-level tokenizer and a larger model."
-- Character-class compositional tests (e.g. held-out `letter-letter-letter` triples where each letter appears alone in training but not the triple) are cheap, valid, and well-matched to what the model actually represents.
-- **Digit-arithmetic axis is the one available lever that pushes toward genuine semantic composition.** TinyStories contains simple number facts ("Tim had 3 apples and 2 oranges"). Construct held-out digit combinations whose components appear in training but whose combinations do not (e.g. all `(3, n)` and `(n, 2)` facts present, but `(3, 2)` never co-occurs). The Exp 0 finding of a +0.60–0.67 cosine digit cluster makes it plausible that this axis has testable structure. Harder to construct cleanly than character-class axes; worth attempting because it is closer to the original motivation.
-- If Exp 3 ends up testing only character-class boundaries, that is fine — just label the result honestly in the writeup.
+At byte level on TinyStories, the compositional axes directly testable are orthographic and character-class, not the semantic composition that motivates the SCAN / COGS / combinatorial-tail literature. The scope caveat is real and must be labelled clearly in any writeup. But the positive framing is more useful to lead with:
+
+**Character-class composition at byte level is a *cleaner* test than semantic composition at word level.** The primitives (byte classes, co-occurrence structure) are more discrete, the combinations are more enumerable, and the noise from polysemy and context-dependence is lower. For a representation-learning audience interested in trajectory and topographic phenomena, the cleanliness is the property that makes the test informative. Weaker claim, cleaner test — and the mechanism findings (Exp 0 §10.5, Exp 1 §4) are genuinely mechanism-level claims about how representations form, which is the frame our work belongs in.
+
+Suggested writeup framing: lead with the mechanism and the cleanness of the testbed; place the scope caveat second, not first, while keeping it explicit. "We ran a clean byte-level test of topographic and trajectory-conditioned representations on a 3.4M-parameter model trained on TinyStories, and observed [findings]. This is a character-level rather than a semantic-level test of compositional generalization; scaling to the semantic claim would require a word-level tokenizer and a larger model."
+
+### 13.2 Corpus-grounded axis selection — digit-arithmetic is NOT viable
+
+The original plan-carry in this section speculated that the digit cluster (+0.60–0.67 cosine) might support a digit-arithmetic compositional test — "all `(3, n)` and `(n, 2)` arithmetic facts present, hold out `(3, 2)`." Before committing to this axis, ran a corpus-frequency check on 200M bytes (~10% of TinyStories training data); results at `analysis/exp1_trajectories/digit_corpus_frequency.json`. The check rules the axis out:
+
+| measurement | value | implication |
+|---|---:|---|
+| Total digit bytes (0-9) in 200M sample | 7,096 (0.0035% of corpus) | digits are vanishingly rare |
+| Digit `3` alone | **5,172 of 7,096 (73%)** | one token dominates the class |
+| Ratio digits : number-words ("one"-"ten") | **1 : 25** | corpus prefers number-words |
+| Regex `\d\s*\+\s*\d` matches | **0** | no addition syntax |
+| Regex `\d\s*=\s*\d` matches | **0** | no equation syntax |
+| Literal `' + '` | **0** | no additive operator tokens |
+| Sample contexts of digit `3` | universally `"was 3 years old"` / `"a 3 year old"` | formulaic "N-year-old" template dominates |
+
+The digit cluster from Exp 0 is not arithmetic-encoding — it is **age / count context similarity**. Adjacent digits share "N-year-old" environments; `3` and `4` cluster because both appear in child-age stories. This reinterprets Exp 1 §4 mildly (the two-phase coarse-category-then-ordinal-refinement story stands mechanically; the specific axis the model learned is not numerical arithmetic, it is numerical age-adjacency).
+
+### 13.3 Revised Exp 3 axis options
+
+- **Character-class boundaries (primary).** Cheap, valid, well-matched to what the model represents. E.g., held-out letter trigrams where each letter appears separately in training but the trigram does not; held-out quote-open / quote-close matchings across encodings; held-out punctuation-sequence patterns.
+- **Number-word axis (new candidate, replacing digit-arithmetic).** Number words are plentiful ("one": 135K uses, "two": 23K, "three": 13K, "four": 1.3K, "five": 751 in 200M). They have genuine quantitative usage. A compositional test could hold out specific number-word × noun combinations (e.g., all `"three <animal>"` contexts present and all `"<number> dog"` contexts present for various nouns and numbers, but `"three dogs"` never co-occurs). At byte level this is harder to construct cleanly than character-class axes because "three" is a five-byte span not a single token, but it is closer to the original semantic-composition motivation than character-class alone.
+- **Formulaic-template violation (fallback).** If the above are too expensive to construct, use the "N-year-old" template itself as a compositional test axis: hold out specific N values from the training template, check whether the model generalizes the template slot structure to held-out numbers. This is close to behavior Exp 0 already probed implicitly and would be cheap.
+
+### 13.4 Acknowledged lost ground
+
+The original research motivation — systematic semantic compositional generalization — is not directly testable in this plan. The downscaling to character-class and templated-numeric axes is a real loss and any writeup must be explicit about what claim we are testing vs what claim the combinatorial-tail argument is about. This section is the reference for that honesty; the cleaner-test reframing in §13.1 does not erase the scope shift.
