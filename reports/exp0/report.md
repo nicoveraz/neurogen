@@ -224,6 +224,10 @@ Cross-class cosine on final embeddings (should be lower than within-class if cla
 - **Regime C (noise) is ruled out.** The final embeddings are unambiguously structured.
 - Displacement vectors, in contrast, are essentially uncorrelated within classes — within-class Δ cosine hovers around the random baseline for nearly every class. One interesting exception: sentence-punct Δ cosine is **−0.11**, meaningfully *anti*-correlated.
 
+### 10.4a Reasoning artifact worth naming explicitly
+
+The §10 work itself is the artifact: the §3 finding could have been taken at face value ("flat spectrum, therefore weak structure"), and the plan would have been quietly re-scoped around a false premise. Instead the ambiguity was named, interpretations A/B/C were written out, a distinguishing diagnostic was designed with A and B producing one signature (within-class lift) and C producing another (no lift), and the test was run. The interpretation in §10.5 below is what came out of that — but the process of *getting* to it, not just the conclusion, is the thing to remember. Whenever a trajectory-geometry finding is ambiguous in the same way later in this plan, re-run this same structure: name the alternatives, design the distinguishing test, run it, conclude.
+
 ### 10.5 Why the displacement spectrum was flat even though the structure is real
 
 The final embeddings are structured (§10.4). The initial embeddings were drawn from `N(0, 0.8²)` per-element — independent, random directions. Displacement `Δ = w_L − w_0` therefore equals `structured_final − random_initial`. Since the initialization variance (‖w_0‖ ≈ 12.8 per token for 256-D Gaussian) is large compared with the typical intra-class separation in the final layout, **the random part of `w_0` dominates the variance in Δ**, obscuring the structured part. That is exactly what produces a flat PCA spectrum: the variance is spread across all 256 directions by the random initial state, not concentrated on the few directions along which the final layout organizes itself.
@@ -302,5 +306,43 @@ The pattern — features encoded as directions, many more directions than dimens
 ### 10.11 Outstanding caveats to carry forward
 
 - The Δ baseline test (random-pair cosine = +0.005) is near enough to zero that the small negative lifts for most classes are probably within noise of zero. Do not read "lowercase Δ cosine −0.01" as a real anti-correlation — only sentence-punct at −0.11 is large enough to be meaningful.
-- Byte-level granularity means the "classes" here are orthographic, not lexical. The finding generalizes to "the model learned character-class structure", not necessarily to "the model learned word-level semantics". Exp 3 compositional axes will need to accommodate this — character-class transitions and digit arithmetic are the most plausible candidates.
+- Byte-level granularity means the "classes" here are orthographic, not lexical. The finding generalizes to "the model learned character-class structure", not necessarily to "the model learned word-level semantics". See §11 on Exp 3 scope honesty.
 - The "nearest neighbors include high bytes" signal noted in §10.8 may deserve a small standalone follow-up: are high bytes genuinely noisy, or are they semantically close to specific low-byte tokens via their co-occurrence pattern? Park until Exp 1.
+
+---
+
+## 11. Methodological principle — position vs displacement
+
+Pinning this down now because it generalizes past Exp 0 and we will forget it by Exp 4 otherwise.
+
+**Principle.** When analyzing embedding trajectories of a trained network, work on the **positions** `w_t` whenever possible, not on **displacements** `Δ = w_t − w_s`. Displacements carry the initialization noise as a baseline: `Δ = structured_t − random_s` has its variance dominated by the isotropic random term, which masks any structure that sits in the positions. Exp 0 §10.5 is the concrete demonstration — the digits class cluster tightly in `w_L` (cosine +0.44) but have near-zero pairwise Δ cosine.
+
+**Operational rules for Exp 1 and Exp 4.**
+- Pairwise CKA, cosine-similarity matrices, clustering, nearest-neighbor stability → compute on **positions** `w_t` at each checkpoint.
+- Within-class coherence curves (class cosine over time) → positions.
+- Total path length, per-step velocity, instantaneous turning → these are displacement-based by definition; when used, compare against a null baseline generated from the same initialization distribution (e.g. shuffle `w_0` across tokens or sample from `N(0, 0.8²)` per-element), not against raw zero.
+- **Signature to look for:** when two tokens' positions converge but they started from independent random inits, their pairwise Δ cosine will be *anti*-correlated (Δ cos < 0). This is the trajectory fingerprint of "different starts, shared destination". Exp 0 found this for `.!?` at Δ cos = −0.11. Exp 4's convergence-detection analysis should look for additional triads with the same signature.
+
+---
+
+## 12. Named case studies to track through Exp 1 → Exp 4
+
+Three artifacts from the Exp 0 diagnostics are worth tracking explicitly through the rest of the plan so they do not disappear into the aggregate analyses:
+
+- **Sentence-punctuation triad `.`, `!`, `?`.** Mutual nearest neighbors in `w_L` at cosine 0.47–0.62; Δ cos = −0.11 (the cleanest "different starts, shared destination" signature in the vocabulary). **Track:** when during training does the triad converge (is it early or late), does it pass through an intermediate configuration, is the convergence monotone or does a crossing occur. Treat as the canonical case study for Exp 4 convergence analysis. If 3–4 additional triads with the same signature emerge in Exp 1, they become a small collection of canonical examples to anchor the Exp 4 writeup.
+
+- **Digit cluster `0`–`9`.** The tightest class cluster (+0.44 within-class cosine; nearest neighbors essentially pure digits at cosine 0.60–0.67). **Track:** at which checkpoint does the digit cluster form (prediction: early, since digits appear in highly constrained numeric contexts in TinyStories). This is also the most promising axis for a **digit-arithmetic compositional test in Exp 3** — see §13.
+
+- **Mixed-encoding `"` ↔ `\x93` pair.** Cosine +0.80 in `w_L`. `\x93` is the Windows-1252 left-double-quote byte; the UTF-8 corpus contains mixed-encoding text, and the model discovered the equivalence via co-occurrence. **Candidate example for the writeup.** Concrete evidence that the model learned representational structure not explicitly annotated in the corpus — the kind of finding that grounds the mech-interp / superposition framing (§10.10) with a specific, memorable, pair. Do not lose this in later aggregate analyses.
+
+---
+
+## 13. Exp 3 scope honesty
+
+The motivation for this plan is the claim that transformers handle long-tail **semantic** composition by data coverage rather than true composition — the SCAN / COGS / combinatorial-tail argument. At byte level on TinyStories, the compositional axes directly testable are **orthographic**, not semantic: character-class boundaries, digit sequences, opening-quote / closing-quote correspondence. These are real compositional structure but strictly weaker than what the motivation is about.
+
+Consequences to carry into Exp 3 design and any writeup:
+- Lead with the scope caveat explicitly. "We tested character-class compositional generalization at byte level on a 3.4M-parameter model. This is a weaker test than the semantic-composition literature; reaching that claim would require a word-level tokenizer and a larger model."
+- Character-class compositional tests (e.g. held-out `letter-letter-letter` triples where each letter appears alone in training but not the triple) are cheap, valid, and well-matched to what the model actually represents.
+- **Digit-arithmetic axis is the one available lever that pushes toward genuine semantic composition.** TinyStories contains simple number facts ("Tim had 3 apples and 2 oranges"). Construct held-out digit combinations whose components appear in training but whose combinations do not (e.g. all `(3, n)` and `(n, 2)` facts present, but `(3, 2)` never co-occurs). The Exp 0 finding of a +0.60–0.67 cosine digit cluster makes it plausible that this axis has testable structure. Harder to construct cleanly than character-class axes; worth attempting because it is closer to the original motivation.
+- If Exp 3 ends up testing only character-class boundaries, that is fine — just label the result honestly in the writeup.
