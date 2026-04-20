@@ -149,9 +149,114 @@ The stabilization metric as defined is biased by this spike-then-silence dynamic
 
 ---
 
-## 4. [Next to draft] — Topographic regularization attempt
+## 4. Limits of topographic regularization: a gradient-vanishing pathology
 
-[Placeholder. Will draw on `reports/exp2/gradient_vanishing_analysis.md`, pilot summary table, and the two §4 figures.]
+The trajectory findings in §3 characterize how representations form under standard training. A natural follow-up question is whether imposing spatial structure on token representations — forcing co-occurring bytes to be organized onto a 2D grid in a way that mirrors their co-occurrence matrix — would alter those dynamics. This is a classical topographic-organization hypothesis [@kohonen1982], and it motivates a straightforward experimental design: add a regularization term to the training loss that penalizes arrangements where co-occurring tokens are far apart on a learned 16×16 grid of positions, and compare the resulting learning dynamics to the unregularized baseline.
+
+This section reports four experimental attempts at such a regularizer, all of which failed — but failed in a way that, when analyzed, reveals a structural property of Gaussian-kernel-based topographic losses that generalizes beyond this project. We describe the attempts, the three distinct pathologies observed, and the unified diagnosis that accounts for all three.
+
+### 4.1 Design
+
+Each token in the 256-byte vocabulary is assigned a 2D position `pos_i ∈ R²` on a 16×16 grid, initialized as a shuffled lattice (every cell populated by one token, token-to-cell assignment random). The positions are learnable parameters, trained alongside the model's standard parameters via the same AdamW optimizer but with no weight decay (so the "grid" structure is not artificially collapsed by regularization).
+
+The objective augments the language modeling loss with a topographic term:
+
+```
+L_total = L_LM + w_topo · L_topo
+```
+
+where `w_topo` is ramped from 0 to a target value over the first 10% of training, and `L_topo` is a function of the current grid positions and a precomputed 256×256 co-occurrence matrix. The matrix is computed once before training by scanning the TinyStories corpus with a window of 5 bytes, log-normalizing the raw counts (to avoid domination by space-letter bigrams, which otherwise carry 57% of the raw co-occurrence mass), and renormalizing to a probability distribution.
+
+Control conditions use the same code path with the co-occurrence matrix permuted (random targets) or with `w_topo = 0` (the "matched null"; see §2). The matched null is necessary rather than comparing to the Exp 0 baseline because MPS non-determinism on this hardware produces ~0.055 val_bpb run-to-run variance at 10K steps — comparable to the "substantial" band of the effect-size calibration in §2. Any cross-code-path comparison therefore needs an explicit matched baseline.
+
+The specific form of `L_topo` is where the formulations differ, and is what produces the distinct pathologies below.
+
+### 4.2 Three formulations, three pathologies
+
+**Formulation A — Gaussian pure attractive.** The most direct import of SOM-style dynamics into gradient-based learning: treat the co-occurrence weights as attraction strengths, and pull co-occurring pairs toward each other with a Gaussian kernel whose bandwidth σ anneals from 8 to 1 over the first 20% of training.
+
+```
+L_topo = − Σ_{i<j} cooccur(i, j) · exp(−‖pos_i − pos_j‖² / (2σ²))
+```
+
+Minimizing this loss makes co-occurring pairs have high kernel value (small pairwise distance). Three pilots varied the grid learning rate across two orders of magnitude (`grid_lr_scale ∈ {10, 1, 0.1}`, giving Adam LR `∈ {2e-2, 2e-3, 2e-4}`). Result:
+
+- `scale = 10`: collapse to coincidence. Topographic loss saturates at its floor (−1.0, the theoretical minimum for `-E[K(d)]` when cooccur is a probability distribution) by step 500. Grid spread ratio (mean pairwise distance / initial) plateaus at 0.56 and freezes.
+- `scale = 1`: same collapse, delayed. Saturation at step 3000, spread ratio 0.56.
+- `scale = 0.1`: positions barely move in 10K steps. Spread ratio 0.94, topographic loss −0.05 (vs. floor −1.0). Extrapolating to the full 90K-step training schedule suggests saturation would eventually occur.
+
+Across all three learning rates, the final equilibrium *geometry* is identical (spread 0.56 for the two that reached it), differing only in when saturation occurs. The learning rate determines the *timing* of collapse, not the *endpoint*. This is a structural property of the loss, not a calibration choice.
+
+**Formulation B — MSE against similarity targets, with zero target for non-cooccur pairs.**
+
+To prevent collapse, we replaced the pure-attractive loss with an MSE against a target similarity matrix: high-co-occurrence pairs should have high kernel similarity, low-co-occurrence pairs should have low similarity. Construction: target_sim(i, j) = cap × cooccur_norm(i, j), with cap = 0.9 to prevent the max-cooccurrence pair from targeting full coincidence.
+
+```
+L_topo = mean_{i<j} (exp(−‖pos_i − pos_j‖² / (2σ²)) − target_sim(i, j))²
+```
+
+Result at grid_lr_scale = 1, 10K steps: positions *expanded*. Grid spread ratio rose to 1.58 (from initial 1.0); mean pairwise distance rose to 13.2 (from initial 8.3); topographic loss decreased by only 39% (0.028 → 0.017) and then froze as gradients vanished.
+
+Mechanism of the failure: the majority of pairs (~53,000 of 65,000) have zero co-occurrence, so their target similarity is 0. Minimizing loss for these pairs drives actual similarity toward 0 — i.e., drives the pair's distance to where `exp(−d²/2σ²) ≈ 0`, which at σ = 1 means d ≫ 3. With ~5× more "should be far" pairs than "should be close" pairs, the aggregate repulsive pressure pushes positions outward until the kernel is near-zero everywhere. Once there, loss gradient also vanishes, and the system freezes in a spread-out non-equilibrium state that encodes little topographic information.
+
+**Formulation C — Equilibrium MSE with non-zero floor target.**
+
+To avoid the expansion, we set the target similarity for zero-co-occurrence pairs to the *expected similarity* at uniformly-random grid placement, rather than to 0. Target construction: `target(i, j) = max(expected_random_sim(σ), cap · cooccur_norm(i, j))`. With σ = 3 fixed (no anneal), expected random similarity is ≈0.161, corresponding to an equilibrium distance of ≈5.73 — approximately the mean pairwise distance in a random placement on a 16×16 grid. High-cooccur pairs keep the higher cap-scaled target; non-cooccur pairs settle at "random-grid separation" rather than escaping to infinity.
+
+Result at grid_lr_scale = 1, 10K steps: *bimodal failure*. High-cooccur pairs collapsed *past* the 1.38 equilibrium target to ≈0.1–0.3 grid units. Low-cooccur pairs escaped *past* the 5.73 equilibrium target to 16+ grid units. Mean pairwise distance ballooned to 16.9. Six tracked pairs:
+
+| pair | measured d at step 10K | equilibrium target | status |
+|---|---|---|---|
+| ` `–`e` | 0.13 | ≈1.38 | collapsed |
+| ` `–`t` | 0.25 | ≈1.38 | collapsed |
+| ` `–`a` | 0.09 | ≈1.38 | collapsed |
+| `.`–`!` | 1.78 | ≈1.38 | **near target** |
+| `0`–`5` | 26.44 | ≈5.73 | escaped (outside nominal grid extent) |
+| `(`–`[` | 19.17 | ≈5.73 | escaped |
+
+Only the sentence-punct pair `.`–`!` landed near its equilibrium. All high-cooccur pairs collapsed past equilibrium; all low-cooccur pairs escaped past equilibrium.
+
+Common thread across all three formulations is visible in Figure 7 (`reports/exp2/pilot_comparison.png`), which overlays grid spread, topographic loss magnitude, and fraction-of-positions-moving for each pilot. All three reach a frozen state (fraction moved → 0 by late training), but arrive there via different failure modes: collapse, escape, and bimodal.
+
+### 4.3 Unified diagnosis: vanishing gradient at both tails of a Gaussian kernel
+
+Formulations A, B, and C differ in their target structure and their equilibrium specifications, but share a single property: they all define the loss as a function of `K(d) = exp(−d²/2σ²)`. Writing `L = f(K(d_ij), T_ij)` for an arbitrary function f and target T_ij, the gradient with respect to a position is
+
+```
+∂L/∂pos_i = Σ_j  [∂f/∂K] · (∂K/∂d) · (∂d/∂pos_i)
+         ∝ Σ_j  [∂f/∂K] · K(d_ij) · (pos_i − pos_j)
+```
+
+(absorbing the σ² factor). The gradient magnitude per term has *two* factors that can vanish: `K(d_ij)` and `(pos_i − pos_j)`.
+
+- **d → 0**: `(pos_i − pos_j) → 0`, so the gradient vanishes regardless of what `f` specifies. Positions that coincide have no force pushing them apart, even if `f` says they shouldn't coincide.
+- **d → ∞**: `K(d) → 0` exponentially, so the gradient vanishes regardless of `f`. Positions that are far apart have no force pulling them closer, even if `f` says they shouldn't be far apart.
+
+The `[∂f/∂K]` factor can only reshape the gradient within the *active* region where `K(d)` is non-trivial — approximately d ∈ [0.5σ, 3σ]. Outside this region, the gradient envelope is effectively zero.
+
+**Figure 8** (`reports/exp2/gradient_envelope.png`) illustrates this for three concrete losses: the pure Gaussian attractive loss (A), the Gaussian-MSE loss (B, C), and a distance-based MSE `L = (d − target_d)²`. The kernel-based losses both have gradient magnitude that rises from zero, peaks near d = σ, and decays back to zero for large d. The distance-based loss has gradient magnitude linear in distance error, unbounded above, and zero only at the target distance itself.
+
+The consequence: for any kernel-based topographic loss, a stationary point at distance `d*` is only an *attractor* if `d*` lies within the active region of the kernel envelope. Stationary points far from σ — which includes both tight equilibria (`d* ≪ σ`) and loose equilibria (`d* ≫ σ`) — lack basins of attraction. Positions perturbed toward the zero-gradient tails cannot be pulled back.
+
+This explains all three pathologies. In Formulation A, the only implicit stationary point is at d = 0 (coincidence), which is the one limiting point the gradient reaches — not as an attractor but as a *limit of* the vanishing gradient region. In B, the stationary point for zero-target pairs is at d → ∞, again a limiting point rather than an attractor. In C, the explicit equilibria at d* = 1.38 (high-cooccur) and d* = 5.73 (low-cooccur) are both outside the kernel's active region for the chosen σ = 3 (the kernel's active region being roughly d ∈ [1.5, 9]): the high-cooccur equilibrium sits in the d ≲ σ zero-gradient tail, and the low-cooccur equilibrium sits near the edge of the active region but just below the escape regime. Positions that drift past either equilibrium in the wrong direction cannot be pulled back.
+
+### 4.4 What avoids the pathology
+
+Two categories of alternative formulation avoid the gradient-vanishing envelope:
+
+**Distance-based losses.** A loss formulated directly on `d_ij` rather than on `K(d_ij)` has gradient proportional to `(d_ij − target_d_ij)/d_ij · (pos_i − pos_j)`, which has magnitude `|d_ij − target_d_ij|` — unbounded above, zero only at the equilibrium, and not gated by a kernel envelope. Example: `L = mean((d_ij − target_d_ij)²)` with `target_d_ij` derived from co-occurrence (e.g., `target_d = d_far − (d_far − d_near) · cooccur_norm`). Globally well-behaved gradient dynamics; equilibria are true attractors.
+
+**Non-gradient competitive-learning dynamics.** The original SOM algorithm uses a Gaussian kernel, but the kernel controls *which weights get updated* based on proximity of their *fixed grid locations* — not a gradient on learned positions. Grid positions don't move, so the vanishing-gradient issue doesn't arise. The kernel does a different job than it does in a gradient-based formulation.
+
+A natural interpretation is that Gaussian-kernel-based gradient learning of grid positions imports a mathematical object (the kernel) from a setting where it was designed to solve one problem (competitive learning) into a setting where it must solve a different problem (gradient-based attraction-to-equilibrium). The kernel's properties — bell-shaped magnitude, fast decay — are well-matched to the first setting and pathological in the second.
+
+We did not pilot a distance-based formulation in this project. The analytical argument is sufficient to explain the three observed pathologies, and the time cost of another pilot sequence exceeded the information it would have produced relative to the analytical diagnosis. Whether distance-based topographic regularization would produce *measurable effects on downstream learning* at this scale remains an open empirical question; the analytical argument here addresses only the *stability* of such formulations, not their *efficacy*.
+
+### 4.5 Implications
+
+The narrow implication is that future work attempting topographic regularization on transformer token embeddings via gradient-based losses should use distance-based formulations rather than kernel-based ones. This is a practical claim about avoiding a specific pathology, not a claim that topographic regularization works (or doesn't) at small transformer scale — the latter question we cannot answer without successful empirical trials.
+
+The broader implication — which might be the more durable contribution of this section — is that importing mathematical objects across paradigms (SOM kernels into gradient learning) can smuggle in pathologies that the object's original setting doesn't exhibit. The Gaussian kernel in SOM is well-behaved because SOM's update rule is not gradient-based. When the same kernel is placed inside a gradient-based loss, its envelope becomes a gradient envelope, and its fast decay becomes vanishing-gradient regions. Checking whether a borrowed object retains its good properties in the new setting is worth doing analytically before committing to empirical work; the cost of not doing so here was four pilot experiments that each looked like a different calibration problem until the shared structural cause was visible.
 
 ---
 
