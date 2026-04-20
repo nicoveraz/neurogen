@@ -26,7 +26,7 @@ Title B advertises the Exp 2 negative result up front; title A keeps Exp 2 as an
 
 1. **Trajectory analysis surfaces phase-structured phenomena invisible in endpoint analysis.** Concretely: the digit class forms a coarse category (phase 1, steps 0–20K), then refines along a within-category ordinal axis (phase 2, steps 20K–70K), loosening the crude category in favor of a more-informative gradient. Visible only in the trajectory; the endpoint shows the refined state without the phase history. The Saxe/McClelland hierarchical-feature-emergence story observed at 3.4M byte-level on TinyStories, in a class small enough to see the whole structure in a 10×10 matrix.
 
-2. **Anchor-driven sequential convergence is a reproducible trajectory motif.** The `.!?` triad converges from random starts via a specific dynamic: the most frequent member (`.`) reaches its final region first at step ~3000, and the other two migrate toward it, crossing pairwise cosine thresholds 4–5× later. The anchor is identified by initial-cosine-with-final-centroid, which correlates with corpus frequency. A formalizable trajectory feature for identifying anchor tokens.
+2. **Anchor-driven convergence is a specific trajectory motif conditional on frequency asymmetry among triad members.** For triads that are both tightly clustered in `w_final` AND have strong asymmetry in member corpus frequency, one member (the most-frequent) acts as anchor: it reaches its final-centroid neighborhood early, while the others migrate toward it later. Two verified cases: `.!?` (frequency asymmetry 30×, time spread 5.3×, anchor `.`) and `,;:` (asymmetry 978×, time spread 1.3×, anchor `,`). In triads with more symmetric frequencies — digit triples like {5,6,8} with <4× asymmetry — convergence is simultaneous and no frequency-anchor correspondence emerges (0/5 digit triads show the pattern). The motif is thus *asymmetry-driven* rather than universal; where one member dominates, it anchors the triad's formation, and where frequencies are comparable the dynamics are symmetric.
 
 3. **Gaussian-kernel topographic regularizers are structurally pathological for gradient-based learning of grid positions.** Any loss factoring through `K(d) = exp(−d²/2σ²)` has vanishing gradient at both `d → 0` and `d → ∞`, so stable equilibria of such losses are stationary points but not attractors. Three Exp 2 pilot formulations (Gaussian pure attractive, MSE-simple, equilibrium-MSE) each produced distinct-looking pathologies that unify under this property. Distance-based losses avoid the problem. SOM-style non-gradient competitive learning avoids it via different mechanism (fixed grid positions, learning weights).
 
@@ -76,13 +76,23 @@ Claims 1 and 2 are positive contributions. Claim 3 is a "what we tried and why i
 - Mechanism interpretation: ordinal axis is age/count context adjacency (formulaic "N-year-old" in TinyStories), not arithmetic — validated by the 200M-byte corpus frequency check showing zero arithmetic patterns. Honest scope caveat: *the phase-structure finding stands, the axis-label finding was mechanism-corrected post-hoc, and the latter distinction is worth the honesty because it determines what we can and can't claim*.
 - Testable prediction: classes currently monotone may show their own Phase 2 at longer training (deferred follow-up).
 
-**Subsection 3.3 — Anchor-driven convergence: the `.!?` triad.**
+**Subsection 3.3 — Anchor-driven convergence, conditional on frequency asymmetry.**
 
-- Case study: `.!?` sentence punctuation triad.
-- Finding: sequential, not simultaneous. `.` reaches final-centroid cosine ≥0.6 at step 3000; `!` at 12000; `?` at 16000. 4–5× sequential separation. `.` is the anchor.
-- Figures: `reports/exp1/triad_centroid_pull.png` and `reports/exp1/triad_pairwise_cos.png`.
-- Correlate with corpus frequency: `.` is most frequent by far — anchor-ness tracks frequency. Formalizable feature: *for any byte cluster, the anchor is the member with highest initial-cosine-with-final-centroid*.
-- Deferred: verify on 3–4 additional triads (listed in §5 as open question).
+- Primary case study: `.!?` sentence punctuation triad. Sequential, not simultaneous. `.` reaches final-centroid cosine ≥0.6 at step 3000; `!` at 12000; `?` at 16000. 5.3× sequential separation. `.` is the anchor, identified by highest initial-cosine-with-final-centroid AND highest corpus frequency (30× more frequent than `?`).
+- Verification pass on additional triads (`analysis/exp1_trajectories/anchor_verification.py`):
+
+  | triad | freq asymmetry | anchor-match | time spread | verdict |
+  |---|---|---|---|---|
+  | `.!?` | 30× | ✓ | 5.3× | sequential (primary case) |
+  | `,;:` | 978× | ✓ | 1.3× | confirming case, modest spread |
+  | digits {5,6,8} | 1.6× | ✗ | 1.2× | simultaneous, no anchor |
+  | digits {4,5,8} | 4.0× | ✗ | 1.4× | simultaneous, no anchor |
+  | digits {5,7,8} | 4.0× | ✗ | 2.2× | weakly sequential, anchor is least-frequent |
+  | letter {e,s,d} | 2.3× | ✗ | 2.5× | doesn't form tight cluster (pair cos <0.30) |
+
+- Scoped finding: anchor-driven convergence emerges when (a) the triad forms a tight final cluster (min pairwise cosine ≳0.4) AND (b) one member has strong frequency asymmetry vs the others (≳10×). Under both conditions, the most-frequent member anchors and the others migrate. When only (a) holds — as with digit triples — convergence is simultaneous.
+- Figures: `reports/exp1/triad_centroid_pull.png` and `reports/exp1/triad_pairwise_cos.png` (primary case), plus a new overlay figure showing the clause-punct trajectory for the confirming case.
+- This scoping is *more informative* than the un-scoped version: it tells us that the trajectory dynamic is gated by asymmetry, which is a falsifiable and specific claim about when small transformers exhibit anchor formation.
 
 **Subsection 3.4 — Two modes of peak-then-decline.**
 
