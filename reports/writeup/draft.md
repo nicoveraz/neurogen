@@ -296,6 +296,41 @@ The narrow implication is that future work attempting topographic regularization
 
 The broader implication — which might be the more durable contribution of this section — is that importing mathematical objects across paradigms (SOM kernels into gradient learning) can smuggle in pathologies that the object's original setting doesn't exhibit. The Gaussian kernel in SOM is well-behaved because SOM's update rule is not gradient-based. When the same kernel is placed inside a gradient-based loss, its envelope becomes a gradient envelope, and its fast decay becomes vanishing-gradient regions. Checking whether a borrowed object retains its good properties in the new setting is worth doing analytically before committing to empirical work; the cost of not doing so here was four pilot experiments that each looked like a different calibration problem until the shared structural cause was visible.
 
+### 4.6 Emergence from architecture: structural correlation without functional utility
+
+After diagnosing the regularization pathology, a natural follow-up question is whether architectural constraints — which the broader NeuroGen work established as effective on this model — produce topographic-like organization as an emergent side effect, without an explicit loss. The NeuroGen program showed that quartic attention window growth (`window_power_4.0`) improves training via a curriculum-plus-structural mechanism; that mechanism was investigated through attention entropy and gradient covariance analyses, but not through the lens of topographic organization. We ran a direct test.
+
+**Setup.** A second 100K-step training run with identical schedule, seed, and snapshot cadence as Exp 0, but with architecture `window_power_4.0`. Final val_bpb was 0.7915 vs baseline's 0.7943 — a 0.003 bpb difference that sits within the ±0.055 MPS non-determinism variance, so we do not interpret the small gap as a meaningful LM-quality difference.
+
+**Structural finding.** The co-occurrence matrix from §4 (log-normalized bigram counts, window=5) correlates with pairwise final-embedding cosine differently between the two models:
+
+| metric | baseline | quartic | Δ |
+|---|---|---|---|
+| Spearman ρ(cooccur, cos) on non-zero pairs | +0.054 | +0.161 | +0.107 |
+| Pearson r(cooccur, cos) on non-zero pairs | +0.049 | +0.142 | +0.093 |
+
+A ~3× increase in the rank correlation between co-occurrence weight and final-embedding similarity. Per-class coherence changes are mixed: quartic strengthens classes whose formation is tied to highly-constrained distributional roles (digits +0.04, clause-punct +0.10, whitespace +0.09) and weakens classes whose formation depends on broader contextual cues (sentence-punct −0.07, letters −0.02 to −0.03). The net structural effect is that quartic embeddings encode co-occurrence relationships in their geometry more directly than baseline's do.
+
+**Functional test.** If the emergent organization is functionally useful — if it transfers the topographic-loss program's goal through a different route — it should specifically improve next-byte prediction on positions where co-occurrence signal is strong. We designed a targeted test: for each preceding byte `b`, compute the empirical bigram entropy `H(next | b)` from training co-occurrence. Low `H` means `b` strongly constrains its successor (e.g., `q` → `u`); high `H` means `b` weakly constrains (e.g., space followed by many letters). Evaluate both models on 1.6M val tokens with identical batch sampling; bucket positions by `H(next | prev)`; compute per-bucket mean NLL. The prediction: if quartic's organized embeddings help, its advantage should concentrate in low-`H` buckets. If the advantage is uniform (or absent), the organization is ornamental rather than functional.
+
+Result:
+
+| bucket | H range (bits) | n | baseline NLL | quartic NLL | Δ bpb |
+|---|---|---|---|---|---|
+| 0 (most constrained) | 3.51–4.22 | 323K | 0.324 | 0.323 | −0.001 |
+| 1 | 4.22–4.28 | 331K | 0.313 | 0.313 | +0.000 |
+| 2 | 4.28–4.34 | 287K | 0.315 | 0.316 | +0.001 |
+| 3 | 4.34–4.55 | 327K | 0.237 | 0.237 | +0.000 |
+| 4 (least constrained) | 4.55–5.05 | 370K | 1.448 | 1.448 | −0.001 |
+
+No bucket-dependent advantage. All per-bucket deltas are smaller than 0.001 bpb, below the within-run noise floor. Per-preceding-byte analysis shows small advantages for uppercase letters (P, K, E, D, S, C, Y, F, N — contexts where the next byte is strongly constrained to be lowercase) at magnitudes up to −0.06 bpb per byte, and small disadvantages on quote and newline bytes at comparable magnitudes. But in aggregate, and in the bucketed test designed specifically to detect co-occurrence-driven advantage, the two models are functionally indistinguishable.
+
+**Interpretation.** The emergent structural correlation is real — quartic's embedding geometry is more aligned with co-occurrence than baseline's — but it is not load-bearing for the language-modeling task. Both models achieve equivalent predictive accuracy. They appear to encode co-occurrence information through different representational strategies: quartic stores more of it in static embedding geometry; baseline stores more of it in attention patterns and context-dependent computations in later layers. Either strategy suffices for the task, and the model chooses one organization without being forced to.
+
+This reframes the §4 negative result. The topographic regularization program's failure isn't just that the chosen loss formulations were pathological (§4.3). It also appears that, at this scale and on this task, topographic organization is *not the representational form the task rewards*. Even when an alternative route (architectural constraint) produces topographic-like structure as a side effect, the model doesn't exploit that structure to improve prediction. The organization is ornamental. If it can be produced without a functional cost — as the architectural route achieves — it might still be useful for other purposes (interpretability, transfer learning, human-readable embedding layouts). But its absence from baseline's representations is also not a lack the task punishes.
+
+Structural correlation is not functional utilization. Observations about representational geometry carry less causal weight on task performance than the observations themselves might suggest.
+
 ---
 
 ## 5. Discussion
