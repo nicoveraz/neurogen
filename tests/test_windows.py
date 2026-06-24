@@ -133,6 +133,19 @@ def test_full_attention_modes_return_none(mode):
     assert windows.compute_window_mask(256, 0, 4, mode, "cpu", base=8) is None
 
 
+def test_list_mode_explicit_per_layer():
+    # "list:..." takes the widths verbatim (no base floor), for per-layer ablations.
+    mode = "list:8,256,256,256"
+    assert [windows.compute_window_size(i, 4, 256, mode, base=8) for i in range(4)] == [8, 256, 256, 256]
+    # widths above seq_len are capped at seq_len.
+    assert windows.compute_window_size(0, 4, 256, "list:9999,8,8,8", base=8) == 256
+    # mask width matches the listed window for the relevant layer.
+    m = windows.compute_window_mask(256, 3, 4, "list:256,256,256,8", "cpu", base=8)
+    assert int(m[255].sum().item()) == 8
+    m0 = windows.compute_window_mask(256, 0, 4, "list:256,256,256,8", "cpu", base=8)
+    assert int(m0[255].sum().item()) == 256
+
+
 def test_sliding_window_none_when_full():
     T, n_layer = 1024, 12
     # Last layer of a power schedule reaches full attention -> None for flash-attn.

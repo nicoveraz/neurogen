@@ -37,6 +37,13 @@ def compute_window_size(layer_idx: int, n_layer: int, seq_len: int,
         return None
     progress = (layer_idx + 1) / n_layer
     T = seq_len
+    if mode.startswith("list:"):
+        # Explicit per-layer windows, e.g. "list:8,256,256,256". Used for
+        # per-layer ablations (which layer's locality carries the effect). No
+        # base floor — the listed widths are taken verbatim.
+        widths = [int(w) for w in mode[len("list:"):].split(",")]
+        window = widths[layer_idx] if layer_idx < len(widths) else T
+        return min(window, T)
     if mode == "linear":
         window = max(base, int(progress * T))
     elif mode == "quadratic":

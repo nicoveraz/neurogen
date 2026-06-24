@@ -71,6 +71,12 @@ ARCHS = {
     "window_logarithmic": {"window": "logarithmic"},
     "window_exponential": {"window": "exponential"},
     "window_fibonacci": {"window": "fibonacci"},
+    # Per-layer ablation (which layer's locality carries the quartic gain?).
+    # Quartic depth-4 windows are [8, 23, 86, 256]; these isolate pieces of it.
+    "window_only_L0": {"window": "list:8,256,256,256"},     # only layer 0 local
+    "window_only_L01": {"window": "list:8,23,256,256"},     # early layers (L0+L1) local
+    "window_only_last": {"window": "list:256,256,256,8"},   # reversed control: only last local
+    "window_no_L0": {"window": "list:256,23,86,256"},       # quartic minus L0 locality
     # Phase J2: Embryogenic + winning architecture (window_quad_induction)
     "embryo_heb_wqi": {"embryo": "hebbian", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic", "universal": "induction"},
     "embryo_str_long_wqi": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.4, "window": "quadratic", "universal": "induction"},
