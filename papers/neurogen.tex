@@ -28,7 +28,7 @@ Independent Researcher\\
 \maketitle
 
 \begin{abstract}
-We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields robust improvements that increase with scale: $+1.5$\% at 3.4M parameters ($p=0.001$, Cohen's $d=2.05$, 5 seeds), persisting at $+0.97$\% through 100k extended training steps, and averaging $+12.9$\% at 125M parameters (50k steps, gap still widening). Seven mechanism experiments eliminate six hypotheses (gradient noise removal, softmax coupling, variance reduction, implicit regularization, landscape smoothness, ongoing structural constraint) and identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed. Attention entropy measurements at both 20k and 100k steps confirm the specialization is permanent: early layers maintain ${\sim}52$\% lower entropy at 100k steps, with the gap narrowing only slightly from the 57\% measured at 20k.
+We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields a small but consistent improvement at 3.4M and a larger but noisier (and unconverged) advantage at 125M. At 3.4M the gain is $+1.5$\% across 5 \emph{matched} seeds (all 5 beat their paired baseline); because the runs are paired, the exact one-sided sign-flip permutation test floors at $p=1/32=0.031$, with a parametric paired-$t$ $p\approx0.001$ and paired effect size $d_z\approx3.6$. The advantage persists at $+0.97$\% through 100k extended training steps. At 125M the gain is $+2.6$\% averaged across 5 seeds at 20k (one seed negative), widening to $+12.9$\% on the two seeds extended to 50k---but neither model is converged at 50k, so the 50k figure is suggestive rather than a converged scaling result. Seven mechanism experiments cleanly eliminate five hypotheses (gradient noise removal, softmax coupling, variance reduction, landscape smoothness, ongoing structural constraint); a sixth, implicit regularization, is inconclusive (the train--val gap is seed-contradictory at $n=2$). The data identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed. Attention entropy measurements at both 20k and 100k steps confirm the specialization is permanent: early layers maintain ${\sim}52$\% lower entropy at 100k steps, with the gap narrowing only slightly from the 57\% measured at 20k.
 \end{abstract}
 
 \section{Introduction}
@@ -39,7 +39,7 @@ The brain takes a different approach. Genetic developmental programs grow functi
 
 We ask: can these developmental principles improve transformer training?
 
-Our answer is nuanced. Most biological inspirations fail when applied to transformers. But one specific intervention works substantially: constraining attention to grow from local to global across layers, mimicking cortical receptive field development. When combined with pre-wired induction head circuits, the improvement reaches $+5.2$\% at 3.4M parameters. At 125M parameters, the quartic window schedule alone produces $+12.9$\% improvement over baseline after 50k training steps, with the gap still widening.
+Our answer is nuanced. Most biological inspirations fail when applied to transformers. But one specific intervention works consistently: constraining attention to grow from local to global across layers, mimicking cortical receptive field development. At 3.4M parameters the quartic window schedule gives a $+1.5$\% improvement in which all 5 matched seeds beat their paired baseline; combining it with pre-wired induction head circuits does not help further ($+1.1$\%). At 125M parameters the schedule gives $+2.6$\% across 5 seeds at 20k steps; on the two seeds extended to 50k the gap widens to $+12.9$\%, though neither model is converged there.
 
 Extended training to 100k steps at 3.4M parameters confirms this is not merely faster convergence: the advantage peaks at $+2.9$\% during early training (10k steps), consistent with a curriculum effect, and persists at $+1.0$\% through 100k steps. The mechanism operates through \textit{forced architectural specialization}, not gradient noise removal. Seven targeted experiments demonstrate that attention windows increase gradient signal coherence $18\times$ without reducing gradient noise, dramatically reduce parameter coupling, and create permanent attention hierarchy that persists even after the windows are removed.
 
@@ -92,20 +92,20 @@ We organized 26 approaches into four categories:
 
 \subsection{3.4M Validation (20k steps, 5 seeds)}
 
-Table~\ref{tab:3_4m} shows the validated results at 3.4M parameters. Quartic attention windows produce a statistically significant $+1.5$\% improvement with large effect size (Cohen's $d = 2.05$). All 5 seeds of every window variant beat the baseline mean. Throughput is identical across all architectures (4.8 steps/sec on M1 Pro).
+Table~\ref{tab:3_4m} shows the validated results at 3.4M parameters. The runs are \emph{paired}---each seed trains the baseline and the window variant from the same initialization---so we analyze the per-seed differences with a paired test rather than the unpaired Welch test used in an earlier draft (which also used a normal approximation in place of a $t$-distribution and thereby overstated significance). For every window variant all 5 paired differences are positive, so the exact one-sided sign-flip permutation test reaches its floor of $1/2^5 = 1/32 = 0.031$; the parametric paired-$t$ and the paired effect size $d_z$ (mean difference over its standard deviation) separate the variants. The paired residual standard deviation for the quartic variant ($\approx0.004$ bpb) is roughly $14\times$ smaller than the run-to-run MPS noise floor ($\approx0.055$ bpb), which is why a sub-noise-floor mean effect is detectable. Throughput is identical across all architectures (4.8 steps/sec on M1 Pro).
 
 \begin{table}[H]
 \centering
-\caption{3.4M validation results (20,000 steps, 5 seeds each).}
+\caption{3.4M validation results (20,000 steps, 5 matched seeds). $p_{\text{perm}}$ is the exact one-sided sign-flip permutation $p$ over the 5 paired differences (floor $1/32$); $p_t$ is the two-sided paired $t$-test; $d_z$ is the paired effect size.}
 \label{tab:3_4m}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccccc}
 \toprule
-Config & $n$ & Mean bpb & Std & vs Baseline & $p$-value & Cohen's $d$ \\
+Config & $n$ & Mean bpb & Std & vs Baseline & $p_{\text{perm}}$ & $p_t$ & $d_z$ \\
 \midrule
-Baseline & 5 & 0.9002 & 0.0075 & --- & --- & --- \\
-Quadratic ($\gamma=2$) & 5 & 0.8911 & 0.0048 & $+1.0$\% & 0.022 & 1.45 \\
-\textbf{Quartic ($\gamma=4$)} & 5 & \textbf{0.8866} & 0.0056 & $\mathbf{+1.5}$\% & \textbf{0.001} & \textbf{2.05} \\
-Quad + Induction & 5 & 0.8899 & 0.0041 & $+1.1$\% & 0.007 & 1.69 \\
+Baseline & 5 & 0.9002 & 0.0075 & --- & --- & --- & --- \\
+Quadratic ($\gamma=2$) & 5 & 0.8911 & 0.0048 & $+1.0$\% & 0.031 & 0.012 & 1.94 \\
+\textbf{Quartic ($\gamma=4$)} & 5 & \textbf{0.8866} & 0.0056 & $\mathbf{+1.5}$\% & \textbf{0.031} & \textbf{0.001} & \textbf{3.59} \\
+Quad + Induction & 5 & 0.8899 & 0.0041 & $+1.1$\% & 0.031 & 0.009 & 2.09 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -135,11 +135,32 @@ Sleep consolidation & $-1$\% & 6 & Overhead $>$ benefit \\
 
 \subsection{125M Scaling (Preliminary)}
 
-At 125M parameters, the quartic window advantage \textit{grows with training} (Table~\ref{tab:125m}). After 50k steps, the gap reaches $+12.9$\% (mean of 2 matched-seed pairs) and is still widening. Neither model is converged.
+At 125M parameters the advantage is real but smaller and noisier than the 3.4M result, and the strongest-looking number comes from unconverged runs. Two cuts of the data make this clear. First, across all 5 seeds at a matched 20k steps (Table~\ref{tab:125m_seeds}), the mean gap is $+2.6$\% (sd $1.9$), and one of the 5 seeds is \emph{negative}---the quartic model is worse on seed 256. Each seed's baseline and quartic arms share an LR schedule, so the within-seed gap is valid even though seeds 42/137 run a 50k schedule (read at step 20k) and 256/789/1337 are dedicated 20k runs.
 
 \begin{table}[H]
 \centering
-\caption{125M gap evolution (mean of seeds 42 and 137, 50k steps).}
+\caption{125M per-seed gap at a matched 20k steps (all 5 seeds).}
+\label{tab:125m_seeds}
+\begin{tabular}{rccc}
+\toprule
+Seed & Baseline bpb & Quartic bpb & Gap \\
+\midrule
+42 & 4.101 & 3.894 & $+5.04$\% \\
+137 & 4.090 & 3.989 & $+2.47$\% \\
+256 & 3.696 & 3.704 & $-0.21$\% \\
+789 & 3.578 & 3.503 & $+2.09$\% \\
+1337 & 3.620 & 3.492 & $+3.53$\% \\
+\midrule
+Mean & --- & --- & $\mathbf{+2.6}$\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Second, on the two seeds extended to 50k (Table~\ref{tab:125m}) the gap widens to $+12.9$\% (gap of means; per-seed $+17.2$\% and $+8.4$\%). But \emph{neither model is converged}---both baselines are still descending ${\sim}0.01$ bpb per 1k steps at step 50k---so a still-widening gap is exactly what an unconverged head-start produces. We therefore report the 50k figure as suggestive, not as a converged scaling result. A fresh from-scratch comparison under a single fully-annealed horizon is the experiment that would distinguish a genuine scaling effect from an undertraining artifact.
+
+\begin{table}[H]
+\centering
+\caption{125M gap evolution on the two seeds extended to 50k (mean of seeds 42 and 137). Both models are unconverged at 50k; read as suggestive.}
 \label{tab:125m}
 \begin{tabular}{rccc}
 \toprule
@@ -150,7 +171,7 @@ Steps & Baseline bpb & Quartic bpb & Gap \\
 20k & 4.095 & 3.942 & $+3.8$\% \\
 30k & 3.844 & 3.576 & $+7.0$\% \\
 40k & 3.538 & 3.188 & $+9.9$\% \\
-50k & 3.447 & 3.001 & $\mathbf{+12.9}$\% \\
+50k & 3.447 & 3.001 & $+12.9$\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -257,9 +278,9 @@ At equal token count (16M), quartic windows (1.214) outperform both baseline (1.
 
 \subsection{Experiment 4: Train-Val Gap (Implicit Regularization)}
 
-If windows act as implicit regularizers, they should reduce overfitting---quartic models should have a \textit{smaller} train-val gap than baseline. On frozen checkpoints (seed 42), we measured training bpb and validation bpb to compute the generalization gap.
+If windows act as implicit regularizers, they should reduce overfitting---quartic models should have a \textit{smaller} train-val gap than baseline. We measured the training and validation bpb of the frozen baseline and quartic checkpoints to compute the generalization gap on both available seeds.
 
-\textbf{Key finding:} Quartic models have a \textit{larger} train-val gap than baseline ($+0.013$ vs $-0.004$). This is the \textit{opposite} of the regularization prediction---windowed models slightly overfit \textit{more}, not less. Implicit regularization is eliminated as a mechanism.
+\textbf{Key finding (inconclusive at $n=2$):} The two seeds disagree. On seed 42 the quartic model has a \textit{larger} gap than baseline ($+2.48$\% vs $+0.32$\%), consistent with ``not regularization.'' On seed 137 the quartic model has a \textit{smaller} (in fact negative) gap ($-2.70$\% vs $+0.80$\%), the opposite direction, consistent with regularization. With only two seeds and contradictory signs, this experiment does not cleanly rule implicit regularization in or out; we therefore do not count it among the eliminated hypotheses. (An earlier draft reported only the seed-42 direction and a clean elimination.)
 
 \subsection{Experiment 5: Gradient Covariance Rank (Parameter Coupling)}
 
@@ -269,26 +290,26 @@ We measured the effective rank of the gradient covariance matrix under different
 \centering
 \caption{Gradient covariance rank vs window size (layer 0, Q/K weights, 50 passes).}
 \label{tab:coupling}
-\begin{tabular}{rcccc}
+\begin{tabular}{rccc}
 \toprule
-Window & Effective rank & Var.\ top-1 & Var.\ top-5 & Top singular value \\
+Window & Effective rank & Var.\ top-1 & Var.\ top-5 \\
 \midrule
-8 & 14.7 & 97.7\% & 99.8\% & --- \\
-32 & 32.1 & --- & --- & --- \\
-64 & 39.8 & --- & --- & --- \\
-128 & 45.2 & --- & --- & --- \\
-256 & 48.4 & 18.3\% & 52.1\% & --- \\
+8 & 17.2 & 96.7\% & 97.3\% \\
+32 & 45.5 & 34.0\% & 45.3\% \\
+64 & 48.4 & 9.2\% & 25.2\% \\
+128 & 48.6 & 5.9\% & 23.0\% \\
+256 & 48.6 & 6.1\% & 22.8\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Key finding:} Effective rank drops from 48.4 (full attention) to 14.7 (window~8)---a $3.3\times$ reduction. At window~8, 97.7\% of gradient variance concentrates in the top singular component. Windows \textit{dramatically reduce parameter coupling} at early layers, forcing each gradient step to update a coherent, low-dimensional subspace rather than diffuse, high-dimensional noise.
+\textbf{Key finding:} Effective rank drops from 48.6 (full attention) to 17.2 (window~8)---a $2.8\times$ reduction. At window~8, 96.7\% of gradient variance concentrates in the top singular component, versus 6.1\% at window~256. Windows \textit{dramatically reduce parameter coupling} at early layers, forcing each gradient step to update a coherent, low-dimensional subspace rather than diffuse, high-dimensional noise. This is the one surviving mechanism. (Numbers from \texttt{experiment\_mechanism.py --exp5}, committed in \texttt{gradient\_results/mechanism\_disambiguation.json}.)
 
 \subsection{Experiment 6: Gradient Stability (Landscape Smoothness)}
 
-If windows produce a smoother optimization landscape, then models \textit{trained with} quartic windows should exhibit more stable gradients at convergence---even when evaluated with standard (unmasked) forward passes. We compared gradient direction stability (mean pairwise cosine similarity across 30 gradient samples) for baseline vs quartic checkpoints.
+If windows produce a smoother optimization landscape, then models \textit{trained with} quartic windows should exhibit more stable gradients at convergence---even when evaluated with standard (unmasked) forward passes. We compared gradient direction stability (mean pairwise cosine similarity across 30 gradient samples) for baseline vs quartic checkpoints on both available seeds.
 
-\textbf{Key finding:} Quartic-trained models have slightly \textit{lower} gradient stability (0.109 vs 0.139 for baseline). The quartic model finds a \textit{better} solution, but not one in a smoother region of the loss landscape. Optimization landscape smoothness is eliminated as a mechanism.
+\textbf{Key finding:} Quartic-trained models have slightly \textit{lower} gradient stability than baseline on \emph{both} seeds (mean 0.072 vs 0.074; seed 42: 0.0335 vs 0.0358; seed 137: 0.110 vs 0.112). The quartic model finds a \textit{better} solution, but not one in a smoother region of the loss landscape. Optimization landscape smoothness is eliminated as a mechanism.
 
 \subsection{Experiment 7: Remove Windows Mid-Training (Curriculum vs Structure)}
 
@@ -352,7 +373,8 @@ The data converges on a \textbf{curriculum effect with lasting structural impact
 \section{Limitations}
 
 \begin{itemize}
-    \item 125M results are preliminary (2 seeds at 50k steps, models not converged).
+    \item 125M results are preliminary and noisy: the 20k comparison spans 5 seeds (mean $+2.6$\%) but one seed is negative, and the $+12.9$\% figure rests on only 2 seeds extended to 50k, where neither model is converged. We have not run a fresh from-scratch comparison under a single fully-annealed horizon, which is what would distinguish a real scaling effect from an undertraining artifact.
+    \item Implicit regularization (Experiment 4) is not resolved: the train--val gap is seed-contradictory at $n=2$.
     \item No downstream task evaluation (CORE, MMLU, etc.).
     \item The 3.4M model uses TinyStories (narrow domain); 125M uses FineWeb-Edu (broader).
     \item Optimal exponent at depth 12 not yet determined (tested only quartic).
@@ -362,7 +384,7 @@ The data converges on a \textbf{curriculum effect with lasting structural impact
 
 \section{Discussion}
 
-\textbf{Scaling.} The effect grows with scale ($+1.5$\% at 3.4M $\rightarrow$ $+12.9$\% at 125M), and the gap is still widening at 50k steps. More layers provide a richer developmental progression.
+\textbf{Scaling.} The effect appears to grow with scale ($+1.5$\% at 3.4M $\rightarrow$ $+2.6$\% across 5 seeds at 125M/20k, $\rightarrow$ $+12.9$\% on 2 unconverged seeds at 50k). The trend is consistent with more layers providing a richer developmental progression, but the 125M evidence is not yet strong enough to assert a converged scaling law; we flag this as the most important open experiment.
 
 \textbf{Practical implications.} Two deployment strategies emerge from Experiment~7. Either keep windows permanently (simple, slight throughput bonus from Flash Attention sliding window) or apply windows only during the first half of training then remove them (allows full attention at inference with a marginally better result).
 
@@ -370,7 +392,7 @@ The data converges on a \textbf{curriculum effect with lasting structural impact
 
 \section{Conclusion}
 
-Across 200+ experiments at two scales, we find that developmental attention windows---constraining early layers to local attention with quartic growth toward full attention---consistently improve transformer training: $+1.5$\% at 3.4M ($p=0.001$, 5 seeds), persistent $+1.0$\% through 100k extended training, and $+12.9$\% at 125M (50k steps, gap widening). Seven mechanism experiments eliminate six hypotheses and identify the operative mechanism as a \textbf{curriculum effect with lasting structural impact}: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists permanently---confirmed by attention entropy measurements showing 52\% lower entropy at early layers even at $5\times$ longer training. The approach requires no additional parameters, no extra compute, and can be applied either permanently or only during early training.
+Across 200+ experiments at two scales, we find that developmental attention windows---constraining early layers to local attention with quartic growth toward full attention---improve transformer training: $+1.5$\% at 3.4M with all 5 matched seeds beating their paired baseline (exact paired permutation $p=1/32=0.031$, paired-$t$ $p\approx0.001$), persisting at $+1.0$\% through 100k extended training, and $+2.6$\% across 5 seeds at 125M/20k (one seed negative; widening to $+12.9$\% on 2 unconverged seeds at 50k). Seven mechanism experiments cleanly eliminate five hypotheses (a sixth, implicit regularization, is inconclusive) and identify the operative mechanism as a \textbf{curriculum effect with lasting structural impact}: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists permanently---confirmed by attention entropy measurements showing 52\% lower entropy at early layers even at $5\times$ longer training. The approach requires no additional parameters, no extra compute, and can be applied either permanently or only during early training.
 
 Code and data: \url{https://github.com/nicoveraz/neurogen}
 

@@ -18,6 +18,12 @@ analysis = [
     "pandas>=2.0.0",
     "jupyter>=1.0.0",
 ]
+# Extra deps the 125M model (train_125m.py) imports. flash-attn is optional:
+# train_125m.py falls back to PyTorch SDPA when it is not installed, so it is
+# not pinned here (it has no macOS wheels).
+scale-125m = [
+    "tiktoken>=0.5.0",
+]
 dev = ["pytest>=7.4.0", "ruff>=0.1.0"]
 
 [tool.ruff]
@@ -25,3 +31,6 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The project is a flat set of top-level scripts (no installable package), so
+# add the repo root to sys.path for imports like `import windows`.
+pythonpath = ["."]

@@ -1,7 +1,110 @@
 {
-  "exp4": null,
-  "exp5": null,
-  "exp6": null,
+  "exp4": [
+    {
+      "config": "baseline",
+      "train_bpb": 0.8101,
+      "val_bpb": 0.8128,
+      "gap": 0.0026,
+      "gap_pct": 0.32
+    },
+    {
+      "config": "quartic",
+      "train_bpb": 0.7928,
+      "val_bpb": 0.8124,
+      "gap": 0.0197,
+      "gap_pct": 2.48
+    },
+    {
+      "config": "baseline_s137",
+      "train_bpb": 0.974,
+      "val_bpb": 0.9818,
+      "gap": 0.0078,
+      "gap_pct": 0.8
+    },
+    {
+      "config": "quartic_s137",
+      "train_bpb": 1.0018,
+      "val_bpb": 0.9748,
+      "gap": -0.0271,
+      "gap_pct": -2.7
+    }
+  ],
+  "exp5": [
+    {
+      "window": 8,
+      "eff_rank": 17.24,
+      "var_top1": 0.9665,
+      "var_top5": 0.9728,
+      "top_singular": 0.7837,
+      "time_s": 13.7
+    },
+    {
+      "window": 32,
+      "eff_rank": 45.45,
+      "var_top1": 0.3399,
+      "var_top5": 0.4531,
+      "top_singular": 0.1055,
+      "time_s": 11.1
+    },
+    {
+      "window": 64,
+      "eff_rank": 48.36,
+      "var_top1": 0.0921,
+      "var_top5": 0.2517,
+      "top_singular": 0.0476,
+      "time_s": 10.9
+    },
+    {
+      "window": 128,
+      "eff_rank": 48.62,
+      "var_top1": 0.0593,
+      "var_top5": 0.23,
+      "top_singular": 0.0382,
+      "time_s": 10.3
+    },
+    {
+      "window": 256,
+      "eff_rank": 48.63,
+      "var_top1": 0.0608,
+      "var_top5": 0.2282,
+      "top_singular": 0.0384,
+      "time_s": 10.8
+    }
+  ],
+  "exp6": [
+    {
+      "config": "baseline_s42",
+      "snr": 0.2656,
+      "stability": 0.0358,
+      "signal_norm": 0.069646,
+      "noise_norm": 0.262231,
+      "time_s": 6.8
+    },
+    {
+      "config": "quartic_s42",
+      "snr": 0.261,
+      "stability": 0.0335,
+      "signal_norm": 0.066343,
+      "noise_norm": 0.254149,
+      "time_s": 6.7
+    },
+    {
+      "config": "baseline_s137",
+      "snr": 0.3995,
+      "stability": 0.1121,
+      "signal_norm": 0.045991,
+      "noise_norm": 0.115109,
+      "time_s": 6.8
+    },
+    {
+      "config": "quartic_s137",
+      "snr": 0.397,
+      "stability": 0.1101,
+      "signal_norm": 0.043557,
+      "noise_norm": 0.109715,
+      "time_s": 6.9
+    }
+  ],
   "exp7": {
     "A_full_s42": {
       "config": "A_full",

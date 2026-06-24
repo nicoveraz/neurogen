@@ -22,7 +22,7 @@ from prepare import (
     VOCAB_SIZE, MAX_SEQ_LEN,
 )
 from train_r4 import (
-    GPT, ARCHS, DEPTH, CHANNELS, N_HEADS, N_KV_HEADS, BATCH_SIZE, LR,
+    GPT, ARCHS, get_arch_cfg, DEPTH, CHANNELS, N_HEADS, N_KV_HEADS, BATCH_SIZE, LR,
     WEIGHT_DECAY, WARMUP, rms_norm, get_lr, apply_universal_init,
     compute_window_mask, _is_embryo_target, embryo_ca_step,
 )
@@ -118,7 +118,7 @@ def measure_attention_spans(model, val_data, device):
 def train_steps(arch: str, max_steps: int = 20000, seed: int = 42,
                 eval_interval: int = 500, quiet: bool = False):
     """Train for exactly max_steps steps (not time-based)."""
-    arch_cfg = ARCHS.get(arch, {})
+    arch_cfg = get_arch_cfg(arch)
     torch.manual_seed(seed)
 
     train_data = load_data("train")
@@ -262,7 +262,7 @@ def throughput_audit():
 
     baseline_sps = None
     for arch in configs:
-        arch_cfg = ARCHS.get(arch, {})
+        arch_cfg = get_arch_cfg(arch)
         torch.manual_seed(42)
         train_data = load_data("train")
         block_size = MAX_SEQ_LEN

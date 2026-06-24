@@ -558,9 +558,20 @@ def print_summary(r4, r5, r6, r7):
                 status = "INCONCLUSIVE"
             print(f"  Exp 7 (Curriculum test):      F={f_m:.4f} B={q4_m:.4f} → {status}")
 
-    # Save all results
+    # Save all results. Merge into any existing file so running a subset of
+    # experiments (e.g. --exp4 --exp5 --exp6) does not wipe results from
+    # experiments that were not re-run this time (e.g. a cached exp7).
     RESULTS_DIR.mkdir(exist_ok=True)
-    combined = {"exp4": r4, "exp5": r5, "exp6": r6}
+    out_path = RESULTS_DIR / "mechanism_disambiguation.json"
+    combined = {}
+    if out_path.exists():
+        try:
+            combined = json.load(open(out_path))
+        except (json.JSONDecodeError, OSError):
+            combined = {}
+    for key, val in (("exp4", r4), ("exp5", r5), ("exp6", r6)):
+        if val is not None:
+            combined[key] = val
     if r7:
         # Convert curves to just endpoints for JSON size
         r7_save = {}
@@ -570,9 +581,9 @@ def print_summary(r4, r5, r6, r7):
                 r7_save[k]["curve_start"] = v["curve"][0] if v["curve"] else None
                 r7_save[k]["curve_end"] = v["curve"][-1] if v["curve"] else None
         combined["exp7"] = r7_save
-    with open(RESULTS_DIR / "mechanism_disambiguation.json", "w") as f:
+    with open(out_path, "w") as f:
         json.dump(combined, f, indent=2)
-    print(f"\n  Results saved to {RESULTS_DIR / 'mechanism_disambiguation.json'}")
+    print(f"\n  Results saved to {out_path}")
 
 
 # ===========================================================================

@@ -30,6 +30,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import windows
+
 # Enable TF32 tensor cores for ~2x faster fp32 matmuls on Ampere+
 torch.set_float32_matmul_precision("high")
 
@@ -89,23 +91,17 @@ EVAL_TOKENS = 500_000          # 500k tokens for stable eval
 # Window mask computation (same logic as train_r4.py, adapted for 1024 ctx)
 # ---------------------------------------------------------------------------
 def compute_window_mask(T: int, layer_idx: int, n_layer: int,
-                        mode: str, device: torch.device) -> torch.Tensor | None:
-    """Causal mask with layer-dependent attention window."""
-    if mode == "none":
-        return None
-    progress = (layer_idx + 1) / n_layer
-    base = 16  # minimum window (scaled up from 8 for 1024 ctx)
-    seq_len = T
-    if mode.startswith("power_"):
-        exp = float(mode.split("_")[1])
-        window = max(base, int(base + progress ** exp * (seq_len - base)))
-    else:
-        return None
-    window = min(window, seq_len)
-    rows = torch.arange(T, device=device).unsqueeze(1)
-    cols = torch.arange(T, device=device).unsqueeze(0)
-    mask = (cols <= rows) & (cols >= rows - window + 1)
-    return mask
+                        mode: str, device: torch.device) -> "torch.Tensor | None":
+    """Causal mask with layer-dependent attention window (125M model, base=16).
+
+    Thin wrapper over windows.compute_window_mask. Returns a boolean (T, T)
+    mask, or None for full attention. Unlike the previous version (power_ only),
+    this now supports every schedule the 3.4M model does, since both share one
+    definition — a "window_quadratic" 125M run is no longer silently impossible.
+    """
+    return windows.compute_window_mask(
+        T, layer_idx, n_layer, mode, device,
+        base=windows.DEFAULT_BASE_LARGE, dtype=torch.bool)
 
 # ---------------------------------------------------------------------------
 # Model (clean GPT-2 architecture)
@@ -142,18 +138,14 @@ try:
 except ImportError:
     HAS_FLASH_ATTN = False
 
-def _compute_window_size(layer_idx: int, n_layer: int, seq_len: int, mode: str) -> int | None:
-    """Compute sliding window size for a layer. Returns None for full attention."""
-    if mode == "none":
-        return None
-    progress = (layer_idx + 1) / n_layer
-    base = 16
-    if mode.startswith("power_"):
-        exp = float(mode.split("_")[1])
-        window = max(base, int(base + progress ** exp * (seq_len - base)))
-    else:
-        return None
-    return min(window, seq_len) if window < seq_len else None
+def _compute_window_size(layer_idx: int, n_layer: int, seq_len: int, mode: str) -> "int | None":
+    """Sliding window size for flash-attn (125M model, base=16). None = full attention.
+
+    Thin wrapper over windows.compute_sliding_window (returns None when the
+    window would cover the whole sequence, as before).
+    """
+    return windows.compute_sliding_window(
+        layer_idx, n_layer, seq_len, mode, base=windows.DEFAULT_BASE_LARGE)
 
 class Attention(nn.Module):
     def __init__(self, config: ModelConfig, layer_idx: int):

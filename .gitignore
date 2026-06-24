@@ -9,6 +9,9 @@ checkpoints_125m/
 *.tar.gz
 results.tsv
 
+# Local experiment run dirs (large, not for version control)
+runs/
+
 # Python
 __pycache__/
 *.egg-info/

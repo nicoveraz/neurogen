@@ -2,11 +2,15 @@
 
 **Developmental constraints improve transformer training.**
 
-An [autoresearch](https://github.com/karpathy/autoresearch) project testing whether biologically-inspired developmental principles can improve transformers. Layer-wise attention window growth — forcing early layers to attend locally before opening to global attention — produces statistically significant improvements that persist through extended training and increase with scale. Validated at 3.4M parameters (100K steps, p=0.001) and 125M parameters (50K steps, gap still widening).
+An [autoresearch](https://github.com/karpathy/autoresearch) project testing whether biologically-inspired developmental principles can improve transformers. Layer-wise attention window growth — forcing early layers to attend locally before opening to global attention — produces a small but consistent improvement at 3.4M that persists through extended training, and a larger but noisier (and still unconverged) advantage at 125M. Validated at 3.4M parameters (5 matched seeds, all 5 beat baseline) and probed at 125M (5 seeds at 20K, 2 extended to 50K).
 
 ## Key Finding
 
-Quartic attention window growth (`window_power_4.0`) improves val_bpb by **+1.5%** at 3.4M (20K steps, p=0.001, Cohen's d=2.05, 5 seeds), **+0.97%** at 3.4M (100K steps, persistent advantage), and **+8.4%** at 125M (50K steps, gap still widening). The mechanism is a **curriculum effect with lasting structural impact**: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists permanently — confirmed by attention entropy measurements at both 20K and 100K steps.
+Quartic attention window growth (`window_power_4.0`) improves val_bpb by **+1.5%** at 3.4M (20K steps, 5 matched seeds, **all 5 beat baseline**), persisting at **+0.97%** through 100K extended training. Because the runs are *paired* (each seed trains baseline and quartic from the same init), the right test is a paired one: the exact one-sided sign-flip permutation test floors at **p = 1/32 = 0.031** with 5 all-positive differences; the parametric paired-t gives p ≈ 0.001 and a paired effect size of dz ≈ 3.6. The paired residual sd (~0.004 bpb) is ~14× below the MPS run-to-run noise floor (~0.055 bpb) — which is *why* an effect this small is detectable at all. (An earlier draft reported p=0.001 from an unpaired Welch test with a normal approximation; that is the wrong test for paired data and overstates significance.)
+
+At 125M the advantage is real but smaller and far noisier than first reported: **+2.6%** averaged across 5 seeds at 20K (1 of the 5 seeds is *negative*), widening to **+12.9%** on the 2 seeds extended to 50K — but neither model is converged at 50K, so the 50K gap should be read as suggestive, not as a converged scaling result.
+
+The mechanism is a **curriculum effect with lasting structural impact**: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists permanently — confirmed by attention entropy measurements at both 20K and 100K steps.
 
 ```
 Layer windows at depth 4:  [8, 10, 65, 256]       (3.4M model)
@@ -18,18 +22,25 @@ Layer windows at depth 12: [16, 16, 16, ..., 1024] (125M model, quartic growth)
 
 ### 3.4M Results
 
-**Statistical validation (20K steps, 5 seeds):**
+**Statistical validation (20K steps, 5 matched seeds, paired test):**
 
 ```
-config                  mean bpb   std      vs baseline   p-value   Cohen's d
-baseline                0.9002     0.0075   —             —         —
-window_power_4.0        0.8866     0.0056   +1.5%         0.001     2.05
-window_quadratic        0.8911     0.0048   +1.0%         0.022     1.45
-window_quad_induction   0.8899     0.0041   +1.1%         0.007     1.69
+config                  mean bpb   std      vs baseline   perm_p(1-sided)   paired_t   dz
+baseline                0.9002     0.0075   —             —                 —          —
+window_power_4.0        0.8866     0.0056   +1.5%         1/32 = 0.031      0.0013     3.59
+window_quadratic        0.8911     0.0048   +1.0%         1/32 = 0.031      0.0122     1.94
+window_quad_induction   0.8899     0.0041   +1.1%         1/32 = 0.031      0.0094     2.09
 
-All 5 seeds of every window variant beat the baseline mean.
-Throughput identical: 4.8 steps/sec on M1 Pro.
+All 5 seeds of every window variant beat its own paired baseline (all-positive diffs),
+so the exact sign-flip permutation test hits its floor of 1/32 = 0.031 for every variant.
+perm_p = exact one-sided sign-flip permutation; paired_t = two-sided paired t-test;
+dz = paired effect size (mean diff / sd diff). Throughput identical: 4.8 steps/sec on M1 Pro.
+Reproduce: `uv run python analyze_all.py` (3.4M section).
 ```
+
+Note `window_quad_induction` (quadratic windows + pre-wired induction heads) reaches only
+**+1.1%** — there is no configuration in this repo that reaches the "+5.2% combined with
+induction circuits" figure that appeared in an earlier paper draft; that number was removed.
 
 **Extended training (100K steps, seed 42) — the advantage persists:**
 
@@ -60,21 +71,34 @@ Quartic 100K:   [2/8,   3/23,  11/86,  29/256]    (early layers tightly local)
 
 ![Window Schedule](charts/window_schedule.svg)
 
-### 125M Scaling (50K steps, H100)
+### 125M Scaling (H100)
 
-The advantage **grows with scale** and **grows with training** — not just faster convergence:
+The advantage appears to grow with scale, but the evidence is weaker than the 3.4M result and should be read with care. Two things matter: **how many seeds**, and **convergence**.
+
+**Per-seed gap at a matched step (20K, all 5 seeds).** Each seed's baseline and quartic arms share an LR schedule, so the within-seed gap is valid even though seeds 42/137 run a 50K schedule (read at step 20K) and 256/789/1337 are dedicated 20K runs:
 
 ```
-step     baseline   quartic    gap
-5k       4.917      4.817      +2.0%
-10k      4.596      4.416      +3.9%
-20k      4.090      3.989      +2.5%
-30k      3.783      3.651      +3.5%
-40k      3.429      3.231      +5.8%
-50k      3.345      3.065      +8.4%   ← gap still widening, neither converged
+seed   baseline   quartic    gap
+42     4.101      3.894      +5.04%
+137    4.090      3.989      +2.47%
+256    3.696      3.704      -0.21%   ← quartic WORSE on this seed
+789    3.578      3.503      +2.09%
+1337   3.620      3.492      +3.53%
+mean                         +2.6%  (sd 1.94), 4/5 seeds positive
+```
+
+**Convergence test (50K, the 2 seeds extended).** The gap is much larger here, but *neither model is converged* — both baselines are still descending ~0.01 bpb / 1k steps at step 50K, so a still-widening gap is exactly what an unconverged head-start looks like:
+
+```
+seed   baseline   quartic    gap
+42     3.549      2.937      +17.2%
+137    3.345      3.065      +8.4%
+mean   3.447      3.001      +12.9%   ← n=2, UNCONVERGED — suggestive only
 
 Throughput: quartic 2.84 sps vs baseline 2.78 sps (windows are faster with Flash Attention)
 ```
+
+The honest headline is **+2.6% at 125M (20K, 5 seeds, 1 negative)**; the +12.9% at 50K is a 2-seed, unconverged signal. A fresh from-scratch run under a single fully-annealed horizon is the experiment that would settle whether the gap is a real scaling effect or an undertraining artifact (see [Follow-up](#follow-up-trajectory-analysis--topographic-regularization)). Reproduce: `uv run python analyze_125m.py`.
 
 ![125M Learning Curves](charts/125m_learning_curves.svg)
 
@@ -182,11 +206,11 @@ Larger batch models look better only because they saw 4-8x more data.
 At equal token budget, windows win and larger batch loses.
 ```
 
-**Experiment 4 — Train-val gap:** Quartic models have a slightly *larger* gap than baseline, opposite of the regularization prediction. Windows are **not** acting as implicit regularization.
+**Experiment 4 — Train-val gap (inconclusive across seeds):** Re-running on both committed checkpoints gives a **seed-dependent** result. Seed 42: quartic has a *larger* gap than baseline (+2.48% vs +0.32%, consistent with "not regularization"). Seed 137: quartic has a *smaller/negative* gap (−2.70% vs +0.80%, consistent with regularization). The two seeds disagree, so at n=2 this experiment does **not** cleanly rule implicit regularization in or out. (An earlier draft reported only the seed-42 direction.)
 
-**Experiment 5 — Gradient covariance rank:** Effective rank drops from 48.4 (full attention) to 14.7 (window 8). At window 8, 97.7% of gradient variance is in the top component. Windows **dramatically reduce parameter coupling**.
+**Experiment 5 — Gradient covariance rank:** Effective rank drops from **48.6** (full attention) to **17.2** (window 8) — a 2.8× reduction. At window 8, **96.7%** of gradient variance is in the top component (vs 6.1% at window 256). Windows **dramatically reduce parameter coupling** — the surviving mechanism. (Numbers from `experiment_mechanism.py --exp5`, committed in `gradient_results/mechanism_disambiguation.json`.)
 
-**Experiment 6 — Trained model landscape:** Quartic-trained models have slightly *lower* gradient stability than baseline (0.109 vs 0.139). Windows do **not** produce a smoother optimization landscape.
+**Experiment 6 — Trained model landscape:** Quartic-trained models have slightly *lower* gradient stability than baseline on **both** seeds (mean 0.0718 vs 0.0740; s42 0.0335 vs 0.0358, s137 0.1101 vs 0.1121). Windows do **not** produce a smoother optimization landscape — the quartic model finds a better solution that is not in a smoother region.
 
 **Experiment 7 — Remove windows mid-training (decisive test):** Train with quartic for 10k steps, then switch to full attention for 10k more. Result: removing windows preserves the full benefit.
 
@@ -199,13 +223,13 @@ F: Quartic 10k → Full 10k       0.8842      +1.50%
 F is slightly *better* than B: removing windows after 10k steps finds a better solution than keeping them, strengthening the curriculum interpretation. Seed 256 Config F diverged (NaN) after window removal; results from seeds 42 and 137 only.
 ```
 
-**What we ruled out (7 experiments):**
+**What we ruled out (5 clean eliminations + 1 inconclusive, across 7 experiments):**
 - Gradient noise removal (noise constant — Exp 1)
 - Softmax coupling contamination (4-7% — Exp 2)
 - Variance reduction (batch size can't replicate — Exp 3)
-- Implicit regularization (quartic has larger train-val gap — Exp 4)
-- Optimization landscape smoothness (quartic slightly less stable — Exp 6)
+- Optimization landscape smoothness (quartic slightly less stable on both seeds — Exp 6)
 - Ongoing structural constraint (removing windows preserves benefit — Exp 7)
+- *Inconclusive:* Implicit regularization (Exp 4 train-val gap is seed-contradictory at n=2 — neither cleanly ruled in nor out)
 
 **What the data supports:**
 - **Curriculum effect with lasting structural impact.** Windows during early training force a local-to-global learning order that creates a compositional hierarchy. This hierarchy persists after windows are removed — the model doesn't unlearn it. The reduced parameter coupling (Exp 5) is likely the mechanism by which the early constraint shapes the hierarchy.
@@ -219,8 +243,8 @@ This project ran 200+ autonomous experiments across 5 phases:
 - **Round 2** (40 experiments): CA init advantage holds at 30min training (constant offset, not head start).
 - **Round 4** (68 experiments): Tested 26 architecture variants including CA modulation channels, embryogenic CA, universal circuit pre-wiring, token vitality, sleep consolidation. Most failed. Developmental attention windows emerged as the clear winner.
 - **Validation** (20 experiments): Confirmed at 20k steps with 5 seeds. Statistically significant. Throughput-neutral.
-- **125M scaling** (15 experiments): Validated at GPT-2 scale on H100. Advantage grows from +2% to +8.4% over 50k steps.
-- **Mechanism** (7 experiments): Gradient analysis eliminates six mechanism hypotheses. Identifies curriculum effect with lasting structural impact via reduced parameter coupling.
+- **125M scaling** (15 experiments): Probed at GPT-2 scale on H100. +2.6% across 5 seeds at 20K (1 negative); the 2 seeds extended to 50K widen to +12.9% but are unconverged.
+- **Mechanism** (7 experiments): Gradient analysis cleanly eliminates five mechanism hypotheses (one, implicit regularization, is inconclusive at n=2). Identifies curriculum effect with lasting structural impact via reduced parameter coupling.
 
 ### What Didn't Work
 - CA modulation channels (model collapse)
@@ -231,7 +255,7 @@ This project ran 200+ autonomous experiments across 5 phases:
 - Embryogenic activity-dependent CA (marginal gains, high overhead)
 
 ### What Did Work
-- **Developmental attention windows** (quartic growth, +1.5% at 3.4M, +8.4% at 125M)
+- **Developmental attention windows** (quartic growth, +1.5% at 3.4M with 5/5 seeds; +2.6% at 125M/20K, unconverged)
 - **Combining constraints with scaffolds** (window + induction pre-wiring, +1.1%)
 - **Block-diagonal CA init** (+0.6% at 10min, constant offset)
 
@@ -317,7 +341,10 @@ uv run validate.py --arch window_power_4.0 --steps 20000 --seed 42
 ### 125M model (CUDA / H100)
 
 ```bash
-pip install torch numpy datasets tiktoken flash-attn
+# flash-attn is optional — train_125m.py falls back to PyTorch SDPA without it.
+pip install torch numpy datasets tiktoken
+pip install flash-attn   # optional, CUDA only (no macOS wheels)
+# or, with uv:  uv sync --extra scale-125m
 
 # Download data (FineWeb-Edu, ~100M tokens)
 python train_125m.py --prepare
@@ -355,11 +382,13 @@ uv run analyze_all.py
 
 ```
 # Training
-prepare.py              — data prep + tokenizer (3.4M, TinyStories)
-train_r4.py             — 3.4M model with 26 architecture variants
+prepare.py              — data prep + tokenizer (3.4M, TinyStories) — frozen eval harness
+train_r4.py             — 3.4M model with 24 architecture variants
 validate.py             — step-budget convergence runs with diagnostics
 train_125m.py           — 125M model (GPT-2 small) for H100
+windows.py              — shared attention-window schedule (used by 3.4M + 125M)
 ca_rules.py             — CA rule library
+tests/                  — CPU unit tests (window math, bpb, CA init); run: uv run --extra dev pytest
 
 # Mechanism experiments
 experiment_gradient.py  — experiments 1-3 (gradient quality, decomposition, variance)

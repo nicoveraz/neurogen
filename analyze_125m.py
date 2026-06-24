@@ -8,65 +8,111 @@ import json, glob, math
 from collections import defaultdict
 from pathlib import Path
 
+# Reuse the paired statistics (exact sign-flip permutation + paired-t + dz)
+# from analyze_all so there is one source of truth for the test we run.
+from analyze_all import paired_permutation_p, paired_t_p, cohens_dz
+
 def mean(x): return sum(x)/len(x) if x else 0
 def std(x):
     m = mean(x)
     return (sum((v-m)**2 for v in x)/max(len(x)-1,1))**0.5 if len(x)>1 else 0
 
-def welch_t_pvalue(a, b):
-    """Approximate p-value from Welch's t-test (normal approx for df>4)."""
-    na, nb = len(a), len(b)
-    ma, mb = mean(a), mean(b)
-    sa, sb = std(a), std(b)
-    se = (sa**2/na + sb**2/nb)**0.5
-    if se == 0: return 0, 1.0
-    t = (ma - mb) / se
-    p = 2 * 0.5 * (1 + math.erf(-abs(t)/math.sqrt(2)))
-    return t, p
-
-def cohens_d(a, b):
-    pooled = ((std(a)**2 + std(b)**2)/2)**0.5
-    return (mean(a) - mean(b))/pooled if pooled > 0 else 0
+def _paired_table(by_seed, label):
+    """Print a paired baseline-vs-variant table for one training horizon."""
+    base = by_seed.get("baseline", {})
+    if not base:
+        print(f"  (no baseline runs at {label})")
+        return
+    bl_mean = mean(list(base.values()))
+    print(f"\n{label}  (baseline mean {bl_mean:.4f}, n={len(base)})")
+    print(f"{'config':<24} {'n':>3} {'mean bpb':>10} {'std':>8} {'vs bl':>8} {'perm_p':>11} {'t_p':>8} {'dz':>6}")
+    print("-" * 84)
+    for arch in ["baseline", "window_quadratic", "window_power_3.0", "window_power_4.0",
+                 "window_power_6.0", "window_power_8.0", "window_power_10.0",
+                 "window_power_12.0", "window_quad_induction", "window_p4_induction"]:
+        d = by_seed.get(arch, {})
+        if not d: continue
+        vals = list(d.values())
+        m, s = mean(vals), std(vals)
+        if arch == "baseline":
+            print(f"{arch:<24} {len(vals):>3} {m:>10.4f} {s:>8.4f} {'—':>8} {'—':>11} {'—':>8} {'—':>6}")
+            continue
+        diff = (bl_mean - m)/bl_mean * 100
+        seeds = sorted(set(base) & set(d))
+        diffs = [base[sd] - d[sd] for sd in seeds]
+        if len(diffs) >= 2:
+            perm_p, cnt, tot = paired_permutation_p(diffs)
+            t_p = paired_t_p(diffs)
+            dz = cohens_dz(diffs)
+            npos = sum(1 for x in diffs if x > 0)
+            print(f"{arch:<24} {len(vals):>3} {m:>10.4f} {s:>8.4f} {diff:>+7.1f}% "
+                  f"{cnt}/{tot}={perm_p:>5.3f} {t_p:>8.4f} {dz:>6.2f}  ({npos}/{len(diffs)}+)")
+        else:
+            print(f"{arch:<24} {len(vals):>3} {m:>10.4f} {s:>8.4f} {diff:>+7.1f}% "
+                  f"{'n<2':>11} {'—':>8} {'—':>6}")
 
 def main():
-    results = defaultdict(list)
+    by_seed = defaultdict(lambda: defaultdict(dict))  # max_steps -> arch -> {seed: bpb}
+    results = defaultdict(list)                         # arch -> all bpb (for sweep/scale)
     curves = defaultdict(list)
+    curve_by_seed = defaultdict(dict)                   # arch -> {seed: curve}
 
     for f in sorted(glob.glob("results_125m/*.json")):
         d = json.load(open(f))
         s = d["summary"]
-        results[s["arch"]].append(s["final_val_bpb"])
+        by_seed[s["max_steps"]][s["arch"]][s["seed"]] = s["final_val_bpb"]
         curves[s["arch"]].append(d["curve"])
+        curve_by_seed[s["arch"]][s["seed"]] = d["curve"]
 
-    if not results:
+    if not by_seed:
         print("No results found in results_125m/. Run experiments first.")
         return
 
+    # For the exponent sweep / scale comparison below we use the largest common
+    # horizon (20k, where all seeds exist). Mixing horizons inflates the mean.
+    results_20k = by_seed.get(20000, {})
+    for arch, d in results_20k.items():
+        results[arch] = list(d.values())
     bl = results.get("baseline", [])
     bl_mean = mean(bl) if bl else 1.0
 
     print("=" * 90)
     print("  NEUROGEN 125M VALIDATION RESULTS")
     print("=" * 90)
+    print("\nPaired across matched seeds, reported PER training horizon (mixing 20k and")
+    print("50k runs into one mean inflates it). perm_p = exact sign-flip permutation")
+    print("(floor 1/2^n); t_p = paired-t two-sided; dz = paired effect size.")
 
-    # Final performance table
-    print(f"\n{'config':<28} {'n':>3} {'mean bpb':>10} {'std':>8} {'vs baseline':>12} {'p-value':>8} {'Cohen d':>8}")
-    print("-" * 85)
+    # Final performance tables, separated by horizon
+    for ms in sorted(by_seed):
+        _paired_table(by_seed[ms], f"{ms//1000}k steps")
 
-    for arch in ["baseline", "window_quadratic", "window_power_3.0", "window_power_4.0",
-                 "window_power_6.0", "window_power_8.0", "window_power_10.0",
-                 "window_power_12.0", "window_quad_induction", "window_p4_induction"]:
-        vals = results.get(arch, [])
-        if not vals: continue
-        m, s = mean(vals), std(vals)
-        if arch == "baseline":
-            print(f"{arch:<28} {len(vals):>3} {m:>10.4f} {s:>8.4f} {'—':>12} {'—':>8} {'—':>8}")
-        else:
-            diff = (bl_mean - m)/bl_mean * 100
-            t, p = welch_t_pvalue(bl, vals)
-            cd = cohens_d(bl, vals)
-            sig = "***" if p<0.01 else "**" if p<0.05 else "*" if p<0.1 else ""
-            print(f"{arch:<28} {len(vals):>3} {m:>10.4f} {s:>8.4f} {diff:>+11.1f}% {p:>7.4f}{sig:>1} {cd:>8.2f}")
+    # Unified per-seed gap at a matched step (20k), across ALL seeds. Each seed's
+    # baseline and quartic arms share the same LR schedule, so the within-seed gap
+    # is valid even though seeds 42/137 run a 50k schedule (read at step 20k) while
+    # 256/789/1337 are dedicated 20k runs. This is the honest "grows with scale"
+    # headline number: do NOT report a single cherry-picked seed.
+    def _bpb_at_step(curve, step):
+        for p in curve:
+            if p.get("step") == step:
+                return p.get("val_bpb")
+        return None
+    MATCH_STEP = 20000
+    base_c, quar_c = curve_by_seed.get("baseline", {}), curve_by_seed.get("window_power_4.0", {})
+    seeds = sorted(set(base_c) & set(quar_c))
+    print(f"\nPer-seed gap at step {MATCH_STEP} (baseline vs quartic, all seeds):")
+    print(f"  {'seed':>6} {'baseline':>10} {'quartic':>10} {'gap%':>8}")
+    gaps = []
+    for sd in seeds:
+        b = _bpb_at_step(base_c[sd], MATCH_STEP); q = _bpb_at_step(quar_c[sd], MATCH_STEP)
+        if b is None or q is None: continue
+        g = (b - q) / b * 100; gaps.append(g)
+        print(f"  {sd:>6} {b:>10.4f} {q:>10.4f} {g:>+7.2f}% {'✓' if g > 0 else '✗'}")
+    if gaps:
+        npos = sum(1 for g in gaps if g > 0)
+        print(f"  mean gap {mean(gaps):+.2f}% (sd {std(gaps):.2f}), {npos}/{len(gaps)} seeds positive")
+        print(f"  → headline: +{mean(gaps):.1f}% at 125M (20k, n={len(gaps)}); "
+              f"50k extension on 2 seeds widens to +12.9% but is unconverged.")
 
     # Exponent sweep summary
     print(f"\nExponent Sweep (window_power_X.0):")

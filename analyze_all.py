@@ -43,19 +43,90 @@ def std(x):
     m = mean(x)
     return (sum((v - m) ** 2 for v in x) / max(len(x) - 1, 1)) ** 0.5 if len(x) > 1 else 0
 
-def welch_t(a, b):
-    na, nb = len(a), len(b)
-    ma, mb = mean(a), mean(b)
-    sa, sb = std(a), std(b)
-    se = (sa**2/na + sb**2/nb)**0.5
-    if se == 0: return 0, 1.0
-    t = (ma - mb) / se
-    p = 2 * 0.5 * (1 + math.erf(-abs(t) / math.sqrt(2)))
-    return t, p
-
 def cohens_d(a, b):
     pooled = ((std(a)**2 + std(b)**2) / 2) ** 0.5
     return (mean(a) - mean(b)) / pooled if pooled > 0 else 0
+
+# ---------------------------------------------------------------------------
+# Paired statistics.
+#
+# The validation runs are PAIRED: every seed trains both baseline and the
+# window variant from the same initialization, so the right test is a paired
+# one over per-seed differences (not the unpaired Welch test used previously,
+# which also used a normal approximation instead of a t-distribution).
+#
+# We report two things:
+#   * the exact sign-flip permutation p-value (assumption-free; its floor with
+#     n all-positive differences is 1/2**n, e.g. 1/32 = 0.031 for 5 seeds), and
+#   * a parametric paired-t p-value (Student-t via the incomplete beta fn).
+# Both are pure-Python so analyze_all.py keeps no heavy dependencies.
+# ---------------------------------------------------------------------------
+def cohens_dz(diffs):
+    """Paired effect size: mean(diff) / std(diff)."""
+    s = std(diffs)
+    return mean(diffs) / s if s > 0 else 0.0
+
+def _betacf(a, b, x):
+    """Continued fraction for the incomplete beta function (Numerical Recipes)."""
+    MAXIT, EPS, FPMIN = 200, 3e-12, 1e-300
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < FPMIN: d = FPMIN
+    d = 1.0 / d
+    h = d
+    for m in range(1, MAXIT + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < FPMIN: d = FPMIN
+        c = 1.0 + aa / c
+        if abs(c) < FPMIN: c = FPMIN
+        d = 1.0 / d
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < FPMIN: d = FPMIN
+        c = 1.0 + aa / c
+        if abs(c) < FPMIN: c = FPMIN
+        d = 1.0 / d
+        de = d * c
+        h *= de
+        if abs(de - 1.0) < EPS: break
+    return h
+
+def _betai(a, b, x):
+    """Regularized incomplete beta function I_x(a, b)."""
+    if x <= 0.0: return 0.0
+    if x >= 1.0: return 1.0
+    bt = math.exp(math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+                  + a * math.log(x) + b * math.log(1.0 - x))
+    if x < (a + 1.0) / (a + b + 2.0):
+        return bt * _betacf(a, b, x) / a
+    return 1.0 - bt * _betacf(b, a, 1.0 - x) / b
+
+def paired_t_p(diffs):
+    """Two-sided p-value of a paired t-test (H0: mean diff == 0)."""
+    n = len(diffs)
+    if n < 2: return 1.0
+    m, s = mean(diffs), std(diffs)
+    if s == 0: return 0.0 if m != 0 else 1.0
+    t = m / (s / math.sqrt(n))
+    df = n - 1
+    return _betai(df / 2.0, 0.5, df / (df + t * t))
+
+def paired_permutation_p(diffs):
+    """Exact one-sided sign-flip permutation p (H1: mean diff > 0).
+
+    Returns (p, count, total). With all-positive diffs, p = 1 / 2**n.
+    """
+    from itertools import product
+    obs = mean(diffs)
+    n = len(diffs)
+    absd = [abs(d) for d in diffs]
+    count = sum(1 for signs in product((1, -1), repeat=n)
+                if sum(sg * a for sg, a in zip(signs, absd)) / n >= obs - 1e-12)
+    return count / (2 ** n), count, 2 ** n
 
 def ci95(vals):
     m, s, n = mean(vals), std(vals), len(vals)
@@ -72,33 +143,49 @@ def analyze_3_4m():
     print("  SECTION 1: 3.4M Convergence Validation (20k steps, 5 seeds)")
     print("=" * 80)
 
+    by_seed = defaultdict(dict)   # arch -> {seed: final_vbpb}
     results = defaultdict(list)
     curves = defaultdict(list)
 
     for f in sorted(glob.glob("validation_results/*.json")):
         d = json.load(open(f))
         s = d["summary"]
+        # Only the dedicated 20k validation runs belong in the 5-seed comparison.
+        # The *_s42_100k.json files (extended 100k runs) use a different LR
+        # horizon and must not be mixed into the 20k table.
+        if s.get("max_steps") != 20000:
+            continue
+        by_seed[s["arch"]][s["seed"]] = s["final_vbpb"]
         results[s["arch"]].append(s["final_vbpb"])
         curves[s["arch"]].append(d["curve"])
 
     bl = results.get("baseline", [])
     bl_mean = mean(bl)
+    base_by_seed = by_seed.get("baseline", {})
 
-    # Summary table
-    print(f"\n{'config':<28} {'n':>3} {'mean_bpb':>10} {'std':>8} {'vs_bl':>10} {'p':>8} {'d':>8}")
-    print("-" * 80)
+    # Summary table. p is the exact one-sided sign-flip permutation test over the
+    # matched per-seed differences; dz is the paired (within-seed) effect size.
+    # Note: with 5 all-positive paired diffs the permutation p FLOORS at 1/32 =
+    # 0.031 — the original p=0.001 came from an unpaired test with a normal
+    # approximation and is not a valid exact bound at n=5.
+    print(f"\n{'config':<24} {'n':>3} {'mean_bpb':>10} {'std':>8} {'vs_bl':>8} {'perm_p':>9} {'t_p':>8} {'dz':>6}")
+    print("-" * 84)
     for arch in ["baseline", "window_quadratic", "window_power_4.0", "window_quad_induction"]:
         vals = results.get(arch, [])
         if not vals: continue
         m, s = mean(vals), std(vals)
         if arch == "baseline":
-            print(f"{arch:<28} {len(vals):>3} {m:>10.4f} {s:>8.4f} {'—':>10} {'—':>8} {'—':>8}")
+            print(f"{arch:<24} {len(vals):>3} {m:>10.4f} {s:>8.4f} {'—':>8} {'—':>9} {'—':>8} {'—':>6}")
         else:
             delta = (bl_mean - m) / bl_mean * 100
-            _, p = welch_t(bl, vals)
-            d = cohens_d(bl, vals)
-            sig = "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else ""
-            print(f"{arch:<28} {len(vals):>3} {m:>10.4f} {s:>8.4f} {delta:>+9.1f}% {p:>7.4f}{sig} {d:>8.2f}")
+            seeds = sorted(set(base_by_seed) & set(by_seed[arch]))
+            diffs = [base_by_seed[sd] - by_seed[arch][sd] for sd in seeds]
+            perm_p, cnt, tot = paired_permutation_p(diffs)
+            t_p = paired_t_p(diffs)
+            dz = cohens_dz(diffs)
+            allpos = "all+" if all(x > 0 for x in diffs) else ""
+            print(f"{arch:<24} {len(vals):>3} {m:>10.4f} {s:>8.4f} {delta:>+7.1f}% "
+                  f"{cnt}/{tot}={perm_p:>5.3f} {t_p:>8.4f} {dz:>6.2f} {allpos}")
 
     # 95% CI
     print(f"\n95% Confidence Intervals:")
@@ -124,7 +211,7 @@ def analyze_3_4m():
         overlap = "NO OVERLAP" if max(vals) < min(bl) else f"OVERLAP (worst window {max(vals):.4f} vs best baseline {min(bl):.4f})"
         print(f"  {arch:<28} {overlap}")
 
-    return results, curves
+    return results, curves, by_seed
 
 
 # ===========================================================================
@@ -201,7 +288,8 @@ def analyze_125m():
 
     # 20k results (5 seeds each)
     if results_20k:
-        print(f"\n20k step results (5 seeds, Chinchilla-optimal):")
+        print(f"\n20k step results ({len(results_20k.get('baseline', []))} dedicated-20k seeds; "
+              f"seeds 42/137 run to 50k — see analyze_125m.py for the all-seed gap at step 20k):")
         bl_20k = results_20k.get("baseline", [])
         bl_mean_20k = mean(bl_20k) if bl_20k else 1.0
         print(f"  {'config':<22} {'n':>3} {'mean':>8} {'std':>8} {'vs_bl':>10}")
@@ -536,7 +624,7 @@ def make_figures(val_curves, results_125m_data):
 # ===========================================================================
 # Summary report
 # ===========================================================================
-def write_report(results_3_4m, results_125m_data):
+def write_report(results_3_4m, results_125m_data, by_seed_3_4m):
     report = []
     report.append("# NeuroGen: Complete Analysis Report\n")
     report.append(f"Generated: auto\n")
@@ -545,19 +633,26 @@ def write_report(results_3_4m, results_125m_data):
     report.append("\n## 1. Core Finding (3.4M, validated)\n")
     bl = results_3_4m.get("baseline", [])
     bl_mean = mean(bl)
-    report.append("| Config | n | Mean bpb | Std | vs Baseline | p-value | Cohen's d |")
-    report.append("|--------|---|----------|-----|-------------|---------|-----------|")
+    base_by_seed = by_seed_3_4m.get("baseline", {})
+    report.append("Paired across matched seeds. perm_p = exact one-sided sign-flip "
+                  "permutation (floor 1/2^n); t_p = paired-t two-sided; dz = paired effect size.\n")
+    report.append("| Config | n | Mean bpb | Std | vs Baseline | perm_p | t_p | dz |")
+    report.append("|--------|---|----------|-----|-------------|--------|-----|-----|")
     for arch in ["baseline", "window_quadratic", "window_power_4.0", "window_quad_induction"]:
         vals = results_3_4m.get(arch, [])
         if not vals: continue
         m, s = mean(vals), std(vals)
         if arch == "baseline":
-            report.append(f"| {arch} | {len(vals)} | {m:.4f} | {s:.4f} | — | — | — |")
+            report.append(f"| {arch} | {len(vals)} | {m:.4f} | {s:.4f} | — | — | — | — |")
         else:
             delta = (bl_mean - m) / bl_mean * 100
-            _, p = welch_t(bl, vals)
-            d = cohens_d(bl, vals)
-            report.append(f"| {arch} | {len(vals)} | {m:.4f} | {s:.4f} | +{delta:.1f}% | {p:.4f} | {d:.2f} |")
+            seeds = sorted(set(base_by_seed) & set(by_seed_3_4m.get(arch, {})))
+            diffs = [base_by_seed[sd] - by_seed_3_4m[arch][sd] for sd in seeds]
+            perm_p, cnt, tot = paired_permutation_p(diffs)
+            t_p = paired_t_p(diffs)
+            dz = cohens_dz(diffs)
+            report.append(f"| {arch} | {len(vals)} | {m:.4f} | {s:.4f} | +{delta:.1f}% | "
+                          f"{cnt}/{tot}={perm_p:.3f} | {t_p:.4f} | {dz:.2f} |")
 
     # Section 3: 125M
     report.append("\n## 2. Scaling to 125M (preliminary)\n")
@@ -595,13 +690,13 @@ def write_report(results_3_4m, results_125m_data):
 # Main
 # ===========================================================================
 def main():
-    results_3_4m, curves_3_4m = analyze_3_4m()
+    results_3_4m, curves_3_4m, by_seed_3_4m = analyze_3_4m()
     analyze_learning_curves(curves_3_4m)
     results_125m_data = analyze_125m()
     analyze_gradients()
     analyze_schedule_sweep()
     make_figures(curves_3_4m, results_125m_data)
-    write_report(results_3_4m, results_125m_data)
+    write_report(results_3_4m, results_125m_data, by_seed_3_4m)
 
 
 if __name__ == "__main__":

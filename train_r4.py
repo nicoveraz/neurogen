@@ -19,7 +19,8 @@ from prepare import (
     load_data, get_batch, evaluate_val_bpb, get_device, get_peak_memory_mb,
     VOCAB_SIZE, MAX_SEQ_LEN, TIME_BUDGET,
 )
-from ca_rules import grid_ca_develop, rescale, homeostatic_step, competition_step
+from ca_rules import grid_ca_develop
+import windows
 
 # ---------------------------------------------------------------------------
 # Architecture registry
@@ -70,8 +71,6 @@ ARCHS = {
     "window_logarithmic": {"window": "logarithmic"},
     "window_exponential": {"window": "exponential"},
     "window_fibonacci": {"window": "fibonacci"},
-    # Best window + induction (Phase W4, to be filled after W1-W2)
-    "window_best_induction": {"window": "power_3.0", "universal": "induction"},  # placeholder
     # Phase J2: Embryogenic + winning architecture (window_quad_induction)
     "embryo_heb_wqi": {"embryo": "hebbian", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic", "universal": "induction"},
     "embryo_str_long_wqi": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.4, "window": "quadratic", "universal": "induction"},
@@ -79,9 +78,20 @@ ARCHS = {
     "embryo_long60_wqi": {"embryo": "strengthen", "embryo_freq": 10, "embryo_crit": 0.6, "window": "quadratic", "universal": "induction"},
     # Phase J3: Smarter CA rules on wqi
     "embryo_gradalign_wqi": {"embryo": "gradalign", "embryo_freq": 10, "embryo_crit": 0.2, "window": "quadratic", "universal": "induction"},
-    # Phase J5: Long horizon validation
-    "wqi_2h": {"window": "quadratic", "universal": "induction"},
 }
+
+
+def get_arch_cfg(arch: str) -> dict:
+    """Look up an architecture config, failing loudly on an unknown name.
+
+    Previously callers used ``ARCHS.get(arch, {})``, so a typo silently
+    degraded to the baseline ({}) and the run looked like a baseline rather
+    than erroring. This raises instead.
+    """
+    if arch not in ARCHS:
+        known = ", ".join(sorted(ARCHS))
+        raise ValueError(f"Unknown arch '{arch}'. Known archs: {known}")
+    return ARCHS[arch]
 
 # ---------------------------------------------------------------------------
 # Hyperparameters (Round 4: depth 4, channels 256)
@@ -123,40 +133,15 @@ def get_lr(step, warmup_steps, max_steps, max_lr, min_lr):
 # ---------------------------------------------------------------------------
 def compute_window_mask(T: int, layer_idx: int, n_layer: int,
                         mode: str, device: str) -> torch.Tensor:
-    """Causal mask with layer-dependent attention window."""
-    progress = (layer_idx + 1) / n_layer
-    base = 8
-    if mode == "linear":
-        window = max(base, int(progress * T))
-    elif mode == "quadratic":
-        window = max(base, int(base + progress ** 2 * (T - base)))
-    elif mode == "step":
-        window = T // 4 if layer_idx < n_layer // 2 else T
-    elif mode.startswith("power_"):
-        exp = float(mode.split("_")[1])
-        window = max(base, int(base + progress ** exp * (T - base)))
-    elif mode.startswith("sigmoid_"):
-        mid = float(mode.split("_")[1])
-        steepness = 10.0
-        s = 1.0 / (1.0 + math.exp(-steepness * (progress - mid)))
-        window = max(base, int(base + s * (T - base)))
-    elif mode == "logarithmic":
-        window = max(base, int(base + math.log(1 + progress * (math.e - 1)) * (T - base)))
-    elif mode == "exponential":
-        window = max(base, int(base + (math.exp(progress * 3) - 1) / (math.e**3 - 1) * (T - base)))
-    elif mode == "fibonacci":
-        fibs = [base, base * 2]
-        for _ in range(2, n_layer):
-            fibs.append(min(fibs[-1] + fibs[-2], T))
-        window = fibs[min(layer_idx, len(fibs) - 1)]
-    else:
-        return None
-    window = min(window, T)
-    # Build causal + windowed mask
-    rows = torch.arange(T, device=device).unsqueeze(1)
-    cols = torch.arange(T, device=device).unsqueeze(0)
-    mask = (cols <= rows) & (cols >= rows - window + 1)
-    return mask.float()  # (T, T)
+    """Causal mask with layer-dependent attention window (3.4M model, base=8).
+
+    Thin wrapper over windows.compute_window_mask so the 3.4M and 125M models
+    share one window definition. Returns a float (T, T) mask, or None for full
+    attention — identical to the original behavior.
+    """
+    return windows.compute_window_mask(
+        T, layer_idx, n_layer, mode, device,
+        base=windows.DEFAULT_BASE_SMALL, dtype=torch.float32)
 
 # ---------------------------------------------------------------------------
 # CA Modulation Channel
@@ -801,7 +786,7 @@ def train(time_budget: float | None = None, seed: int | None = None,
           arch: str = "baseline", quiet: bool = False, lr_override: float | None = None):
     if time_budget is None:
         time_budget = TIME_BUDGET
-    arch_cfg = ARCHS.get(arch, {})
+    arch_cfg = get_arch_cfg(arch)
     if seed is not None:
         torch.manual_seed(seed)
         if torch.cuda.is_available():
@@ -847,10 +832,14 @@ def train(time_budget: float | None = None, seed: int | None = None,
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=WEIGHT_DECAY)
     model.train()
     step = 0
-    max_steps = 100_000
     min_lr = lr / 10
     t0 = time.time()
-    est_total = int(time_budget / 0.12)  # rough estimate for depth 4
+    est_total = int(time_budget / 0.12)  # rough estimate of total steps for the time budget (depth 4)
+    # The cosine LR schedule must anneal over the ACTUAL run horizon. Previously
+    # this was hardcoded to 100_000 while time-budgeted runs only reach ~est_total
+    # steps, so the LR never annealed below max_lr (it stayed near the peak the
+    # whole run). Use est_total so the schedule matches the run, like validate.py.
+    max_steps = est_total
 
     curve_interval = max(50, int(time_budget / 60 / 10))
     curve_time_min = 30.0
