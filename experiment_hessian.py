@@ -40,17 +40,12 @@ _SDPA = [SDPBackend.MATH]
 DEVICE = "cpu"  # double-backward is fragile on MPS; the 3.4M model is tiny on CPU
 RESULTS_DIR = "gradient_results"
 
-# Matched-seed checkpoint pairs (baseline vs quartic, same init per seed).
-PAIRS = {
-    42: {
-        "baseline": ("checkpoints/model_baseline_42.pt", {}),
-        "quartic": ("checkpoints/model_window_power_4.0_42.pt", {"window": "power_4.0"}),
-    },
-    137: {
-        "baseline": ("checkpoints/model_baseline_137.pt", {}),
-        "quartic": ("checkpoints/model_window_power_4.0_137.pt", {"window": "power_4.0"}),
-    },
-}
+def pair_for_seed(seed):
+    """Matched baseline-vs-quartic checkpoint pair for a seed (same init)."""
+    return {
+        "baseline": (f"checkpoints/model_baseline_{seed}.pt", {}),
+        "quartic": (f"checkpoints/model_window_power_4.0_{seed}.pt", {"window": "power_4.0"}),
+    }
 
 
 def load_model(ckpt_path, arch_cfg):
@@ -129,7 +124,7 @@ def measure_model(model, batches, power_iters, n_probes):
 
 def analyze_pair(seed, batch_size=8, block_size=MAX_SEQ_LEN, power_iters=20,
                  n_probes=12, n_batches=5):
-    cfg = PAIRS[seed]
+    cfg = pair_for_seed(seed)
     if not all(os.path.exists(p) for p, _ in cfg.values()):
         print(f"  seed {seed}: missing checkpoint(s), skipping")
         return None
