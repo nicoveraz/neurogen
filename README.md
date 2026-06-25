@@ -223,6 +223,22 @@ F: Quartic 10k → Full 10k       0.8842      +1.50%
 F is slightly *better* than B: removing windows after 10k steps finds a better solution than keeping them, strengthening the curriculum interpretation. Seed 256 Config F diverged (NaN) after window removal; results from seeds 42 and 137 only.
 ```
 
+**Experiment 8 — Per-layer ablation (which layer's locality?):** Replacing the quartic schedule with explicit per-layer window lists, all at seed 42 (same init *and* data order, so only the window differs), localizes the effect to the **early layers**:
+
+```
+config      windows [L0,L1,L2,L3]   final    vs baseline   % of quartic gain
+baseline    [256,256,256,256]       0.9041   —             —
+only_L0     [  8,256,256,256]       0.8952   +0.98%         78%
+only_L01    [  8, 23,256,256]       0.8880   +1.79%        141%   ← beats quartic
+quartic     [  8, 23, 86,256]       0.8927   +1.26%        100%   (reference)
+no_L0       [256, 23, 86,256]       0.8979   +0.69%         54%
+only_last   [256,256,256,  8]       0.9127   −0.95%        −75%   ← worse than baseline
+```
+
+Windowing layer 0 alone recovers 78% of the gain; windowing the first two layers (rest full) **exceeds** quartic; and the reversed control (only the last layer local) is **worse than baseline**. So it's specifically *early* locality that helps — confirming and localizing the known result that lower layers want a restricted attention range while upper layers need global context ([Rae & Razavi 2020](https://arxiv.org/abs/2007.03356); consistent with Gemma 3 / MSWA hybrid designs). The gradual quartic ramp is **not** essential — "early layers local, rest full" matches or beats it. Caveat: n=1 seed; the big effects are robust, but the small `only_L01`>quartic margin needs replication. Reproduce: `uv run python analyze_ablation.py`.
+
+*(A direct Hessian probe of landscape flatness was also attempted but was inconclusive at n=1 — the attention-entropy↔sharpness relationship is already well-studied, so a credible test needs multiple converged pairs at scale; left to future work.)*
+
 **What we ruled out (5 clean eliminations + 1 inconclusive, across 7 experiments):**
 - Gradient noise removal (noise constant — Exp 1)
 - Softmax coupling contamination (4-7% — Exp 2)
@@ -233,6 +249,7 @@ F is slightly *better* than B: removing windows after 10k steps finds a better s
 
 **What the data supports:**
 - **Curriculum effect with lasting structural impact.** Windows during early training force a local-to-global learning order that creates a compositional hierarchy. This hierarchy persists after windows are removed — the model doesn't unlearn it. The reduced parameter coupling (Exp 5) is likely the mechanism by which the early constraint shapes the hierarchy.
+- **Early-layer locality is the active ingredient (Exp 8).** Most of the benefit comes from constraining layers 0–1; late-layer locality hurts. The specific quartic schedule isn't essential — it's just a convenient way to make early layers local while leaving the top global. This matches the established literature ([Rae & Razavi 2020](https://arxiv.org/abs/2007.03356)), so it's a localization of a known effect, not a new one.
 - **Inductive bias toward compositionality** remains consistent but is not independently testable with current experiments.
 
 ## Research Journey
@@ -244,7 +261,7 @@ This project ran 200+ autonomous experiments across 5 phases:
 - **Round 4** (68 experiments): Tested 26 architecture variants including CA modulation channels, embryogenic CA, universal circuit pre-wiring, token vitality, sleep consolidation. Most failed. Developmental attention windows emerged as the clear winner.
 - **Validation** (20 experiments): Confirmed at 20k steps with 5 seeds. Statistically significant. Throughput-neutral.
 - **125M scaling** (15 experiments): Probed at GPT-2 scale on H100. +2.6% across 5 seeds at 20K (1 negative); the 2 seeds extended to 50K widen to +12.9% but are unconverged.
-- **Mechanism** (7 experiments): Gradient analysis cleanly eliminates five mechanism hypotheses (one, implicit regularization, is inconclusive at n=2). Identifies curriculum effect with lasting structural impact via reduced parameter coupling.
+- **Mechanism** (7 experiments + per-layer ablation): Gradient analysis cleanly eliminates five mechanism hypotheses (one, implicit regularization, is inconclusive at n=2). Identifies a curriculum effect with lasting structural impact via reduced parameter coupling, and a per-layer ablation localizes it to the early layers (a known result; see Rae & Razavi 2020).
 
 ### What Didn't Work
 - CA modulation channels (model collapse)
@@ -422,6 +439,7 @@ papers/                 — paper (LaTeX + PDF)
 - [HyperNCA](https://arxiv.org/abs/2204.11674) — Najarro & Risi, 2022. NCA growing RL policy weights.
 - [Growing Neural Cellular Automata](https://distill.pub/2020/growing-ca/) — Mordvintsev et al., 2020.
 - Olsson et al., 2022 — In-context learning and induction heads.
+- [Do Transformers Need Deep Long-Range Memory?](https://arxiv.org/abs/2007.03356) — Rae & Razavi, 2020. Lower layers benefit from a restricted attention range (the result Exp 8 localizes).
 
 ## Paper
 

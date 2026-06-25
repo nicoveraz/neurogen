@@ -28,7 +28,7 @@ Independent Researcher\\
 \maketitle
 
 \begin{abstract}
-We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields a small but consistent improvement at 3.4M and a larger but noisier (and unconverged) advantage at 125M. At 3.4M the gain is $+1.5$\% across 5 \emph{matched} seeds (all 5 beat their paired baseline); because the runs are paired, the exact one-sided sign-flip permutation test floors at $p=1/32=0.031$, with a parametric paired-$t$ $p\approx0.001$ and paired effect size $d_z\approx3.6$. The advantage persists at $+0.97$\% through 100k extended training steps. At 125M the gain is $+2.6$\% averaged across 5 seeds at 20k (one seed negative), widening to $+12.9$\% on the two seeds extended to 50k---but neither model is converged at 50k, so the 50k figure is suggestive rather than a converged scaling result. Seven mechanism experiments cleanly eliminate five hypotheses (gradient noise removal, softmax coupling, variance reduction, landscape smoothness, ongoing structural constraint); a sixth, implicit regularization, is inconclusive (the train--val gap is seed-contradictory at $n=2$). The data identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed. Attention entropy measurements at both 20k and 100k steps confirm the specialization is permanent: early layers maintain ${\sim}52$\% lower entropy at 100k steps, with the gap narrowing only slightly from the 57\% measured at 20k.
+We investigate whether biologically-inspired developmental principles can improve transformer training. Across 200+ controlled experiments at two scales (3.4M and 125M parameters), we systematically test cellular automata weight initialization, live developmental rules, embryogenic development, pre-wired circuits, and architectural constraints inspired by cortical development. Most approaches produce marginal gains (+0.6\%) or actively hurt ($-3$\% to $-5$\%). However, embedding a developmental constraint into the architecture---attention windows that grow from local to global across layers---yields a small but consistent improvement at 3.4M and a larger but noisier (and unconverged) advantage at 125M. At 3.4M the gain is $+1.5$\% across 5 \emph{matched} seeds (all 5 beat their paired baseline); because the runs are paired, the exact one-sided sign-flip permutation test floors at $p=1/32=0.031$, with a parametric paired-$t$ $p\approx0.001$ and paired effect size $d_z\approx3.6$. The advantage persists at $+0.97$\% through 100k extended training steps. At 125M the gain is $+2.6$\% averaged across 5 seeds at 20k (one seed negative), widening to $+12.9$\% on the two seeds extended to 50k---but neither model is converged at 50k, so the 50k figure is suggestive rather than a converged scaling result. Seven mechanism experiments cleanly eliminate five hypotheses (gradient noise removal, softmax coupling, variance reduction, landscape smoothness, ongoing structural constraint); a sixth, implicit regularization, is inconclusive (the train--val gap is seed-contradictory at $n=2$). The data identify the mechanism as a curriculum effect with lasting structural impact: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists after windows are removed. A per-layer ablation localizes the benefit to the early layers (constraining layers~0--1 recovers it, while constraining only the last layer hurts), consistent with prior work on layer-wise attention range; the specific schedule shape is not essential. Attention entropy measurements at both 20k and 100k steps confirm the specialization is permanent: early layers maintain ${\sim}52$\% lower entropy at 100k steps, with the gap narrowing only slightly from the 57\% measured at 20k.
 \end{abstract}
 
 \section{Introduction}
@@ -366,9 +366,33 @@ Layer & Baseline & Quartic & Change & Baseline & Quartic & Change \\
 
 The specialization is \textit{permanent}. At 100k steps---$5\times$ longer training---quartic models still show 52\% lower entropy at layer~0 and 35\% lower at layer~1. The entropy gap narrows only slightly from 20k to 100k, confirming that the developmental hierarchy is not a transient artifact of early training but a lasting structural feature. The final layer consistently shows slightly \textit{higher} entropy in the quartic model, compensating by using its full attention span to integrate globally over the local features built by the constrained early layers.
 
+\subsection{Experiment 8: Per-Layer Ablation (Which Layer's Locality?)}
+
+To localize \emph{which} layer's window carries the effect, we replaced the quartic schedule with explicit per-layer window lists, training each at seed 42 for 20k steps. Because all configurations share the same initialization \emph{and} the same data order at a fixed seed, the only thing that differs is the per-layer window---so differences in final val\_bpb are attributable purely to the window pattern (Table~\ref{tab:ablation}). The references are the matched seed-42 baseline (0.9041) and quartic (0.8927).
+
+\begin{table}[H]
+\centering
+\caption{Per-layer window ablation (seed 42, 20k steps; matched init and data order). Windows are $[L_0,L_1,L_2,L_3]$; ``\% of gain'' is the fraction of the baseline$\to$quartic gap (0.0114) recovered.}
+\label{tab:ablation}
+\begin{tabular}{llccr}
+\toprule
+Config & Windows & Final bpb & vs Baseline & \% of gain \\
+\midrule
+Baseline & $[256,256,256,256]$ & 0.9041 & --- & --- \\
+Only $L_0$ & $[8,256,256,256]$ & 0.8952 & $+0.98$\% & 78\% \\
+Only $L_0,L_1$ & $[8,23,256,256]$ & \textbf{0.8880} & $\mathbf{+1.79}$\% & 141\% \\
+Quartic & $[8,23,86,256]$ & 0.8927 & $+1.26$\% & 100\% \\
+No $L_0$ & $[256,23,86,256]$ & 0.8979 & $+0.69$\% & 54\% \\
+Only $L_3$ (reversed) & $[256,256,256,8]$ & 0.9127 & $-0.95$\% & $-75$\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key finding:} the effect is driven by \emph{early-layer} locality. Windowing layer~0 alone recovers 78\% of the quartic gain, and windowing the first two layers (leaving $L_2,L_3$ at full attention) \emph{exceeds} the full quartic schedule. The reversed control---windowing only the last layer---is \emph{worse} than baseline, so it is specifically early locality that helps, not locality per se. This confirms and localizes, in our setting, the established result that lower layers benefit from a restricted attention range while upper layers need global context \citep{rae2020deep}, and is consistent with modern hybrid local/global designs in which the exact schedule shape matters little (e.g.\ Gemma~3; MSWA). A practical corollary: the gradual quartic ramp is \emph{not} essential---a simpler ``early layers local, rest full'' configuration matches or exceeds it. Caveat: this is a single seed. The large effects (early-local recovers most of the gain; the reversed control hurts) are robust, but the modest margin by which Only~$L_0,L_1$ beats Quartic should be replicated before being asserted.
+
 \subsection{Mechanism Summary}
 
-The data converges on a \textbf{curriculum effect with lasting structural impact}. Windows during early training force a local-to-global learning order that creates a compositional hierarchy. This hierarchy persists after windows are removed---the model does not unlearn it. Notably, removing windows after 10k steps actually finds a \textit{better} solution ($F = 0.8842$) than keeping them for all 20k steps ($B = 0.8858$), suggesting that permanent windows eventually become a mild constraint on the upper layers. The reduced parameter coupling (Experiment~5) is the likely mechanism by which early constraints shape the hierarchy: with fewer interacting parameters per gradient step, early layers are forced to find coherent local solutions rather than diffuse global patterns. The attention entropy analysis independently confirms that this specialization is reflected in the learned attention patterns: early layers develop focused, low-entropy attention while the final layer maintains broader coverage.
+The data converges on a \textbf{curriculum effect with lasting structural impact}. Windows during early training force a local-to-global learning order that creates a compositional hierarchy. This hierarchy persists after windows are removed---the model does not unlearn it. Notably, removing windows after 10k steps actually finds a \textit{better} solution ($F = 0.8842$) than keeping them for all 20k steps ($B = 0.8858$), suggesting that permanent windows eventually become a mild constraint on the upper layers. The reduced parameter coupling (Experiment~5) is the likely mechanism by which early constraints shape the hierarchy: with fewer interacting parameters per gradient step, early layers are forced to find coherent local solutions rather than diffuse global patterns. The attention entropy analysis independently confirms that this specialization is reflected in the learned attention patterns: early layers develop focused, low-entropy attention while the final layer maintains broader coverage. The per-layer ablation (Experiment~8) localizes the effect to the early layers specifically: most of the benefit comes from constraining layers~0--1, and constraining only the last layer hurts---consistent with \citet{rae2020deep}. The specific quartic schedule is therefore not essential; it is a convenient way to make early layers local while leaving the top global.
 
 \section{Limitations}
 
@@ -380,6 +404,8 @@ The data converges on a \textbf{curriculum effect with lasting structural impact
     \item Optimal exponent at depth 12 not yet determined (tested only quartic).
     \item Mechanism experiments performed only at 3.4M scale.
     \item Experiment 7 has only 2 valid seeds (seed 256 diverged after window removal).
+    \item The per-layer ablation (Experiment 8) is a single seed; the modest Only~$L_0,L_1$ vs Quartic margin needs replication.
+    \item A direct second-order probe of landscape flatness (Hessian trace and top eigenvalue) on one converged matched pair was inconclusive at $n=1$ and is not reported as a result. The relationship between attention entropy and loss-landscape sharpness is itself an established area; a credible test of whether windowed models occupy flatter minima requires multiple converged pairs (ideally at scale) and is left to future work.
 \end{itemize}
 
 \section{Discussion}
@@ -392,7 +418,7 @@ The data converges on a \textbf{curriculum effect with lasting structural impact
 
 \section{Conclusion}
 
-Across 200+ experiments at two scales, we find that developmental attention windows---constraining early layers to local attention with quartic growth toward full attention---improve transformer training: $+1.5$\% at 3.4M with all 5 matched seeds beating their paired baseline (exact paired permutation $p=1/32=0.031$, paired-$t$ $p\approx0.001$), persisting at $+1.0$\% through 100k extended training, and $+2.6$\% across 5 seeds at 125M/20k (one seed negative; widening to $+12.9$\% on 2 unconverged seeds at 50k). Seven mechanism experiments cleanly eliminate five hypotheses (a sixth, implicit regularization, is inconclusive) and identify the operative mechanism as a \textbf{curriculum effect with lasting structural impact}: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists permanently---confirmed by attention entropy measurements showing 52\% lower entropy at early layers even at $5\times$ longer training. The approach requires no additional parameters, no extra compute, and can be applied either permanently or only during early training.
+Across 200+ experiments at two scales, we find that developmental attention windows---constraining early layers to local attention with quartic growth toward full attention---improve transformer training: $+1.5$\% at 3.4M with all 5 matched seeds beating their paired baseline (exact paired permutation $p=1/32=0.031$, paired-$t$ $p\approx0.001$), persisting at $+1.0$\% through 100k extended training, and $+2.6$\% across 5 seeds at 125M/20k (one seed negative; widening to $+12.9$\% on 2 unconverged seeds at 50k). Seven mechanism experiments cleanly eliminate five hypotheses (a sixth, implicit regularization, is inconclusive) and identify the operative mechanism as a \textbf{curriculum effect with lasting structural impact}: early local-attention constraints create a compositional hierarchy via reduced parameter coupling, and this hierarchy persists permanently---confirmed by attention entropy measurements showing 52\% lower entropy at early layers even at $5\times$ longer training. A per-layer ablation localizes the benefit to the early layers and shows the specific schedule shape is not essential, consistent with prior work on layer-wise attention range \citep{rae2020deep}. The approach requires no additional parameters, no extra compute, and can be applied either permanently or only during early training.
 
 Code and data: \url{https://github.com/nicoveraz/neurogen}
 
@@ -449,6 +475,11 @@ C.~Olsson, N.~Elhage, N.~Nanda, et~al.
 G.~Penedo, H.~Malartic, D.~Hesslow, et~al.
 \newblock The FineWeb Datasets: Decanting the Web for the Finest Text Data at Scale.
 \newblock \emph{arXiv:2406.17557}, 2024.
+
+\bibitem[Rae and Razavi(2020)]{rae2020deep}
+J.~W. Rae and A.~Razavi.
+\newblock Do Transformers Need Deep Long-Range Memory?
+\newblock In \emph{Proceedings of ACL}, 2020. arXiv:2007.03356.
 
 \bibitem[Trockman and Kolter(2023)]{trockman2023mimetic}
 A.~Trockman and J.~Z. Kolter.
