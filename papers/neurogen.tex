@@ -128,7 +128,26 @@ Mean (42, 137) & 0.8977 & 0.8857 & \textbf{0.8842} & $+1.33$\% & $\mathbf{+1.50}
 
 \paragraph{Statistical power.} With two completed seeds the exact paired permutation test floors at $p = 1/4 = 0.25$, so no arrangement of two seeds can reach conventional significance. The F-vs-A result is a consistent direction at $n=2$, not a significant one. \S\ref{sec:limitations} pre-registers the five-seed replication.
 
-\paragraph{The divergence.} Arm~F at seed 256 produced NaN after the switch and is reported here rather than excluded. The learning-rate schedule is ruled out by inspection: it is a single cosine over the full horizon with no discontinuity at the switch point. Three candidate causes remain---(i) the attention implementation changes at the switch, from an explicit masked softmax to a fused causal kernel; (ii) the Adam second-moment estimate is stale, having been accumulated under window-8 gradients, so the first post-switch updates can be large for parameters with small historical second moment, which gradient-norm clipping does not prevent; (iii) the layer-0 softmax denominator jumps from 8 terms to up to 256 in a single step. These are distinguishable: replacing the switch target with an explicit all-full window list keeps the masked-softmax implementation and changes only the mask, isolating (i) from (ii) and (iii). The intermediate training curve for the diverged run was not retained, so this requires re-running with per-step instrumentation; the protocol is specified in \S\ref{sec:limitations}. A divergence rate of 1 in 3 at the switch point is a real property of the naive recipe and we do not present the curriculum as free of it.
+\paragraph{The switch is a shock, and the divergence is stochastic.} One of the three runs in Table~\ref{tab:curriculum}---the one at seed 256---produced NaN after the switch, and is reported here rather than excluded. It would be natural to read that as a property of seed 256. It is not. In a five-seed replication (three seeds complete at the time of writing) the \emph{same} seed completed normally, reaching 0.8865 with no divergence, so the failure is a stochastic event under this recipe rather than something a particular initialization causes. Across the original and replication runs the observed rate is one divergence in six completed runs of arm~F.
+
+What every run does take is a large transient shock. Per-step instrumentation around the switch (Table~\ref{tab:shock}) shows the pattern is nearly identical on all three replicated seeds: loss jumps ${\approx}3.3\times$, pre-clip gradient norm jumps $16$--$20\times$, and recovery to pre-switch values is complete within about 400 steps.
+
+\begin{table}[H]
+\centering
+\caption{The switch shock, measured per step around step 10{,}000 (three seeds of the five-seed replication). Gradient clipping is at 1.0, so the gradient itself is bounded---the Adam update is not.}
+\label{tab:shock}
+\begin{tabular}{lcccc}
+\toprule
+ & pre-switch & at switch & peak, first 100 steps & by step 10{,}400 \\
+\midrule
+Loss & 0.68 & 2.21--2.37 & --- & 0.67 \\
+Gradient norm (pre-clip) & 0.136 & 2.13--2.72 & --- & 0.136 \\
+Max Adam update & $3.5\times10^{-3}$ & $3.6\times10^{-3}$ & $7.5\times10^{-3}$ & $3.3\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The last row is the informative one. Gradient-norm clipping at 1.0 bounds the gradient, and the spike to 2.1--2.7 is duly clipped---but the largest Adam update still climbs $2.1\times$ over the following ${\sim}100$ steps. That is the signature of a stale second moment: $v$ was accumulated under window-8 gradients, so $m/\sqrt{v}$ is large for parameters whose historical $v$ is small, and clipping the gradient does not bound it. Of the three candidate causes we posited---(i) the attention implementation changes at the switch, from an explicit masked softmax to a fused causal kernel; (ii) a stale Adam second moment; (iii) the layer-0 softmax denominator jumping from 8 terms to up to 256 in one step---the trace is direct evidence for (ii) as the amplifier, while (i) and (iii) remain candidates for the initial spike. The learning-rate schedule is ruled out by inspection: a single cosine over the full horizon, with no discontinuity at the switch. \S\ref{sec:limitations} specifies the controls that separate the remaining causes. We do not present the curriculum as free of this: the naive hard switch is a shock that usually recovers and occasionally does not.
 
 \section{Result 2: The active ingredient is early-layer locality}
 \label{sec:ablation}
@@ -276,9 +295,9 @@ Four of five seeds are positive; seed 256 is negative. The exact one-sided sign-
 \subsection{Limitations}
 
 \begin{itemize}
-    \item \textbf{The central result rests on two seeds.} Arm~F completed on seeds 42 and 137 only; seed 256 diverged. The F-vs-A direction is consistent ($2/2$) but cannot be significant at $n=2$, where the exact paired permutation test floors at 0.25.
+    \item \textbf{The central result rests on two seeds.} In the run reported in Table~\ref{tab:curriculum}, arm~F completed on seeds 42 and 137 only, the third having diverged. The F-vs-A direction is consistent ($2/2$) but cannot be significant at $n=2$, where the exact paired permutation test floors at 0.25. A five-seed replication is in progress and is the experiment that would settle this.
     \item \textbf{F vs B is sign-split} and is not claimed (\S\ref{sec:removal}).
-    \item \textbf{The removal recipe diverged on 1 of 3 seeds} and the cause is not yet established.
+    \item \textbf{The hard switch is a shock that occasionally kills a run} (one divergence in six completed arm-F runs). It is stochastic rather than tied to a particular seed, and the stale-Adam-second-moment mechanism is evidenced but not yet isolated from the other two candidates.
     \item \textbf{One switch point only.} We removed windows at the 50\% mark. Whether 10\%, 25\%, or 75\% is better---or whether it matters at all---is untested, and this is what would turn the finding into an actionable recipe.
     \item \textbf{The per-layer ablation is a single seed}; the Only~$L_0,L_1$ vs Quartic margin needs replication.
     \item \textbf{The variance-reduction control (Exp 3) is a single seed}, and its batch-256 arm did not complete.
@@ -297,7 +316,7 @@ We state criteria in advance so that outcomes cannot be re-framed after the fact
 
 \paragraph{(1) Removal at five seeds.} Run arm~F at seeds 42/137/256/789/1337 with the switch at step 10{,}000; arms A and B already exist at all five seeds. \emph{Criterion:} claim ``removal preserves the benefit'' iff all 5 paired differences (A~$-$~F) are positive, giving the exact permutation floor $p = 0.031$; report paired-$t$ and $d_z$ alongside. Claim ``removal is better than keeping'' only if at least 4 of 5 paired differences (B~$-$~F) are positive \emph{and} the paired $t$-test gives $p < 0.05$; at 2/5 or 3/5 we report no detectable difference. Diverged seeds count in the denominator.
 
-\paragraph{(2) Divergence diagnosis.} Re-run seed 256 with per-step loss, pre-clip gradient norm, and maximum parameter update logged for steps $[\text{switch}-100, \text{switch}+500]$. Discriminate cause (i) from (ii)/(iii) by switching to an explicit all-full window list, which preserves the masked-softmax implementation and changes only the mask. Then test three interventions: a 200-step LR re-warmup after the switch, resetting the optimizer state at the switch, and ramping the window linearly over 500 steps instead of switching discontinuously. \emph{Criterion:} name which candidate reproduces the NaN and which intervention prevents it.
+\paragraph{(2) Shock diagnosis.} The divergence does not reproduce on demand---it occurs roughly once in six runs and is not tied to a seed---so an experiment keyed to reproducing the NaN would be badly powered. We therefore target the \emph{shock}, which is continuous, large, and reproduces on every seed. From one shared pre-switch state, run four treatments and compare peak loss, peak pre-clip gradient norm, and peak Adam update over $[\text{switch}, \text{switch}+500]$: (a) the unmodified switch, as a reference; (b) switching to an explicit all-full window list, which preserves the masked-softmax implementation and changes only the mask, separating cause~(i) from (ii) and (iii); (c) resetting the optimizer state at the switch, which removes cause~(ii) by construction; (d) a 200-step LR re-warmup and (e) a 500-step linear window ramp, as candidate mitigations. Sharing one pre-switch state makes these a controlled comparison rather than five independent runs. \emph{Criterion:} report which treatment reduces the peak Adam update toward its pre-switch value of $3.5\times10^{-3}$. Treatment~(c) is predicted to; if it does not, the stale-second-moment account in \S\ref{sec:removal} is wrong and must be withdrawn.
 
 \paragraph{(3) Switch-point sweep.} Remove windows at 2k / 5k / 10k / 15k of a 20k-step run, at 5 seeds. The endpoints $x=0$ and $x=20\text{k}$ are arms A and B. \emph{Criterion:} claim an optimal removal point only if the best interior $x$ beats \emph{both} endpoints on at least 4 of 5 paired seeds. If the curve is flat in $x$, the finding is that the removal point does not matter over 10--75\% of training---which is a stronger recipe, since it requires no tuning. Report the divergence rate per switch point.
 

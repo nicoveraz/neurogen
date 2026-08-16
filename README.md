@@ -33,7 +33,20 @@ mean    0.8977    0.8857      0.8842            +1.33%   +1.50%   +0.17%
 
 **Power:** at n=2 the exact paired permutation test floors at p = 1/4 = 0.25, so *no* two-seed arrangement can be significant. The 5-seed replication is specced under [Pre-registered experiments](#pre-registered-experiments).
 
-**The divergence:** arm F at seed 256 went NaN after the switch. Reported, not dropped. The LR schedule is ruled out by inspection — it is a single cosine over the full 20K horizon with no term keyed to the switch step. Live candidates and the diagnostic are in the pre-registration below.
+**The switch is a shock, and the divergence is stochastic.** Arm F at seed 256 went NaN after the switch — reported, not dropped. It is tempting to read that as a property of seed 256; it isn't. In the five-seed replication (3 seeds complete so far) that *same* seed completed normally at 0.8865. Observed rate: **1 divergence in 6 completed arm-F runs**, not tied to any seed.
+
+What every run takes is a large transient shock. Per-step instrumentation around step 10000, on all three replicated seeds:
+
+```
+                       pre-switch   at switch    peak (first 100)   by step 10400
+loss                   0.68         2.21-2.37    —                  0.67
+grad norm (pre-clip)   0.136        2.13-2.72    —                  0.136
+max Adam update        3.5e-3       3.6e-3       7.5e-3             3.3e-3
+```
+
+The last row is the informative one. Grad clipping at 1.0 bounds the *gradient* — the 2.1-2.7 spike is duly clipped — but the largest **Adam update still climbs 2.1×** over the next ~100 steps. That's the stale-second-moment signature: `v` was accumulated under window-8 gradients, so `m/√v` is large where historical `v` is small, and clipping the gradient does not bound it. Recovery is complete by ~400 steps.
+
+The LR schedule is ruled out by inspection — a single cosine over the full 20K horizon with no term keyed to the switch step.
 
 Reproduce: `uv run python experiment_mechanism.py --exp7` (data in `gradient_results/mechanism_disambiguation.json`).
 
@@ -210,7 +223,17 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 **1. Removal at 5 seeds** — arm F at seeds 42/137/256/789/1337, switch at 10K. Arms A and B already exist at all 5 seeds, so only F trains (~6–7 h on M1 Pro).
 *Criterion:* claim "removal preserves the benefit" iff **5/5** paired diffs (A − F) positive → permutation floor p = 0.031. Claim "removal is better than keeping" only if **≥4/5** paired diffs (B − F) positive **and** paired-t p < 0.05; at 2/5 or 3/5, report no detectable difference. Diverged seeds count in the denominator.
 
-**2. Divergence diagnosis** — re-run seed 256 logging per-step loss, pre-clip grad norm, and max update over `[switch−100, switch+500]`. Candidates: (i) the attention implementation changes at the switch (explicit masked softmax → fused causal kernel), (ii) stale Adam second moment accumulated under window-8 gradients, which grad clipping does not protect against, (iii) the layer-0 softmax denominator jumping from 8 terms to 256 in one step. Discriminate (i) from (ii)/(iii) by switching to `list:256,256,256,256` instead of `{}` — that keeps the masked-softmax path and changes *only* the mask. Then test: 200-step LR re-warmup after the switch, optimizer-state reset, and a 500-step linear window ramp. (~3 h)
+**2. Shock diagnosis** — the divergence does **not** reproduce on demand (~1 in 6 runs, not seed-tied), so an experiment keyed to reproducing the NaN would be badly powered. Target the *shock* instead: continuous, large, and present on every seed. From one shared pre-switch state, run five treatments and compare peak loss / peak pre-clip grad norm / peak Adam update over `[switch, switch+500]`:
+
+| treatment | tests |
+|---|---|
+| (a) unmodified switch | reference |
+| (b) `list:256,256,256,256` instead of `{}` | keeps the masked-softmax path, changes *only* the mask → separates (i) kernel change from (ii)/(iii) |
+| (c) optimizer-state reset | removes (ii) stale Adam second moment by construction |
+| (d) 200-step LR re-warmup | mitigation |
+| (e) 500-step linear window ramp | mitigation |
+
+Sharing one pre-switch state makes these a controlled comparison rather than five independent runs (`--load-switch-ckpt`). *Criterion:* report which treatment pulls the peak Adam update back toward its pre-switch 3.5e-3. **(c) is predicted to — if it doesn't, the stale-second-moment account above is wrong and gets withdrawn.** (~25 min)
 
 **3. Switch-point sweep** — remove windows at 2K/5K/10K/15K of a 20K run, 5 seeds (~19–21 h). This is what turns "windows are a curriculum" into a recipe, and it's currently missing entirely.
 *Criterion:* claim an optimal removal point only if the best interior x beats **both** endpoints (x=0 is arm A, x=20K is arm B) on ≥4/5 paired seeds. If flat, the finding is "the removal point doesn't matter over 10–75% of training" — a stronger recipe, since it needs no tuning. Report divergence rate per switch point.
