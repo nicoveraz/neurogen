@@ -135,7 +135,13 @@ def test_switch_step_rejected_for_unwindowed_arch():
 # Sweep durability
 # --------------------------------------------------------------------------
 def _stub_training(monkeypatch, tmp_path):
-    """Run experiment7 without real data, training cost, or eval cost."""
+    """Run experiment7 without real data, training cost, or eval cost.
+
+    chdir into tmp_path as well: experiment7 writes its final checkpoint to a
+    path relative to the working directory, and tests must not deposit files in
+    the repo's checkpoints/.
+    """
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(em, "RESULTS_DIR", tmp_path)
     monkeypatch.setattr(em, "load_data",
                         lambda split: torch.randint(0, 200, (5000,), dtype=torch.uint8))
@@ -170,6 +176,32 @@ def test_results_are_written_after_every_seed(monkeypatch, tmp_path):
     written = json.loads((tmp_path / "exp7_curriculum_sw4_dur.json").read_text())
     assert sorted(r["seed"] for r in written["runs"].values()
                   if r["config"] == "F_switch") == [42, 137]
+
+
+def test_final_f_checkpoint_is_saved_with_post_switch_arch(monkeypatch, tmp_path):
+    """The F arm must be re-evaluatable later without retraining.
+
+    The recorded arch_cfg must be the POST-switch one: an F model is
+    full-attention at the end, and re-loading it under the quartic config would
+    evaluate the wrong operator.
+    """
+    _stub_training(monkeypatch, tmp_path)
+    em.experiment7(seeds=[42], switch_step=4, total_steps=8, tag="ck")
+
+    p = tmp_path / "checkpoints" / "model_F_switch_42_sw4_ck.pt"
+    assert p.exists(), "no final F checkpoint was written"
+    blob = torch.load(p, map_location="cpu", weights_only=False)
+    assert blob["arch"] == "F_switch"
+    assert blob["arch_cfg"] == {}, "should record full attention, not quartic"
+    assert blob["seed"] == 42 and blob["switch_step"] == 4
+    assert "model_state_dict" in blob
+
+    # full_masked records its window list rather than an empty config
+    em.experiment7(seeds=[42], switch_step=4, total_steps=8, tag="ckm",
+                   switch_mode="full_masked")
+    blob2 = torch.load(tmp_path / "checkpoints" / "model_F_switch_42_sw4_ckm.pt",
+                       map_location="cpu", weights_only=False)
+    assert blob2["arch_cfg"] == em._post_switch_cfg("full_masked")
 
 
 def test_resume_seeds_skips_completed_and_keeps_them(monkeypatch, tmp_path):

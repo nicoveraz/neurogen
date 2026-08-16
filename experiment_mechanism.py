@@ -697,8 +697,35 @@ def experiment7(seeds=(42, 137, 256), switch_step: int = 10000,
                              "curve": curve}
         if trace:
             traces[seed] = trace
+
+        # Save the trained F model. validate.py already does this for arms A and
+        # B; without it, any later change to the eval harness costs a full
+        # retrain of every F arm instead of a re-evaluation.
+        #
+        # arch_cfg is recorded because it is NOT the config the run started
+        # with: after the switch the model is full-attention. Re-loading an F
+        # checkpoint under the quartic config would silently evaluate the wrong
+        # operator.
+        ckpt_dir = Path("checkpoints")
+        ckpt_dir.mkdir(exist_ok=True)
+        fp = ckpt_dir / f"model_F_switch_{seed}_sw{switch_step}{suffix}.pt"
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "arch": "F_switch",
+            "arch_cfg": dict(model.arch_cfg),
+            "seed": seed,
+            "switch_step": switch_step,
+            "switch_mode": switch_mode,
+            "total_steps": total_steps,
+            "stop_step": stop_step,
+            "final_step": last_step,
+            "val_bpb": final_bpb,
+            "diverged_at": diverged_at,
+        }, fp)
+
         print(f"  FINAL: F_switch seed={seed} bpb={final_bpb:.4f}"
-              + (f"  (DIVERGED at step {diverged_at})" if diverged_at is not None else ""))
+              + (f"  (DIVERGED at step {diverged_at})" if diverged_at is not None else "")
+              + f"\n  checkpoint saved to {fp}")
 
         # Checkpoint the sweep after every seed, not just at the end.
         _write_exp7_files(curve_path, all_results, traces, seeds, switch_step,

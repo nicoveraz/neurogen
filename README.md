@@ -238,9 +238,16 @@ Arm F sits on a slightly different RNG stream — `validate.py` calls `measure_a
 
 *Change:* add `fixed_eval_batches(val_data, ..., seed=0)` to `prepare.py`, returning deterministic start offsets built once from a **private** `torch.Generator` so it draws nothing from the global stream (drawing from the global stream would perturb training data order and change the runs themselves). `evaluate_val_bpb(..., fixed=True)` iterates those offsets. Size 1,048,576 tokens (128 batches, 10.7× current, 5.5% of val); estimated eval overhead ~8% of wall clock. Every arm uses it.
 
-*This is a clean break.* Training is unaffected, but the recorded endpoint changes for every existing run, so per this repo's matched-null rule **do not compare new-harness numbers to old-harness ones** — all arms must be re-measured together. Two routes: (a) re-evaluate saved final checkpoints, no retraining — currently impossible, since only 5 of the 10 baseline/quartic checkpoints exist (789 and 1337 missing for both arms, 256 for quartic) and `experiment7` saves **no** final F checkpoint at all; or (b) re-run all 15 arms, ~19–22 h MPS.
+*This is a clean break.* Training is unaffected, but the recorded endpoint changes for every existing run, so per this repo's matched-null rule **do not compare new-harness numbers to old-harness ones** — all arms must be re-measured together. Re-evaluating saved checkpoints is far cheaper than retraining, so what limits the cost is which checkpoints exist:
 
-*Free prerequisite, worth doing regardless:* make `experiment7` save its final F checkpoint, as `validate.py` already does for A and B. Then any future eval change is a re-evaluation rather than a retrain.
+```
+arm            checkpoints available                        cost to re-measure
+F (switch)     seeds 137/256/789/1337 (saved by exp7)       re-evaluate (minutes)
+F, seed 42     none — but its pre-switch state is saved     ~55 min from the switch
+A, B           seeds 42/137 both; 256 baseline only         retrain the other 7 arms
+```
+
+`experiment7` now saves its final F model with the **post-switch** `arch_cfg` recorded, because an F model is full-attention at the end — reloading it under the quartic config would silently evaluate the wrong operator. `validate.py` already saves A and B, but 5 of those 10 checkpoints predate current practice and are missing, so a full re-measurement is ~19–22 h MPS today and falls to roughly the A/B retrain alone once F checkpoints exist.
 
 *Criteria:* re-evaluating one frozen checkpoint 12× must give **sd exactly 0.0** (bit-identical), not merely small — that is the whole point. Report the new baseline mean (expect within ~0.01 bpb of the old; sanity check, not a claim) and the new paired residual sd for A-B and A-F (expect A-F to fall from 0.0023 toward the A-B value).
 
