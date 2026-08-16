@@ -215,7 +215,38 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 **3. Switch-point sweep** — remove windows at 2K/5K/10K/15K of a 20K run, 5 seeds (~19–21 h). This is what turns "windows are a curriculum" into a recipe, and it's currently missing entirely.
 *Criterion:* claim an optimal removal point only if the best interior x beats **both** endpoints (x=0 is arm A, x=20K is arm B) on ≥4/5 paired seeds. If flat, the finding is "the removal point doesn't matter over 10–75% of training" — a stronger recipe, since it needs no tuning. Report divergence rate per switch point.
 
-**4. Converged 125M, three arms, one horizon** — baseline / windows-throughout / windows-removed-at-25K, 50K steps (6.55B tokens ≈ 53 tok/param), single fully-annealed cosine, no resume, 3–5 seeds. **≈45 H100-hours at 3 seeds, ≈75 at 5.**
+**4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
+
+The reported `final_bpb` of every run in this repo is a single eval over **12 randomly drawn batches = 98,304 tokens, 0.51% of the val set**, resampled on every call. Measured directly, by evaluating one *frozen* checkpoint 12 times:
+
+```
+baseline_s42   sd 0.0083   range 0.0304
+quartic_s42    sd 0.0063   range 0.0219
+effect being measured                0.0136
+```
+
+Endpoint noise is over half the effect. The paired design rescues it, because paired arms consume the RNG near-identically and therefore draw nearly the same eval batches, so the noise is common-mode and cancels:
+
+```
+comparison                                r(eval wiggles)   residual sd of difference
+A vs B   (both validate.py)                   +0.989              0.0010
+A vs Q   (both validate.py)                   +0.992              0.0012
+A vs F   (F from experiment_mechanism.py)     +0.947              0.0023
+```
+
+Arm F sits on a slightly different RNG stream — `validate.py` calls `measure_attention_spans` every 5000 steps and draws batches; `experiment_mechanism.py` does not — so F comparisons carry **2.3× more residual noise** than A-vs-B ones. Against that residual: `F vs A` is 3.9σ and 7.6σ (solid), `A vs B` is 11–20σ (rock solid), but `F vs B` is 0.8σ and 2.1σ — indistinguishable from noise.
+
+*Change:* add `fixed_eval_batches(val_data, ..., seed=0)` to `prepare.py`, returning deterministic start offsets built once from a **private** `torch.Generator` so it draws nothing from the global stream (drawing from the global stream would perturb training data order and change the runs themselves). `evaluate_val_bpb(..., fixed=True)` iterates those offsets. Size 1,048,576 tokens (128 batches, 10.7× current, 5.5% of val); estimated eval overhead ~8% of wall clock. Every arm uses it.
+
+*This is a clean break.* Training is unaffected, but the recorded endpoint changes for every existing run, so per this repo's matched-null rule **do not compare new-harness numbers to old-harness ones** — all arms must be re-measured together. Two routes: (a) re-evaluate saved final checkpoints, no retraining — currently impossible, since only 5 of the 10 baseline/quartic checkpoints exist (789 and 1337 missing for both arms, 256 for quartic) and `experiment7` saves **no** final F checkpoint at all; or (b) re-run all 15 arms, ~19–22 h MPS.
+
+*Free prerequisite, worth doing regardless:* make `experiment7` save its final F checkpoint, as `validate.py` already does for A and B. Then any future eval change is a re-evaluation rather than a retrain.
+
+*Criteria:* re-evaluating one frozen checkpoint 12× must give **sd exactly 0.0** (bit-identical), not merely small — that is the whole point. Report the new baseline mean (expect within ~0.01 bpb of the old; sanity check, not a claim) and the new paired residual sd for A-B and A-F (expect A-F to fall from 0.0023 toward the A-B value).
+
+*What it unlocks, and what it says about #1:* with residual sd 0.0023 and the observed F-vs-B effect (~0.0015), n=5 gives P(5/5 positive) ≈ 22% and expected paired-t p ≈ 0.22 — so **experiment #1 is unlikely to resolve F vs B**, and that is expected, not a failure. Reaching p<0.05 at n=5 needs the residual below ~0.0012, which removing the eval component plausibly achieves. `F vs A` and `A vs B` are already far outside the noise and do not depend on this.
+
+**5. Converged 125M, three arms, one horizon** — baseline / windows-throughout / windows-removed-at-25K, 50K steps (6.55B tokens ≈ 53 tok/param), single fully-annealed cosine, no resume, 3–5 seeds. **≈45 H100-hours at 3 seeds, ≈75 at 5.**
 *Criterion:* a run counts as converged only if its decline over the final 10K steps is <0.002 bpb/1k; report the measured value for every run. Note n=3 floors the permutation test at 0.125 and cannot reach p<0.05, so a 3-seed result is descriptive. **Pre-registered negative:** if the converged gap is smaller than the 20K gap, we report that the 50K figures were an undertraining artifact.
 
 ## How It Works
