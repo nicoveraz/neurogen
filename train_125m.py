@@ -403,8 +403,48 @@ def get_lr(step, warmup, max_steps, resume_step=0):
 # ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
+def remove_windows(model):
+    """Switch every attention layer to full attention, in place.
+
+    The window is baked into each Attention at construction (window_size for the
+    flash-attn path, attn_bias for the SDPA fallback), so the mid-training switch
+    has to clear both. torch.compile guards on window_size, so the graph is reset
+    to force a recompile against the new branch.
+
+    Returns the number of layers that were windowed.
+    """
+    inner = getattr(model, "_orig_mod", model)
+    n = 0
+    for m in inner.modules():
+        if hasattr(m, "window_size") and hasattr(m, "window_mode"):
+            if m.window_size is not None or m.attn_bias is not None:
+                n += 1
+            m.window_size = None
+            m.attn_bias = None
+            m.window_mode = "none"
+    if hasattr(torch, "_dynamo"):
+        torch._dynamo.reset()
+    return n
+
+
 def train(arch: str, max_steps: int = 50000, seed: int = 42,
-          eval_interval: int = EVAL_INTERVAL, resume: str | None = None):
+          eval_interval: int = EVAL_INTERVAL, resume: str | None = None,
+          switch_step: int | None = None):
+    """Train one 125M arm.
+
+    switch_step: if set, remove the attention windows at that step and train the
+    rest of the run with ordinary full attention. This is the curriculum arm --
+    it ships a standard architecture at inference. Results are written to a
+    distinct filename so they cannot overwrite the windows-throughout arm.
+    """
+    # Validate the config before touching the GPU, so a bad invocation fails
+    # immediately rather than after the CUDA check.
+    if switch_step is not None and CONFIGS[arch].window_mode == "none":
+        raise ValueError(f"--switch-step is meaningless for arch '{arch}' "
+                         "(it has no windows to remove)")
+    if switch_step is not None and not 0 < switch_step < max_steps:
+        raise ValueError(f"--switch-step must be in (0, {max_steps}), got {switch_step}")
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     assert device == "cuda", "This script requires CUDA (H100)"
 
@@ -468,6 +508,12 @@ def train(arch: str, max_steps: int = 50000, seed: int = 42,
     t0 = time.time()
 
     for step in range(start_step, max_steps + 1):
+        # Curriculum arm: drop the windows and finish with full attention.
+        if switch_step is not None and step == switch_step:
+            n = remove_windows(model)
+            print(f">>> removed windows from {n} layers at step {step}; "
+                  f"training the remaining {max_steps - step} steps at full attention")
+
         # Eval
         if step % eval_interval == 0:
             val_loss = evaluate(model, val_data, BATCH_SIZE, seq_len, device)
@@ -520,18 +566,27 @@ def train(arch: str, max_steps: int = 50000, seed: int = 42,
         "steps_per_sec": round(max_steps / total_time, 2),
         "params": params,
         "tokens_seen": final["tokens_seen"],
+        # Recorded so a run is self-describing: which LR floor it annealed to,
+        # whether it was resumed (which uses a different cosine), and whether the
+        # windows were removed partway.
+        "switch_step": switch_step,
+        "min_lr": MIN_LR,
+        "max_lr": MAX_LR,
+        "resumed_from_step": start_step if resume else None,
     }
 
-    # Save results + checkpoint
+    # Save results + checkpoint. The curriculum arm gets its own filename so it
+    # cannot overwrite the windows-throughout arm at the same arch/seed.
+    tag = f"{arch}_sw{switch_step}" if switch_step is not None else arch
     out_dir = Path("results_125m")
     out_dir.mkdir(exist_ok=True)
-    path = out_dir / f"{arch}_s{seed}.json"
+    path = out_dir / f"{tag}_s{seed}.json"
     with open(path, "w") as f:
         json.dump({"summary": summary, "curve": results}, f, indent=2)
 
     ckpt_dir = Path("checkpoints_125m")
     ckpt_dir.mkdir(exist_ok=True)
-    ckpt_path = ckpt_dir / f"{arch}_s{seed}.pt"
+    ckpt_path = ckpt_dir / f"{tag}_s{seed}.pt"
     torch.save({
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
@@ -714,10 +769,19 @@ def compare_models(ckpt_paths: list[str], prompts: list[str] | None = None,
 # Main
 # ---------------------------------------------------------------------------
 def main():
+    global MIN_LR
     parser = argparse.ArgumentParser(description="NeuroGen 125M Validation")
     parser.add_argument("--arch", type=str, default="baseline", choices=list(CONFIGS.keys()))
     parser.add_argument("--steps", type=int, default=20000)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--switch-step", type=int, default=None, metavar="N",
+                        help="Remove the attention windows at step N and finish at "
+                             "full attention (the curriculum arm). Writes to "
+                             "results_125m/<arch>_swN_s<seed>.json")
+    parser.add_argument("--min-lr", type=float, default=None, metavar="LR",
+                        help=f"Override the cosine floor (default {MIN_LR:g} = "
+                             f"MAX_LR/10). Use a near-zero value for a fully "
+                             f"annealed horizon")
     parser.add_argument("--resume", type=str, metavar="CKPT", help="Resume training from checkpoint")
     parser.add_argument("--prepare", action="store_true", help="Download and prepare data")
     parser.add_argument("--throughput", action="store_true", help="Throughput audit")
@@ -742,7 +806,11 @@ def main():
         prompts = [args.prompt] if args.prompt else None
         compare_models(args.compare, prompts, args.max_tokens, args.temperature)
     else:
-        train(arch=args.arch, max_steps=args.steps, seed=args.seed, resume=args.resume)
+        if args.min_lr is not None:
+            MIN_LR = args.min_lr
+            print(f"LR floor overridden: MIN_LR={MIN_LR:g}")
+        train(arch=args.arch, max_steps=args.steps, seed=args.seed,
+              resume=args.resume, switch_step=args.switch_step)
 
 if __name__ == "__main__":
     main()

@@ -7,13 +7,28 @@ softmax coupling, and variance reduction.
 Exp 4: Train-val gap (implicit regularization)
 Exp 5: Gradient covariance rank (parameter coupling)
 Exp 6: Gradient stability of trained models (landscape smoothness)
-Exp 7: Remove windows mid-training (curriculum vs structure)
+Exp 7: Remove windows mid-training (the load-bearing result)
 
 Usage:
     python experiment_mechanism.py --exp4
     python experiment_mechanism.py --exp5
     python experiment_mechanism.py --exp6
-    python experiment_mechanism.py --exp7 --seeds 1
+
+    # Exp 7 at 5 seeds (arms A and B come from validation_results/; only F trains)
+    python experiment_mechanism.py --exp7 --seed-list 42,137,256,789,1337
+
+    # Switch-point sweep
+    python experiment_mechanism.py --exp7 --seed-list 42,137,256 --switch-step 5000
+
+    # Divergence diagnosis at the switch. --switch-mode full_masked keeps the
+    # masked-softmax path so only the mask changes, isolating the kernel switch
+    # from stale optimizer state; --trace-window logs per-step loss, pre-clip
+    # grad norm, and max Adam update around the switch.
+    python experiment_mechanism.py --exp7 --seed-list 256 --total-steps 12000 \
+        --switch-mode full_masked --trace-window 100
+    python experiment_mechanism.py --exp7 --seed-list 256 --total-steps 12000 \
+        --reset-optimizer --trace-window 100
+
     python experiment_mechanism.py --all
 """
 
@@ -25,9 +40,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).parent))
+import windows
 from prepare import load_data, get_batch, evaluate_val_bpb, VOCAB_SIZE, MAX_SEQ_LEN
 from train_r4 import (GPT, DEPTH, N_HEADS, N_KV_HEADS, CHANNELS, DEVICE,
-                       BATCH_SIZE, ARCHS, compute_window_mask, rms_norm)
+                       BATCH_SIZE, ARCHS, get_arch_cfg, compute_window_mask, rms_norm)
 from ca_rules import block_diagonal_init
 
 LR = 2e-3
@@ -351,28 +367,142 @@ def experiment6():
 # ===========================================================================
 # Experiment 7: Remove Windows Mid-Training (Curriculum vs Structure)
 # ===========================================================================
-def experiment7(n_seeds: int = 3):
-    """Train with quartic windows for 10k steps, then remove for 10k more."""
+def _quartic_windows(n_layer=DEPTH, seq_len=MAX_SEQ_LEN):
+    """Per-layer quartic window widths, e.g. [8, 23, 86, 256] at depth 4."""
+    return [windows.compute_window_size(i, n_layer, seq_len, "power_4.0")
+            for i in range(n_layer)]
+
+
+def _window_list_cfg(widths):
+    """arch_cfg for explicit per-layer windows (keeps the masked-softmax path)."""
+    return {"window": "list:" + ",".join(str(int(w)) for w in widths)}
+
+
+def _post_switch_cfg(mode):
+    """What the model switches TO at the switch point.
+
+    "full" reproduces the original recipe: arch_cfg = {}, which also flips the
+    attention implementation from an explicit masked softmax to the fused causal
+    kernel (train_r4.Attention gates on `mask is not None`).
+
+    "full_masked" sets every layer's window to the full sequence length instead.
+    The attention pattern is identical to "full", but the masked-softmax path is
+    retained. Comparing the two isolates "the mask changed" from "the kernel
+    changed" as a cause of the divergence seen at seed 256.
+    """
+    if mode == "full":
+        return {}
+    if mode == "full_masked":
+        return _window_list_cfg([MAX_SEQ_LEN] * DEPTH)
+    raise ValueError(f"Unknown switch mode '{mode}' (expected full|full_masked)")
+
+
+def _max_adam_update(optimizer):
+    """Largest single-parameter update Adam would apply this step.
+
+    Diagnostic for the stale-second-moment hypothesis: after an abrupt change in
+    the gradient distribution, m/sqrt(v) can be large for parameters whose
+    historical v is small. Gradient-norm clipping does not bound this.
+    """
+    worst = 0.0
+    for group in optimizer.param_groups:
+        b1, b2 = group["betas"]
+        eps, lr = group["eps"], group["lr"]
+        for p in group["params"]:
+            st = optimizer.state.get(p)
+            if not st or "exp_avg" not in st:
+                continue
+            t = st["step"]
+            t = t.item() if torch.is_tensor(t) else t
+            if t < 1:
+                continue
+            m_hat = st["exp_avg"] / (1 - b1 ** t)
+            v_hat = st["exp_avg_sq"] / (1 - b2 ** t)
+            u = (lr * m_hat / (v_hat.sqrt() + eps)).abs().max().item()
+            worst = max(worst, u)
+    return worst
+
+
+def _rng_state():
+    st = {"cpu": torch.get_rng_state()}
+    if DEVICE == "mps" and hasattr(torch, "mps"):
+        try:
+            st["mps"] = torch.mps.get_rng_state()
+        except Exception:
+            pass
+    elif DEVICE == "cuda":
+        st["cuda"] = torch.cuda.get_rng_state_all()
+    return st
+
+
+def _restore_rng(st):
+    # RNG states are ByteTensors and must live on CPU; torch.load(map_location=
+    # DEVICE) will have moved them to the accelerator, so move them back.
+    torch.set_rng_state(st["cpu"].cpu().to(torch.uint8))
+    if "mps" in st:
+        try:
+            torch.mps.set_rng_state(st["mps"].cpu().to(torch.uint8))
+        except Exception:
+            pass
+    if "cuda" in st:
+        torch.cuda.set_rng_state_all([s.cpu().to(torch.uint8) for s in st["cuda"]])
+
+
+def experiment7(seeds=(42, 137, 256), switch_step: int = 10000,
+                total_steps: int = 20000, switch_mode: str = "full",
+                post_switch_warmup: int = 0, reset_optimizer: bool = False,
+                ramp_steps: int = 0, trace_window: int = 0,
+                stop_step: int | None = None,
+                save_switch_ckpt: str | None = None,
+                load_switch_ckpt: str | None = None,
+                tag: str = ""):
+    """Train with quartic windows for `switch_step` steps, then remove them.
+
+    A: full attention throughout (cached).  B: quartic throughout (cached).
+    F: quartic for `switch_step` steps, then full attention. Only F is trained.
+
+    F ≈ B → the hierarchy persists without the mask (curriculum).
+    F worse than B → windows are an ongoing constraint.
+    F better than B → windows become a ceiling.
+
+    The optional arguments exist to diagnose the divergence observed at seed 256:
+    `switch_mode` isolates the kernel change, `post_switch_warmup` and
+    `reset_optimizer` test the stale-optimizer-state hypothesis, and `ramp_steps`
+    replaces the discontinuity with a linear window ramp.
+
+    `stop_step` ends the run early WITHOUT changing the LR schedule, which stays
+    keyed to `total_steps`. Shortening `total_steps` instead would move the whole
+    cosine and change the learning rate at the switch, so the divergence would no
+    longer be reproduced under its original conditions.
+
+    `save_switch_ckpt` / `load_switch_ckpt` share one pre-switch state across
+    treatments. Every intervention then starts from an identical model, optimizer
+    and RNG state, which makes them a controlled comparison instead of four
+    independent runs (and skips re-training the identical first `switch_step`
+    steps each time).
+    """
     print("\n" + "=" * 70)
     print("  EXPERIMENT 7: Remove Windows Mid-Training")
     print("=" * 70)
-    print("  Hypothesis: Windows create permanent specialization vs temporary curriculum")
-    print("  Configs:")
-    print("    A: Full attention for all 20k steps (baseline)")
-    print("    B: Quartic windows for all 20k steps")
-    print("    F: Quartic 10k steps → full attention 10k steps\n")
-    print("  F ≈ B → hierarchy is permanent (structural specialization)")
-    print("  F worse than B → windows needed permanently (ongoing constraint)")
-    print("  F better than B → windows become ceiling (pure curriculum)\n")
+    print(f"  seeds={list(seeds)}  switch_step={switch_step}  total_steps={total_steps}")
+    print(f"  switch_mode={switch_mode}  post_switch_warmup={post_switch_warmup}  "
+          f"reset_optimizer={reset_optimizer}  ramp_steps={ramp_steps}")
+    if stop_step is not None:
+        print(f"  stop_step={stop_step} (LR schedule still keyed to {total_steps})")
+    if load_switch_ckpt:
+        print(f"  resuming post-switch from {load_switch_ckpt}")
+    if save_switch_ckpt:
+        print(f"  will save pre-switch state under {save_switch_ckpt}/")
+    print()
 
     train_data = load_data("train")
     val_data = load_data("val")
-    seeds = [42, 137, 256][:n_seeds]
-    total_steps = 20000
-    switch_step = 10000
     eval_interval = 500
+    quartic_w = _quartic_windows()
+    target_cfg = _post_switch_cfg(switch_mode)
 
     all_results = {}
+    traces = {}
 
     for seed in seeds:
         print(f"\n{'='*60}")
@@ -384,7 +514,8 @@ def experiment7(n_seeds: int = 3):
             json_path = f"validation_results/{arch_name}_s{seed}.json"
             if os.path.exists(json_path):
                 d = json.load(open(json_path))
-                final_bpb = d["summary"]["final_vbpb"]
+                s = d["summary"]
+                final_bpb = s.get("final_vbpb", s.get("final_val_bpb"))
                 curve = [(p["step"], p["val_bpb"]) for p in d["curve"]]
                 key = f"{label}_s{seed}"
                 all_results[key] = {"config": label, "seed": seed,
@@ -394,13 +525,14 @@ def experiment7(n_seeds: int = 3):
             else:
                 print(f"  {label}: {json_path} not found — skipping")
 
-        # Config F: quartic 10k → full 10k (must train)
-        print(f"\n--- F: Quartic 10k → Full 10k (seed={seed}) ---")
+        # Config F: quartic → full (must train)
+        print(f"\n--- F: Quartic {switch_step} → full {total_steps - switch_step} "
+              f"(seed={seed}) ---")
         torch.manual_seed(seed)
 
-        arch_cfg_quartic = ARCHS.get("window_power_4.0", {})
+        arch_cfg_quartic = get_arch_cfg("window_power_4.0")
         model = GPT(VOCAB_SIZE, MAX_SEQ_LEN, DEPTH, N_HEADS, N_KV_HEADS, CHANNELS,
-                     arch_cfg=arch_cfg_quartic).to(DEVICE)
+                     arch_cfg=dict(arch_cfg_quartic)).to(DEVICE)
 
         # Standard init (same as validate.py)
         with torch.no_grad():
@@ -413,90 +545,221 @@ def experiment7(n_seeds: int = 3):
                         p.data.add_(ca.to(p.device))
 
         optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-        min_lr = LR / 10
+
+        # Optionally start from a shared pre-switch state instead of retraining
+        # the identical first switch_step steps.
+        first_step = 0
+        if load_switch_ckpt:
+            blob = torch.load(load_switch_ckpt, map_location=DEVICE, weights_only=False)
+            if blob["seed"] != seed or blob["switch_step"] != switch_step:
+                raise ValueError(
+                    f"{load_switch_ckpt} is seed={blob['seed']} "
+                    f"switch_step={blob['switch_step']}, not seed={seed} "
+                    f"switch_step={switch_step}")
+            model.load_state_dict(blob["model_state_dict"])
+            optimizer.load_state_dict(blob["optimizer_state_dict"])
+            _restore_rng(blob["rng_state"])
+            first_step = switch_step
+            print(f"  loaded pre-switch state from {load_switch_ckpt} "
+                  f"(step {switch_step})")
+
         t0 = time.time()
         curve = []
+        trace = []
+        diverged_at = None
+        trace_lo = switch_step - trace_window
+        trace_hi = switch_step + 5 * trace_window
+        last_step = total_steps if stop_step is None else min(stop_step, total_steps)
 
-        for step in range(total_steps + 1):
-            # Switch architecture at midpoint
-            if step == switch_step:
-                print(f"  >>> SWITCHING from quartic to full attention at step {step}")
-                model.arch_cfg = {}  # Remove window config
+        for step in range(first_step, last_step + 1):
+            # --- share the pre-switch state ------------------------------------
+            if save_switch_ckpt and step == switch_step:
+                d = Path(save_switch_ckpt)
+                d.mkdir(parents=True, exist_ok=True)
+                p = d / f"switch_s{seed}_sw{switch_step}.pt"
+                torch.save({"seed": seed, "switch_step": switch_step,
+                            "total_steps": total_steps,
+                            "model_state_dict": model.state_dict(),
+                            "optimizer_state_dict": optimizer.state_dict(),
+                            "rng_state": _rng_state()}, p)
+                print(f"  >>> saved pre-switch state to {p}")
 
-            # Eval
-            if step % eval_interval == 0:
+            # --- architecture schedule ---------------------------------------
+            if ramp_steps > 0 and switch_step <= step < switch_step + ramp_steps:
+                # Linear per-layer interpolation quartic -> full over ramp_steps.
+                frac = (step - switch_step) / ramp_steps
+                model.arch_cfg = _window_list_cfg(
+                    [int(round(w + frac * (MAX_SEQ_LEN - w))) for w in quartic_w])
+                if step == switch_step:
+                    print(f"  >>> RAMPING quartic → full over {ramp_steps} steps "
+                          f"from step {step}")
+            elif step == switch_step + ramp_steps:
+                model.arch_cfg = dict(target_cfg)
+                print(f"  >>> SWITCHED to '{switch_mode}' attention at step {step}")
+                if reset_optimizer:
+                    optimizer = torch.optim.AdamW(model.parameters(), lr=LR,
+                                                  weight_decay=WEIGHT_DECAY)
+                    print("  >>> optimizer state reset at the switch")
+
+            # --- eval ---------------------------------------------------------
+            # Always evaluate at the first and last step of the loop, so a
+            # resumed or early-stopped run still has endpoints on its curve.
+            if step % eval_interval == 0 or step in (first_step, last_step):
                 model.eval()
                 vbpb = evaluate_val_bpb(model, val_data, BATCH_SIZE, MAX_SEQ_LEN, DEVICE)
                 elapsed = time.time() - t0
-                phase = "quartic" if step < switch_step else "full"
+                phase = "quartic" if step < switch_step else switch_mode
                 curve.append((step, round(vbpb, 4)))
                 if step % 2000 == 0:
                     print(f"  step:{step:6d}  vbpb:{vbpb:.4f}  phase:{phase}  "
                           f"time:{elapsed:.0f}s")
                 model.train()
+                if math.isnan(vbpb) and diverged_at is None:
+                    diverged_at = step
+                    print(f"  !!! val_bpb is NaN at step {step} — run diverged")
 
-            if step >= total_steps:
+            if step >= last_step:
                 break
 
-            # Training step
+            # --- training step -------------------------------------------------
             x, y = get_batch(train_data, BATCH_SIZE, MAX_SEQ_LEN, DEVICE)
             cur_lr = get_lr(step, WARMUP, total_steps)
+            if post_switch_warmup > 0 and 0 <= step - switch_step < post_switch_warmup:
+                # Re-warm the LR over the first post_switch_warmup steps after the
+                # switch, without altering the underlying cosine.
+                cur_lr *= (step - switch_step + 1) / post_switch_warmup
             for pg in optimizer.param_groups:
                 pg["lr"] = cur_lr
             _, loss = model(x, y, step=step, total_steps=total_steps)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0).item()
             optimizer.step()
+
+            # --- switch-point instrumentation ----------------------------------
+            if trace_window and trace_lo <= step <= trace_hi:
+                trace.append({"step": step, "lr": round(cur_lr, 8),
+                              "loss": round(loss.item(), 6),
+                              "grad_norm_preclip": round(gnorm, 6),
+                              "max_adam_update": round(_max_adam_update(optimizer), 8)})
+            if diverged_at is None and not math.isfinite(loss.item()):
+                diverged_at = step
+                print(f"  !!! loss is {loss.item()} at step {step} — run diverged")
 
         final_bpb = curve[-1][1]
         key = f"F_switch_s{seed}"
         all_results[key] = {"config": "F_switch", "seed": seed,
-                             "final_bpb": final_bpb, "source": "trained",
+                             "final_bpb": final_bpb,
+                             "source": "resumed_from_switch" if load_switch_ckpt
+                                       else "trained",
+                             "switch_step": switch_step, "switch_mode": switch_mode,
+                             "total_steps": total_steps, "stop_step": stop_step,
+                             "post_switch_warmup": post_switch_warmup,
+                             "reset_optimizer": reset_optimizer,
+                             "ramp_steps": ramp_steps,
+                             "diverged_at": diverged_at,
                              "curve": curve}
-        print(f"  FINAL: F_switch seed={seed} bpb={final_bpb:.4f}")
+        if trace:
+            traces[seed] = trace
+        print(f"  FINAL: F_switch seed={seed} bpb={final_bpb:.4f}"
+              + (f"  (DIVERGED at step {diverged_at})" if diverged_at is not None else ""))
 
-    # Summary
-    print(f"\n{'='*70}")
-    print(f"  EXPERIMENT 7 RESULTS")
-    print(f"{'='*70}")
-    print(f"{'config':<30} {'seed':>5} {'final_bpb':>10} {'vs baseline':>12}")
-    print("-" * 60)
+    # Persist the full curves. print_summary() keeps only endpoints in
+    # mechanism_disambiguation.json, which is why nothing survived from the
+    # original seed-256 divergence — the curve is the diagnostic.
+    RESULTS_DIR.mkdir(exist_ok=True)
+    suffix = f"_{tag}" if tag else ""
+    cfg_blob = {"switch_step": switch_step, "total_steps": total_steps,
+                "stop_step": stop_step, "switch_mode": switch_mode,
+                "post_switch_warmup": post_switch_warmup,
+                "reset_optimizer": reset_optimizer, "ramp_steps": ramp_steps,
+                "resumed_from": load_switch_ckpt, "seeds": list(seeds)}
+    curve_path = RESULTS_DIR / f"exp7_curriculum_sw{switch_step}{suffix}.json"
+    with open(curve_path, "w") as f:
+        json.dump({"config": cfg_blob, "runs": all_results}, f, indent=2)
+    print(f"\n  Full curves saved to {curve_path}")
+    for seed, tr in traces.items():
+        tp = RESULTS_DIR / f"exp7_switch_trace_s{seed}_sw{switch_step}{suffix}.json"
+        with open(tp, "w") as f:
+            json.dump({"seed": seed, "config": cfg_blob, "trace": tr}, f, indent=2)
+        print(f"  Switch trace saved to {tp}")
 
-    bl_bpbs, q4_bpbs, f_bpbs = [], [], []
-    for key in sorted(all_results.keys()):
-        r = all_results[key]
-        bl_key = f"A_full_s{r['seed']}"
-        bl_bpb = all_results.get(bl_key, {}).get("final_bpb", 0)
-        delta = (bl_bpb - r["final_bpb"]) / bl_bpb * 100 if bl_bpb else 0
-        delta_str = f"{delta:>+11.2f}%" if r["config"] != "A_full" else f"{'—':>12}"
-        print(f"{r['config']:<30} {r['seed']:>5} {r['final_bpb']:>10.4f} {delta_str}")
-        if "A_full" in r["config"]: bl_bpbs.append(r["final_bpb"])
-        elif "B_quartic" in r["config"]: q4_bpbs.append(r["final_bpb"])
-        elif "F_switch" in r["config"]: f_bpbs.append(r["final_bpb"])
-
-    if bl_bpbs and q4_bpbs and f_bpbs:
-        bl_m = sum(bl_bpbs) / len(bl_bpbs)
-        q4_m = sum(q4_bpbs) / len(q4_bpbs)
-        f_m = sum(f_bpbs) / len(f_bpbs)
-        print(f"\n  Means: A={bl_m:.4f}  B={q4_m:.4f}  F={f_m:.4f}")
-        print(f"  B vs A: {(bl_m-q4_m)/bl_m*100:+.2f}%")
-        print(f"  F vs A: {(bl_m-f_m)/bl_m*100:+.2f}%")
-        print(f"  F vs B: {(q4_m-f_m)/q4_m*100:+.2f}%")
-
-        if abs(f_m - q4_m) / q4_m < 0.003:
-            print(f"\n  → F ≈ B: hierarchy is permanent after 10k steps")
-            print(f"    Supports: STRUCTURAL SPECIALIZATION")
-        elif f_m > q4_m * 1.003:
-            print(f"\n  → F worse than B: removing windows hurts")
-            print(f"    Supports: ONGOING CONSTRAINT (not just curriculum)")
-        elif f_m < q4_m * 0.997:
-            print(f"\n  → F better than B: windows become a ceiling after early training")
-            print(f"    Supports: CURRICULUM EFFECT")
-        else:
-            print(f"\n  → Inconclusive (F ≈ B within noise)")
-
+    # A partial run (stop_step) ends mid-schedule, so its final bpb is not
+    # comparable to the fully-trained A and B arms. Skip the paired verdict.
+    if stop_step is None:
+        summarize_exp7(all_results)
+    else:
+        print(f"\n  Partial run (stopped at {stop_step} of {total_steps}) — "
+              f"no paired comparison against A/B.")
     return all_results
+
+
+def summarize_exp7(all_results):
+    """Per-seed paired summary against the pre-registered criteria.
+
+    The arms are paired by seed (shared init and data order), so per-seed
+    differences are the unit of analysis and their SIGNS are reported, not just
+    their mean. Reporting only the mean is what let an earlier draft read
+    "F better than B" out of two seeds that disagree in sign.
+    """
+    from analyze_all import paired_permutation_p, paired_t_p, cohens_dz
+
+    print(f"\n{'='*74}")
+    print("  EXPERIMENT 7 RESULTS (paired by seed)")
+    print(f"{'='*74}")
+    seeds = sorted({r["seed"] for r in all_results.values()})
+    print(f"  {'seed':>6} {'A: full':>9} {'B: quartic':>11} {'F: switch':>11} "
+          f"{'B vs A':>8} {'F vs A':>8} {'F vs B':>8}")
+    dFA, dFB = [], []
+    for sd in seeds:
+        A = all_results.get(f"A_full_s{sd}", {}).get("final_bpb")
+        B = all_results.get(f"B_quartic_s{sd}", {}).get("final_bpb")
+        Fr = all_results.get(f"F_switch_s{sd}", {})
+        F = Fr.get("final_bpb")
+        ok = F is not None and math.isfinite(F)
+        pct = lambda ref, v: f"{(ref - v) / ref * 100:>+7.2f}%" if (ref and v is not None
+                                                                   and math.isfinite(v)) else f"{'—':>8}"
+        num = lambda v, w: f"{v:>{w}.4f}" if v is not None else f"{'—':>{w}}"
+        fstr = num(F, 11) if ok else f"{'diverged':>11}"
+        print(f"  {sd:>6} {num(A, 9)} {num(B, 11)} {fstr} "
+              f"{pct(A, B)} {pct(A, F)} {pct(B, F)}")
+        if ok and A is not None and B is not None:
+            dFA.append(A - F)
+            dFB.append(B - F)
+
+    n_div = sum(1 for r in all_results.values()
+                if r["config"] == "F_switch"
+                and (r["final_bpb"] is None or not math.isfinite(r["final_bpb"])))
+    if n_div:
+        print(f"\n  {n_div}/{len(seeds)} F runs diverged. Diverged seeds count in the "
+              f"denominator; they are not dropped.")
+
+    def _report(name, diffs, rule):
+        if len(diffs) < 2:
+            print(f"\n  {name}: n={len(diffs)} — no paired test possible.")
+            return None
+        p, cnt, tot = paired_permutation_p(diffs)
+        npos, n = sum(1 for d in diffs if d > 0), len(diffs)
+        print(f"\n  {name}: {npos}/{n} positive, perm {cnt}/{tot}={p:.3f}, "
+              f"t_p={paired_t_p(diffs):.4f}, dz={cohens_dz(diffs):.2f}")
+        print(f"    floor at n={n} is 1/{2**n}={1/2**n:.3f}"
+              + ("  (cannot reach p<0.05)" if 1 / 2 ** n > 0.05 else ""))
+        print(f"    {rule(npos, n, paired_t_p(diffs))}")
+        return p
+
+    _report("F vs A (does removal preserve the benefit?)", dFA,
+            lambda npos, n, tp: (
+                "VERDICT: claimed — all paired differences positive."
+                if npos == n and n >= 5 else
+                "VERDICT: consistent direction, but under-powered at this n."
+                if npos == n else
+                "VERDICT: NOT claimed — not all seeds positive."))
+    _report("F vs B (is removal better than keeping?)", dFB,
+            lambda npos, n, tp: (
+                "VERDICT: claimed — >=4/5 positive and paired-t p<0.05."
+                if n >= 5 and npos >= 4 and tp < 0.05 else
+                "VERDICT: NOT claimed — sign-split / under-powered. Report as "
+                "'no detectable difference', not as 'removal helps'."))
 
 
 # ===========================================================================
@@ -540,23 +803,21 @@ def print_summary(r4, r5, r6, r7):
         status = "YES" if q4_sm > bl_sm * 1.2 else "NO" if abs(bl_sm-q4_sm)/max(bl_sm,q4_sm,1e-10) < 0.1 else "MAYBE"
         print(f"  Exp 6 (Landscape smooth):     bl={bl_sm:.4f} q4={q4_sm:.4f} → Smoother: {status}")
 
-    # Exp 7
+    # Exp 7 — sign counts, not the mean. See summarize_exp7 for the full report.
     if r7:
-        bl_bpbs = [r["final_bpb"] for r in r7.values() if "A_full" in r["config"]]
-        q4_bpbs = [r["final_bpb"] for r in r7.values() if "B_quartic" in r["config"]]
-        f_bpbs = [r["final_bpb"] for r in r7.values() if "F_switch" in r["config"]]
-        if bl_bpbs and q4_bpbs and f_bpbs:
-            f_m = sum(f_bpbs)/len(f_bpbs)
-            q4_m = sum(q4_bpbs)/len(q4_bpbs)
-            if abs(f_m - q4_m) / q4_m < 0.003:
-                status = "STRUCTURAL (F≈B)"
-            elif f_m > q4_m * 1.003:
-                status = "ONGOING CONSTRAINT (F<B)"
-            elif f_m < q4_m * 0.997:
-                status = "CURRICULUM (F>B)"
-            else:
-                status = "INCONCLUSIVE"
-            print(f"  Exp 7 (Curriculum test):      F={f_m:.4f} B={q4_m:.4f} → {status}")
+        pairs = []
+        for sd in sorted({r["seed"] for r in r7.values()}):
+            A = r7.get(f"A_full_s{sd}", {}).get("final_bpb")
+            B = r7.get(f"B_quartic_s{sd}", {}).get("final_bpb")
+            F = r7.get(f"F_switch_s{sd}", {}).get("final_bpb")
+            if None not in (A, B, F) and math.isfinite(F):
+                pairs.append((A - F, B - F))
+        if pairs:
+            n = len(pairs)
+            nFA = sum(1 for d, _ in pairs if d > 0)
+            nFB = sum(1 for _, d in pairs if d > 0)
+            print(f"  Exp 7 (Removal test):         F beats A on {nFA}/{n} seeds, "
+                  f"F beats B on {nFB}/{n} seeds")
 
     # Save all results. Merge into any existing file so running a subset of
     # experiments (e.g. --exp4 --exp5 --exp6) does not wipe results from
@@ -573,14 +834,25 @@ def print_summary(r4, r5, r6, r7):
         if val is not None:
             combined[key] = val
     if r7:
-        # Convert curves to just endpoints for JSON size
-        r7_save = {}
-        for k, v in r7.items():
-            r7_save[k] = {kk: vv for kk, vv in v.items() if kk != "curve"}
-            if "curve" in v:
-                r7_save[k]["curve_start"] = v["curve"][0] if v["curve"] else None
-                r7_save[k]["curve_end"] = v["curve"][-1] if v["curve"] else None
-        combined["exp7"] = r7_save
+        # A partial run (stop_step) is a diagnostic, not a result: it stops
+        # mid-schedule so its final bpb is not comparable to anything. Never let
+        # one overwrite the canonical exp7 block.
+        partial = any(v.get("stop_step") is not None for v in r7.values())
+        if partial:
+            print("  Exp 7: partial run — canonical exp7 block left untouched.")
+        else:
+            # Endpoints only here (full curves live in exp7_curriculum_sw*.json).
+            # A switch-point sweep writes to its own key so it cannot clobber the
+            # canonical 10k result.
+            r7_save = {}
+            sw = 10000
+            for k, v in r7.items():
+                r7_save[k] = {kk: vv for kk, vv in v.items() if kk != "curve"}
+                if "curve" in v:
+                    r7_save[k]["curve_start"] = v["curve"][0] if v["curve"] else None
+                    r7_save[k]["curve_end"] = v["curve"][-1] if v["curve"] else None
+                sw = v.get("switch_step", sw)
+            combined["exp7" if sw == 10000 else f"exp7_sw{sw}"] = r7_save
     with open(out_path, "w") as f:
         json.dump(combined, f, indent=2)
     print(f"\n  Results saved to {out_path}")
@@ -594,8 +866,45 @@ def main():
     parser.add_argument("--exp4", action="store_true", help="Train-val gap (~5 min)")
     parser.add_argument("--exp5", action="store_true", help="Gradient covariance (~30 min)")
     parser.add_argument("--exp6", action="store_true", help="Landscape smoothness (~10 min)")
-    parser.add_argument("--exp7", action="store_true", help="Curriculum test (~3 hours)")
-    parser.add_argument("--seeds", type=int, default=3, help="Seeds for exp7")
+    parser.add_argument("--exp7", action="store_true",
+                        help="Window-removal test (~1.3 h per seed)")
+    parser.add_argument("--seeds", type=int, default=3,
+                        help="How many of the default seeds to use for exp7")
+    parser.add_argument("--seed-list", type=str, default=None,
+                        help="Explicit exp7 seeds, e.g. 42,137,256,789,1337 "
+                             "(overrides --seeds)")
+    parser.add_argument("--switch-step", type=int, default=10000,
+                        help="Step at which exp7 removes the windows")
+    parser.add_argument("--total-steps", type=int, default=20000,
+                        help="Total steps for the exp7 F arm")
+    parser.add_argument("--switch-mode", choices=["full", "full_masked"], default="full",
+                        help="What to switch to. 'full' clears arch_cfg (also changes "
+                             "the attention kernel); 'full_masked' keeps the "
+                             "masked-softmax path with all-full windows, isolating "
+                             "the mask change from the kernel change")
+    parser.add_argument("--post-switch-warmup", type=int, default=0,
+                        help="Re-warm the LR over N steps after the switch")
+    parser.add_argument("--reset-optimizer", action="store_true",
+                        help="Reset Adam state at the switch (stale second-moment test)")
+    parser.add_argument("--ramp-steps", type=int, default=0,
+                        help="Ramp windows to full linearly over N steps instead of "
+                             "switching discontinuously")
+    parser.add_argument("--trace-window", type=int, default=0,
+                        help="Log per-step loss / grad norm / max Adam update over "
+                             "[switch-N, switch+5N]. Use ~100 to diagnose divergence")
+    parser.add_argument("--stop-step", type=int, default=None,
+                        help="Stop after this step. The LR schedule stays keyed to "
+                             "--total-steps, so the conditions at the switch are "
+                             "unchanged (shortening --total-steps would move the "
+                             "cosine and change the LR at the switch)")
+    parser.add_argument("--save-switch-ckpt", type=str, default=None, metavar="DIR",
+                        help="Save model+optimizer+RNG state at the switch, per seed")
+    parser.add_argument("--load-switch-ckpt", type=str, default=None, metavar="CKPT",
+                        help="Start at the switch from a saved state, so several "
+                             "interventions share one identical pre-switch state")
+    parser.add_argument("--tag", type=str, default="",
+                        help="Suffix for output filenames, so treatments in a "
+                             "diagnosis sweep do not overwrite each other")
     parser.add_argument("--all", action="store_true")
     args = parser.parse_args()
 
@@ -603,10 +912,25 @@ def main():
         parser.print_help()
         return
 
+    if args.seed_list:
+        seeds = [int(s) for s in args.seed_list.split(",") if s.strip()]
+    else:
+        seeds = [42, 137, 256][:args.seeds]
+
     r4 = experiment4() if (args.exp4 or args.all) else None
     r5 = experiment5() if (args.exp5 or args.all) else None
     r6 = experiment6() if (args.exp6 or args.all) else None
-    r7 = experiment7(n_seeds=args.seeds) if (args.exp7 or args.all) else None
+    r7 = experiment7(seeds=seeds, switch_step=args.switch_step,
+                     total_steps=args.total_steps, switch_mode=args.switch_mode,
+                     post_switch_warmup=args.post_switch_warmup,
+                     reset_optimizer=args.reset_optimizer,
+                     ramp_steps=args.ramp_steps,
+                     trace_window=args.trace_window,
+                     stop_step=args.stop_step,
+                     save_switch_ckpt=args.save_switch_ckpt,
+                     load_switch_ckpt=args.load_switch_ckpt,
+                     tag=args.tag) \
+        if (args.exp7 or args.all) else None
 
     print_summary(r4, r5, r6, r7)
 
