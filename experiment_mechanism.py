@@ -448,6 +448,24 @@ def _restore_rng(st):
         torch.cuda.set_rng_state_all([s.cpu().to(torch.uint8) for s in st["cuda"]])
 
 
+def _write_exp7_files(curve_path, all_results, traces, seeds, switch_step,
+                      total_steps, stop_step, switch_mode, post_switch_warmup,
+                      reset_optimizer, ramp_steps, load_switch_ckpt, suffix):
+    """Write the sweep's curves and switch traces. Called after every seed."""
+    cfg_blob = {"switch_step": switch_step, "total_steps": total_steps,
+                "stop_step": stop_step, "switch_mode": switch_mode,
+                "post_switch_warmup": post_switch_warmup,
+                "reset_optimizer": reset_optimizer, "ramp_steps": ramp_steps,
+                "resumed_from": load_switch_ckpt, "seeds": list(seeds)}
+    with open(curve_path, "w") as f:
+        json.dump({"config": cfg_blob, "runs": all_results}, f, indent=2)
+    for seed, tr in traces.items():
+        tp = curve_path.parent / (f"exp7_switch_trace_s{seed}_sw{switch_step}"
+                                  f"{suffix}.json")
+        with open(tp, "w") as f:
+            json.dump({"seed": seed, "config": cfg_blob, "trace": tr}, f, indent=2)
+
+
 def experiment7(seeds=(42, 137, 256), switch_step: int = 10000,
                 total_steps: int = 20000, switch_mode: str = "full",
                 post_switch_warmup: int = 0, reset_optimizer: bool = False,
@@ -455,7 +473,7 @@ def experiment7(seeds=(42, 137, 256), switch_step: int = 10000,
                 stop_step: int | None = None,
                 save_switch_ckpt: str | None = None,
                 load_switch_ckpt: str | None = None,
-                tag: str = ""):
+                tag: str = "", resume_seeds: bool = False):
     """Train with quartic windows for `switch_step` steps, then remove them.
 
     A: full attention throughout (cached).  B: quartic throughout (cached).
@@ -501,10 +519,28 @@ def experiment7(seeds=(42, 137, 256), switch_step: int = 10000,
     quartic_w = _quartic_windows()
     target_cfg = _post_switch_cfg(switch_mode)
 
+    RESULTS_DIR.mkdir(exist_ok=True)
+    suffix = f"_{tag}" if tag else ""
+    curve_path = RESULTS_DIR / f"exp7_curriculum_sw{switch_step}{suffix}.json"
+
     all_results = {}
     traces = {}
 
+    # Each seed is ~70-100 min. Persist after every seed and allow resuming, so
+    # an interrupted sweep costs at most the in-progress seed rather than all of
+    # them.
+    done = set()
+    if resume_seeds and curve_path.exists():
+        prev = json.load(open(curve_path))
+        all_results = prev.get("runs", {})
+        done = {r["seed"] for r in all_results.values() if r["config"] == "F_switch"}
+        print(f"  resuming: {curve_path.name} already has seeds "
+              f"{sorted(done)} — those will be skipped\n")
+
     for seed in seeds:
+        if seed in done:
+            print(f"  seed {seed}: already complete, skipping")
+            continue
         print(f"\n{'='*60}")
         print(f"  Seed {seed}")
         print(f"{'='*60}")
@@ -664,25 +700,19 @@ def experiment7(seeds=(42, 137, 256), switch_step: int = 10000,
         print(f"  FINAL: F_switch seed={seed} bpb={final_bpb:.4f}"
               + (f"  (DIVERGED at step {diverged_at})" if diverged_at is not None else ""))
 
+        # Checkpoint the sweep after every seed, not just at the end.
+        _write_exp7_files(curve_path, all_results, traces, seeds, switch_step,
+                          total_steps, stop_step, switch_mode, post_switch_warmup,
+                          reset_optimizer, ramp_steps, load_switch_ckpt, suffix)
+        print(f"  progress saved to {curve_path}")
+
     # Persist the full curves. print_summary() keeps only endpoints in
     # mechanism_disambiguation.json, which is why nothing survived from the
     # original seed-256 divergence — the curve is the diagnostic.
-    RESULTS_DIR.mkdir(exist_ok=True)
-    suffix = f"_{tag}" if tag else ""
-    cfg_blob = {"switch_step": switch_step, "total_steps": total_steps,
-                "stop_step": stop_step, "switch_mode": switch_mode,
-                "post_switch_warmup": post_switch_warmup,
-                "reset_optimizer": reset_optimizer, "ramp_steps": ramp_steps,
-                "resumed_from": load_switch_ckpt, "seeds": list(seeds)}
-    curve_path = RESULTS_DIR / f"exp7_curriculum_sw{switch_step}{suffix}.json"
-    with open(curve_path, "w") as f:
-        json.dump({"config": cfg_blob, "runs": all_results}, f, indent=2)
+    _write_exp7_files(curve_path, all_results, traces, seeds, switch_step,
+                      total_steps, stop_step, switch_mode, post_switch_warmup,
+                      reset_optimizer, ramp_steps, load_switch_ckpt, suffix)
     print(f"\n  Full curves saved to {curve_path}")
-    for seed, tr in traces.items():
-        tp = RESULTS_DIR / f"exp7_switch_trace_s{seed}_sw{switch_step}{suffix}.json"
-        with open(tp, "w") as f:
-            json.dump({"seed": seed, "config": cfg_blob, "trace": tr}, f, indent=2)
-        print(f"  Switch trace saved to {tp}")
 
     # A partial run (stop_step) ends mid-schedule, so its final bpb is not
     # comparable to the fully-trained A and B arms. Skip the paired verdict.
@@ -905,6 +935,10 @@ def main():
     parser.add_argument("--tag", type=str, default="",
                         help="Suffix for output filenames, so treatments in a "
                              "diagnosis sweep do not overwrite each other")
+    parser.add_argument("--resume-seeds", action="store_true",
+                        help="Skip seeds already present in the tag's result "
+                             "file. Results are written after every seed, so an "
+                             "interrupted sweep resumes at the seed it died on")
     parser.add_argument("--all", action="store_true")
     args = parser.parse_args()
 
@@ -929,7 +963,7 @@ def main():
                      stop_step=args.stop_step,
                      save_switch_ckpt=args.save_switch_ckpt,
                      load_switch_ckpt=args.load_switch_ckpt,
-                     tag=args.tag) \
+                     tag=args.tag, resume_seeds=args.resume_seeds) \
         if (args.exp7 or args.all) else None
 
     print_summary(r4, r5, r6, r7)

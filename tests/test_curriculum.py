@@ -13,6 +13,7 @@ These cover the pieces the pre-registered experiments depend on:
 All CPU, no data download, no training.
 """
 import dataclasses
+import json
 
 import torch
 
@@ -128,6 +129,74 @@ def test_switch_step_rejected_for_unwindowed_arch():
         assert "no windows" in str(e)
     else:
         raise AssertionError("expected ValueError for baseline + --switch-step")
+
+
+# --------------------------------------------------------------------------
+# Sweep durability
+# --------------------------------------------------------------------------
+def _stub_training(monkeypatch, tmp_path):
+    """Run experiment7 without real data, training cost, or eval cost."""
+    monkeypatch.setattr(em, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(em, "load_data",
+                        lambda split: torch.randint(0, 200, (5000,), dtype=torch.uint8))
+    monkeypatch.setattr(em, "get_batch",
+                        lambda d, b, t, dev: (torch.randint(0, 200, (2, 32), device=dev),
+                                              torch.randint(0, 200, (2, 32), device=dev)))
+    monkeypatch.setattr(em, "evaluate_val_bpb", lambda *a, **k: 1.234)
+    monkeypatch.setattr(em, "BATCH_SIZE", 2)
+
+
+def test_results_are_written_after_every_seed(monkeypatch, tmp_path):
+    """A sweep killed mid-way must not lose the seeds that already finished.
+
+    Regression test: results used to be written only after ALL seeds, so a run
+    killed on the last seed lost every completed one.
+    """
+    _stub_training(monkeypatch, tmp_path)
+    seen = []
+    real = em._write_exp7_files
+
+    def spy(curve_path, all_results, *a, **k):
+        seen.append(sorted(r["seed"] for r in all_results.values()
+                           if r["config"] == "F_switch"))
+        return real(curve_path, all_results, *a, **k)
+
+    monkeypatch.setattr(em, "_write_exp7_files", spy)
+    em.experiment7(seeds=[42, 137], switch_step=4, total_steps=8, tag="dur")
+
+    # Written after seed 42 (before 137 existed), after 137, and once at the end.
+    assert [42] in seen, "no write happened before the second seed finished"
+    assert seen[-1] == [42, 137]
+    written = json.loads((tmp_path / "exp7_curriculum_sw4_dur.json").read_text())
+    assert sorted(r["seed"] for r in written["runs"].values()
+                  if r["config"] == "F_switch") == [42, 137]
+
+
+def test_resume_seeds_skips_completed_and_keeps_them(monkeypatch, tmp_path):
+    _stub_training(monkeypatch, tmp_path)
+    em.experiment7(seeds=[42], switch_step=4, total_steps=8, tag="res")
+
+    trained = []
+    real_gpt = em.GPT
+    monkeypatch.setattr(em, "GPT",
+                        lambda *a, **k: trained.append(1) or real_gpt(*a, **k))
+    r = em.experiment7(seeds=[42, 137], switch_step=4, total_steps=8, tag="res",
+                       resume_seeds=True)
+
+    assert len(trained) == 1, "seed 42 was retrained instead of being skipped"
+    assert sorted(v["seed"] for v in r.values() if v["config"] == "F_switch") == [42, 137]
+
+
+def test_no_resume_flag_starts_clean(monkeypatch, tmp_path):
+    """Without --resume-seeds, a rerun must not silently reuse stale results."""
+    _stub_training(monkeypatch, tmp_path)
+    em.experiment7(seeds=[42, 137], switch_step=4, total_steps=8, tag="clean")
+    trained = []
+    real_gpt = em.GPT
+    monkeypatch.setattr(em, "GPT",
+                        lambda *a, **k: trained.append(1) or real_gpt(*a, **k))
+    em.experiment7(seeds=[42, 137], switch_step=4, total_steps=8, tag="clean")
+    assert len(trained) == 2, "stale results were reused without --resume-seeds"
 
 
 def test_switch_step_out_of_range_rejected():
