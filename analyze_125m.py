@@ -17,6 +17,26 @@ def std(x):
     m = mean(x)
     return (sum((v-m)**2 for v in x)/max(len(x)-1,1))**0.5 if len(x)>1 else 0
 
+def _load_3_4m_means(steps=20000):
+    """Mean final val_bpb per arch at 3.4M, read from validation_results/.
+
+    Previously these four numbers sat in the source as literals. Reading them
+    keeps the scale-comparison table honest if the underlying runs change.
+    """
+    per_arch = defaultdict(list)
+    for f in sorted(glob.glob("validation_results/*_s*.json")):
+        if f.endswith("_100k.json"):
+            continue
+        d = json.load(open(f))
+        s = d["summary"]
+        if s.get("max_steps") != steps:
+            continue
+        v = s.get("final_vbpb", s.get("final_val_bpb"))
+        if v is not None:
+            per_arch[s["arch"]].append(v)
+    return {a: mean(v) for a, v in per_arch.items()}
+
+
 def _paired_table(by_seed, label):
     """Print a paired baseline-vs-variant table for one training horizon."""
     base = by_seed.get("baseline", {})
@@ -27,9 +47,11 @@ def _paired_table(by_seed, label):
     print(f"\n{label}  (baseline mean {bl_mean:.4f}, n={len(base)})")
     print(f"{'config':<24} {'n':>3} {'mean bpb':>10} {'std':>8} {'vs bl':>8} {'perm_p':>11} {'t_p':>8} {'dz':>6}")
     print("-" * 84)
-    for arch in ["baseline", "window_quadratic", "window_power_3.0", "window_power_4.0",
-                 "window_power_6.0", "window_power_8.0", "window_power_10.0",
-                 "window_power_12.0", "window_quad_induction", "window_p4_induction"]:
+    known = ["baseline", "window_quadratic", "window_power_3.0", "window_power_4.0",
+             "window_power_6.0", "window_power_8.0", "window_power_10.0",
+             "window_power_12.0", "window_quad_induction", "window_p4_induction"]
+    # Anything else present (e.g. curriculum arms "…@sw25000") is listed after.
+    for arch in known + sorted(set(by_seed) - set(known)):
         d = by_seed.get(arch, {})
         if not d: continue
         vals = list(d.values())
@@ -60,9 +82,15 @@ def main():
     for f in sorted(glob.glob("results_125m/*.json")):
         d = json.load(open(f))
         s = d["summary"]
-        by_seed[s["max_steps"]][s["arch"]][s["seed"]] = s["final_val_bpb"]
-        curves[s["arch"]].append(d["curve"])
-        curve_by_seed[s["arch"]][s["seed"]] = d["curve"]
+        # A curriculum run (--switch-step) shares the "arch" field with the
+        # windows-throughout run. Give it a distinct label so the two are never
+        # averaged together.
+        arch = s["arch"]
+        if s.get("switch_step") is not None:
+            arch = f"{arch}@sw{s['switch_step']}"
+        by_seed[s["max_steps"]][arch][s["seed"]] = s["final_val_bpb"]
+        curves[arch].append(d["curve"])
+        curve_by_seed[arch][s["seed"]] = d["curve"]
 
     if not by_seed:
         print("No results found in results_125m/. Run experiments first.")
@@ -110,9 +138,43 @@ def main():
         print(f"  {sd:>6} {b:>10.4f} {q:>10.4f} {g:>+7.2f}% {'✓' if g > 0 else '✗'}")
     if gaps:
         npos = sum(1 for g in gaps if g > 0)
+        # Paired test on the raw per-seed differences, not on the percentages.
+        pdiffs = [_bpb_at_step(base_c[sd], MATCH_STEP) - _bpb_at_step(quar_c[sd], MATCH_STEP)
+                  for sd in seeds
+                  if _bpb_at_step(base_c[sd], MATCH_STEP) is not None
+                  and _bpb_at_step(quar_c[sd], MATCH_STEP) is not None]
         print(f"  mean gap {mean(gaps):+.2f}% (sd {std(gaps):.2f}), {npos}/{len(gaps)} seeds positive")
-        print(f"  → headline: +{mean(gaps):.1f}% at 125M (20k, n={len(gaps)}); "
-              f"50k extension on 2 seeds widens to +12.9% but is unconverged.")
+        if len(pdiffs) >= 2:
+            perm_p, cnt, tot = paired_permutation_p(pdiffs)
+            print(f"  paired: perm {cnt}/{tot}={perm_p:.3f}  t_p={paired_t_p(pdiffs):.4f}  "
+                  f"dz={cohens_dz(pdiffs):.2f}")
+        print(f"  → headline: +{mean(gaps):.1f}% at 125M ({MATCH_STEP//1000}k, n={len(gaps)}), "
+              f"{npos}/{len(gaps)} seeds positive.")
+
+    # 50k extension: report it, and report why it does not support a scaling claim.
+    # The convergence gate is the mean decline over the final 10k steps, in bpb per
+    # 1k steps. A run counts as converged below GATE. Both arms fail it, and the
+    # quartic arms fail it harder — a widening gap between two curves that are both
+    # still falling is uninformative about the asymptotic gap.
+    GATE = 0.002
+    ext = sorted(sd for sd in seeds
+                 if _bpb_at_step(base_c[sd], 50000) is not None
+                 and _bpb_at_step(quar_c[sd], 50000) is not None)
+    if ext:
+        print(f"\n50k extension (n={len(ext)}) — UNCONVERGED, do not cite as a scaling result:")
+        print(f"  {'seed':>6} {'baseline':>10} {'quartic':>10} {'gap%':>8} "
+              f"{'bl decl/1k':>11} {'q decl/1k':>10}")
+        bl50, q50 = [], []
+        for sd in ext:
+            b, q = _bpb_at_step(base_c[sd], 50000), _bpb_at_step(quar_c[sd], 50000)
+            bl50.append(b); q50.append(q)
+            bd = (_bpb_at_step(base_c[sd], 40000) - b) / 10
+            qd = (_bpb_at_step(quar_c[sd], 40000) - q) / 10
+            print(f"  {sd:>6} {b:>10.4f} {q:>10.4f} {(b-q)/b*100:>+7.2f}% "
+                  f"{bd:>11.4f} {qd:>10.4f}")
+        gap50 = (mean(bl50) - mean(q50)) / mean(bl50) * 100
+        print(f"  mean {mean(bl50):.4f} vs {mean(q50):.4f} → +{gap50:.1f}% "
+              f"(n={len(ext)}, both arms above the {GATE} bpb/1k convergence gate)")
 
     # Exponent sweep summary
     print(f"\nExponent Sweep (window_power_X.0):")
@@ -179,19 +241,27 @@ def main():
     print(f"\n{'=' * 90}")
     print(f"  SCALE COMPARISON: 3.4M vs 125M")
     print(f"{'=' * 90}")
-    small = {"baseline": 0.9002, "window_power_4.0": 0.8866, "window_quadratic": 0.8911, "window_quad_induction": 0.8899}
+    small = _load_3_4m_means()
     print(f"{'config':<28} {'3.4M bpb':>10} {'125M bpb':>10} {'3.4M vs bl':>12} {'125M vs bl':>12} {'scales?':>8}")
     print("-" * 85)
     for arch in ["baseline", "window_quadratic", "window_power_4.0",
                  "window_power_6.0", "window_power_8.0", "window_power_10.0",
                  "window_power_12.0", "window_quad_induction", "window_p4_induction"]:
-        s_val = small.get(arch, 0)
+        s_val = small.get(arch)
         l_vals = results.get(arch, [])
-        l_val = mean(l_vals) if l_vals else 0
-        s_diff = (small["baseline"] - s_val)/small["baseline"]*100
-        l_diff = (bl_mean - l_val)/bl_mean*100 if l_val else 0
-        scales = "YES" if (s_diff > 0.5 and l_diff > 0.5) else "NO" if l_val else "?"
-        print(f"{arch:<28} {s_val:>10.4f} {l_val:>10.4f} {s_diff:>+11.1f}% {l_diff:>+11.1f}% {scales:>8}")
+        l_val = mean(l_vals) if l_vals else None
+        # An arch with no run at a scale prints "—", not 0.0000/+100% — a missing
+        # run is not a measurement.
+        if s_val is None and l_val is None:
+            continue
+        s_diff = (small["baseline"] - s_val)/small["baseline"]*100 if s_val else None
+        l_diff = (bl_mean - l_val)/bl_mean*100 if l_val else None
+        scales = ("YES" if (s_diff > 0.5 and l_diff > 0.5) else "NO") \
+            if (s_diff is not None and l_diff is not None) else "?"
+        f = lambda v, w, suf="": (f"{v:>{w}.4f}" if suf == "" else f"{v:>+{w-1}.1f}%") \
+            if v is not None else f"{'—':>{w}}"
+        print(f"{arch:<28} {f(s_val,10)} {f(l_val,10)} {f(s_diff,12,'%')} "
+              f"{f(l_diff,12,'%')} {scales:>8}")
 
     print()
 
