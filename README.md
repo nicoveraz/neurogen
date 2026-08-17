@@ -18,37 +18,43 @@ Three arms, 20K steps each, same seed → same init *and* same data order. Only 
 Arm **A** full attention throughout · arm **B** quartic windows throughout · arm **F** quartic for 10K steps then full attention for 10K.
 
 ```
-seed    A: full   B: quartic  F: quartic→full   B vs A   F vs A   F vs B
-42      0.9041    0.8927      0.8946            +1.26%   +1.05%   −0.22%
-137     0.8913    0.8788      0.8739            +1.40%   +1.95%   +0.56%
-256     0.8941    0.8830      diverged (NaN)    +1.24%   —        —
+seed   A: full   B: quartic  F: quartic→full   B vs A   F vs A   F vs B
+42     0.9041    0.8927      0.8952            +1.26%   +0.98%   -0.28%
+137    0.8913    0.8788      0.8746            +1.40%   +1.87%   +0.48%
+256    0.8941    0.8830      0.8865            +1.24%   +0.85%   -0.39%
+789    0.9098    0.8896      0.8887            +2.23%   +2.32%   +0.10%
+1337   0.9016    0.8889      0.8901            +1.41%   +1.28%   -0.14%
 
-mean    0.8977    0.8857      0.8842            +1.33%   +1.50%   +0.17%
-(seeds 42, 137)
+mean   0.9002    0.8866      0.8870            +1.51%   +1.46%   -0.05%   (n=5)
+
+F vs A:  5/5 positive, perm 1/32 = 0.031, paired_t 0.0064, dz 2.34   → CLAIMED
+F vs B:  2/5 positive, perm 0.625,        paired_t 0.771,  dz -0.14  → not claimed
 ```
 
-**What this supports:** F beats A on both completed seeds (2/2). The benefit of the locality constraint *survives its removal* — the windows are not doing ongoing work in the second half of training.
+**What this supports:** F beats A on **all five** seeds. The exact sign-flip permutation test hits its floor (p = 0.031), paired-t p = 0.0064, dz = 2.34. The benefit of the locality constraint *survives its removal* — the windows are not doing ongoing work in the second half of training. Both criteria were fixed before the runs.
 
-**What this does NOT support:** that removal is *better* than keeping the windows. The two seeds disagree in sign (seed 42 favors B, seed 137 favors F), and the exact sign-flip permutation over those two paired differences gives **p = 0.50**. The `+1.50%` vs `+1.33%` means average across opposite signs. An earlier draft read them as evidence that windows eventually become a ceiling; that is not supported at n=2.
+**What this does NOT support:** that removal is *better* than keeping the windows. Only 2/5 seeds favour it, the mean is −0.05%, and dz ≈ 0. This isn't a near miss — the difference is an order of magnitude below the 0.0023 bpb residual noise on this comparison. **More seeds won't fix it; a lower-variance endpoint measurement would** (see [pre-registered experiment 4](#pre-registered-experiments)). An earlier draft, working from the 2 seeds that completed in an earlier 3-seed run, read F's `+1.50%` against B's `+1.33%` as evidence that windows eventually become a ceiling. Those two seeds disagreed in sign; the reading did not survive replication.
 
-**Power:** at n=2 the exact paired permutation test floors at p = 1/4 = 0.25, so *no* two-seed arrangement can be significant. The 5-seed replication is specced under [Pre-registered experiments](#pre-registered-experiments).
+Reproduce: `uv run python analyze_exp7.py`
 
-**The switch is a shock, and the divergence is stochastic.** Arm F at seed 256 went NaN after the switch — reported, not dropped. It is tempting to read that as a property of seed 256; it isn't. In the five-seed replication (3 seeds complete so far) that *same* seed completed normally at 0.8865. Observed rate: **1 divergence in 6 completed arm-F runs**, not tied to any seed.
+**The switch is a shock, and the divergence is stochastic.** An earlier 3-seed run lost arm F at seed 256 to NaN. It is tempting to read that as a property of seed 256; it isn't. In the 5-seed replication above that *same* seed completed normally at 0.8865, and **no seed diverged**. Observed rate across both runs: **1 divergence in 8 completed arm-F runs**, tied to no seed.
 
-What every run takes is a large transient shock. Per-step instrumentation around step 10000, on all three replicated seeds:
+What every run takes is a large transient shock. Per-step instrumentation around step 10000, across all five seeds:
 
 ```
                        pre-switch   at switch    peak (first 100)   by step 10400
 loss                   0.68         2.21-2.37    —                  0.67
 grad norm (pre-clip)   0.136        2.13-2.72    —                  0.136
-max Adam update        3.5e-3       3.6e-3       7.5e-3             3.3e-3
+max Adam update        3.5e-3       3.6e-3       7.5-7.6e-3         3.3e-3
 ```
+
+The peak Adam update is **2.13–2.16× pre-switch on every one of the five seeds** — a 1.4% spread. That consistency is what makes it a usable diagnostic, where the divergence itself (1 in 8) is not.
 
 The last row is the informative one. Grad clipping at 1.0 bounds the *gradient* — the 2.1-2.7 spike is duly clipped — but the largest **Adam update still climbs 2.1×** over the next ~100 steps. That's the stale-second-moment signature: `v` was accumulated under window-8 gradients, so `m/√v` is large where historical `v` is small, and clipping the gradient does not bound it. Recovery is complete by ~400 steps.
 
 The LR schedule is ruled out by inspection — a single cosine over the full 20K horizon with no term keyed to the switch step.
 
-Reproduce: `uv run python experiment_mechanism.py --exp7` (data in `gradient_results/mechanism_disambiguation.json`).
+Reproduce the sweep: `uv run python experiment_mechanism.py --exp7 --seed-list 42,137,256,789,1337` (~7 h; data in `gradient_results/exp7_curriculum_sw10000_5seed.json`).
 
 ## What the curriculum leaves behind
 
@@ -220,10 +226,11 @@ Larger batches look better only because they saw 4× more data. At equal token b
 
 Criteria stated in advance so outcomes can't be re-framed after the fact. **None of these have been run.**
 
-**1. Removal at 5 seeds** — arm F at seeds 42/137/256/789/1337, switch at 10K. Arms A and B already exist at all 5 seeds, so only F trains (~6–7 h on M1 Pro).
-*Criterion:* claim "removal preserves the benefit" iff **5/5** paired diffs (A − F) positive → permutation floor p = 0.031. Claim "removal is better than keeping" only if **≥4/5** paired diffs (B − F) positive **and** paired-t p < 0.05; at 2/5 or 3/5, report no detectable difference. Diverged seeds count in the denominator.
+**1. Removal at 5 seeds — ✅ DONE**, results in [Key Finding](#key-finding--the-windows-can-be-removed) above.
+*Criteria, fixed before the runs:* claim "removal preserves the benefit" iff **5/5** paired diffs (A − F) positive → permutation floor p = 0.031. Claim "removal is better than keeping" only if **≥4/5** paired diffs (B − F) positive **and** paired-t p < 0.05; at 2/5 or 3/5, report no detectable difference. Diverged seeds count in the denominator.
+*Outcome:* first criterion **met** (5/5, p = 0.031, paired-t 0.0064, dz 2.34); second **failed** (2/5, p = 0.625). No seed diverged.
 
-**2. Shock diagnosis** — the divergence does **not** reproduce on demand (~1 in 6 runs, not seed-tied), so an experiment keyed to reproducing the NaN would be badly powered. Target the *shock* instead: continuous, large, and present on every seed. From one shared pre-switch state, run five treatments and compare peak loss / peak pre-clip grad norm / peak Adam update over `[switch, switch+500]`:
+**2. Shock diagnosis** — the divergence does **not** reproduce on demand (~1 in 8 runs, not seed-tied), so an experiment keyed to reproducing the NaN would be badly powered. Target the *shock* instead: continuous, large, and present on every seed. From one shared pre-switch state, run five treatments and compare peak loss / peak pre-clip grad norm / peak Adam update over `[switch, switch+500]`:
 
 | treatment | tests |
 |---|---|
