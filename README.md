@@ -252,6 +252,15 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 *Criterion, fixed before the runs:* five treatments from one shared pre-switch state; report which reduces the peak Adam update toward its pre-switch 3.5e-3. Optimizer reset predicted to — **and if it didn't, the stale-second-moment account gets withdrawn.**
 *Outcome:* reset cut the peak update 4.8×, so the account stands. Kernel change eliminated. The window ramp, included only as a candidate mitigation, turned out to remove the shock at its source. Still untested: whether any treatment improves converged val_bpb or lowers the 1-in-8 divergence rate.
 
+**2b. Ramp arm to convergence, 5 seeds** — *validates the "ramp, don't switch" recommendation, which currently rests on one seed stopped 1000 steps after the switch and on shock metrics only.* Arm **R** = quartic for 10K steps, then a 500-step linear ramp to full attention, then full attention to 20K. Resumed from the same pre-switch checkpoints arm F used, so only 10K steps train per seed (~4 h).
+
+*Why this comparison is unusually clean:* R and F resume from an identical pre-switch state with identical restored RNG, so they see the same training batches **and the same eval draws**. The endpoint noise that limits F-vs-B (0.0023 bpb, see experiment 4) is common-mode here and largely cancels. The only difference between the arms is the ramp.
+
+*Criteria:*
+- **R vs A** — claim "the ramped curriculum preserves the benefit" iff **5/5** paired diffs (A − R) positive → perm p = 0.031.
+- **R vs F** — claim "ramping is better than switching" only if **≥4/5** positive **and** paired-t p < 0.05. Claim "ramping costs nothing" if the difference is not significantly negative.
+- **Pre-registered negative:** if R is significantly *worse* than F, the "ramp, don't switch" recommendation is **withdrawn** from the Conclusion and Discussion.
+
 **3. Switch-point sweep** — remove windows at 2K/5K/10K/15K of a 20K run, 5 seeds (~19–21 h). This is what turns "windows are a curriculum" into a recipe, and it's currently missing entirely.
 *Criterion:* claim an optimal removal point only if the best interior x beats **both** endpoints (x=0 is arm A, x=20K is arm B) on ≥4/5 paired seeds. If flat, the finding is "the removal point doesn't matter over 10–75% of training" — a stronger recipe, since it needs no tuning. Report divergence rate per switch point.
 
