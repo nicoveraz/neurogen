@@ -10,7 +10,9 @@ An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting
 
 In all of that work the locality is a property **of the model** — present at init, during training, and at inference.
 
-**New (our claim).** It is a property of the **training trajectory**. Remove the windows halfway through training and the benefit stays. Nothing above tests that; the closest neighbors go the other direction (SWAT trains *with* windows to keep them at inference; Shortformer is a curriculum over sequence length, not over per-layer span).
+**New (our claim).** It is a property of the **training trajectory**. Release the windows halfway through training and the benefit stays. Nothing above tests that; the closest neighbors go the other direction (SWAT trains *with* windows to keep them at inference; Shortformer is a curriculum over sequence length, not over per-layer span).
+
+**Scope.** Demonstrated at 3.4M on TinyStories, 5 matched seeds, criteria pre-registered. **Not yet tested above 3.4M** — see [Status](#status).
 
 ## Key Finding — the windows can be removed
 
@@ -191,6 +193,8 @@ paired: perm_p = 2/32 = 0.063,  paired_t p = 0.045,  dz = 1.29
 
 **The 125M headline is +2.6% at 20K across 5 seeds with one seed negative.** This is weaker than the 3.4M result (5/5 positive, permutation at its floor) and is a suggestive scale probe, not a demonstrated scaling law.
 
+> ⚠️ **The curriculum claim has never been tested at 125M.** This section shows only that *windows help* at 125M, at an unconverged 20K steps. No release arm — no F, no R, no release at any point — has ever been run at this scale. **Everything in [Key Finding](#key-finding--the-windows-can-be-removed) rests on a 3.4M model trained on TinyStories.** Closing this is [pre-registered experiment 5](#pre-registered-experiments) and is the single most important open item in the project.
+
 Windowed 125M runs are slightly faster than baseline (2.83–2.84 vs 2.73–2.78 steps/sec) — Flash Attention's sliding window computes fewer scores. Under the curriculum recipe that advantage applies only to the windowed phase; inference runs at standard full-attention cost.
 
 Reproduce: `uv run python analyze_125m.py`.
@@ -254,6 +258,21 @@ Larger batches look better only because they saw 4× more data. At equal token b
 
 *(A direct Hessian probe of landscape flatness was also attempted but was inconclusive at n=1 — the attention-entropy↔sharpness relationship is already well-studied, so a credible test needs multiple converged pairs at scale; left to future work.)*
 
+## Status
+
+| claim | evidence | status |
+|---|---|---|
+| Windowed schedule beats baseline at 3.4M | 5 seeds, 5/5, perm p=0.031, dz 3.59 | **settled** |
+| Benefit survives releasing the constraint | 5 seeds, 5/5, perm p=0.031, dz 2.34 | **settled** |
+| Release method (switch vs ramp) doesn't affect quality | both 5/5 vs baseline; R−F mean +0.0002 bpb | **settled** |
+| Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
+| Releasing *beats* retaining | 2/5, p=0.625 — below the noise floor | **not resolvable** without exp. 4 |
+| Ramping lowers the divergence rate | 1 event in 8 runs | **untested** |
+| Any of this holds above 3.4M | none — no release arm has run at 125M | **untested** ⚠️ |
+| Windows help at 125M (windows-throughout only) | 5 seeds, 4/5, p=0.063, unconverged | suggestive |
+
+Three of five pre-registered experiments are complete. Both experiments whose criteria were fixed in advance had their *secondary* criterion fail, and both are recorded as failed.
+
 ## Pre-registered experiments
 
 Criteria stated in advance so outcomes can't be re-framed after the fact. **None of these have been run.**
@@ -311,8 +330,9 @@ A, B           seeds 42/137 both; 256 baseline only         retrain the other 7 
 
 *What it unlocks, and what it says about #1:* with residual sd 0.0023 and the observed F-vs-B effect (~0.0015), n=5 gives P(5/5 positive) ≈ 22% and expected paired-t p ≈ 0.22 — so **experiment #1 is unlikely to resolve F vs B**, and that is expected, not a failure. Reaching p<0.05 at n=5 needs the residual below ~0.0012, which removing the eval component plausibly achieves. `F vs A` and `A vs B` are already far outside the noise and do not depend on this.
 
-**5. Converged 125M, three arms, one horizon** — baseline / windows-throughout / windows-removed-at-25K, 50K steps (6.55B tokens ≈ 53 tok/param), single fully-annealed cosine, no resume, 3–5 seeds. **≈45 H100-hours at 3 seeds, ≈75 at 5.**
-*Criterion:* a run counts as converged only if its decline over the final 10K steps is <0.002 bpb/1k; report the measured value for every run. Note n=3 floors the permutation test at 0.125 and cannot reach p<0.05, so a 3-seed result is descriptive. **Pre-registered negative:** if the converged gap is smaller than the 20K gap, we report that the 50K figures were an undertraining artifact.
+**5. Converged 125M, three arms, one horizon — ⭐ the one that matters.** This is not only a convergence check: it is **the only experiment that tests the paper's central claim outside a 3.4M toy model.** Arms: baseline / windows-throughout / windows-released-at-25K (500-step ramp, per 2b), 50K steps (6.55B tokens ≈ 53 tok/param), single fully-annealed cosine, no resume, 3–5 seeds. **≈45 H100-hours at 3 seeds, ≈75 at 5.**
+*Criteria:* a run counts as converged only if its decline over the final 10K steps is <0.002 bpb/1k; report the measured value for every run. Claim "the curriculum transfers to 125M" iff the released arm beats baseline on every seed. **Budget 5 seeds if at all possible** — n=3 floors the permutation test at 0.125 and can never reach p<0.05 by the test used everywhere else in this repo, so a 3-seed result is descriptive only. **Pre-registered negative:** if the converged gap is smaller than the 20K gap, we report that the 50K figures were an undertraining artifact; if the released arm underperforms the windowed arm at scale, the deployment recommendation is withdrawn.
+*Ready to launch:* `train_125m.py --switch-step` and `--min-lr` exist and are tested (`tests/test_curriculum.py`).
 
 ## How It Works
 
