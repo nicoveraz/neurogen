@@ -126,14 +126,68 @@ def shock_table(switch_step=10000):
     print("  second moment should pull 'peak upd' back toward 'pre upd' (ratio -> 1).")
 
 
+def compare_arms(tag_a, tag_b, label_a, label_b, switch_step=10000):
+    """Paired comparison of two arms measured under the same tag scheme.
+
+    Used for ramp-vs-hard-switch: both resume from the same pre-switch state
+    with the same restored RNG, so they see identical batches and identical
+    eval draws. The endpoint noise that limits other comparisons is
+    common-mode here and largely cancels.
+    """
+    _, ra = load_sweep(tag_a, switch_step)
+    _, rb = load_sweep(tag_b, switch_step)
+    if not ra or not rb:
+        return
+    seeds = sorted({r["seed"] for r in ra.values() if r["config"] == "F_switch"}
+                   & {r["seed"] for r in rb.values() if r["config"] == "F_switch"},
+                   key=lambda s: SEED_ORDER.index(s) if s in SEED_ORDER else 99)
+    if not seeds:
+        return
+    print("\n" + "=" * 92)
+    print(f"  {label_a} vs {label_b}  (paired, same pre-switch state and RNG)")
+    print("=" * 92)
+    print(f"  {'seed':>6} {'baseline':>10} {label_a:>12} {label_b:>12} "
+          f"{'B-arm vs A':>11} {'diff':>10} {label_b+' vs '+label_a:>16}")
+    diffs, vsA = [], []
+    for s in seeds:
+        A = ra[f"A_full_s{s}"]["final_bpb"]
+        a = ra[f"F_switch_s{s}"]["final_bpb"]
+        b = rb[f"F_switch_s{s}"]["final_bpb"]
+        diffs.append(a - b)                 # positive => label_b is better
+        vsA.append(A - b)
+        print(f"  {s:>6} {A:>10.4f} {a:>12.4f} {b:>12.4f} "
+              f"{(A-a)/A*100:>+10.2f}% {a-b:>+10.5f} {(a-b)/a*100:>+15.2f}%")
+    n = len(diffs)
+    if n >= 2:
+        p, c, t = paired_permutation_p(diffs)
+        npos = sum(1 for d in diffs if d > 0)
+        print(f"\n  {label_b} vs {label_a}: {npos}/{n} favour {label_b}, "
+              f"perm {c}/{t}={p:.3f}, t_p={paired_t_p(diffs):.4f}, "
+              f"dz={cohens_dz(diffs):.2f}")
+        print(f"    mean difference {st.mean(diffs):+.5f} bpb "
+              f"(sd {st.stdev(diffs):.5f})" if n > 1 else "")
+        pA, cA, tA = paired_permutation_p(vsA)
+        nposA = sum(1 for d in vsA if d > 0)
+        print(f"  {label_b} vs baseline: {nposA}/{n} positive, perm {cA}/{tA}={pA:.3f}, "
+              f"t_p={paired_t_p(vsA):.4f}, dz={cohens_dz(vsA):.2f}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--compare", nargs=2, metavar=("TAG_A", "TAG_B"),
+                    help="Paired comparison of two arms, e.g. --compare 5seed ramp5seed")
     ap.add_argument("--tag", default="5seed")
     ap.add_argument("--switch-step", type=int, default=10000)
     ap.add_argument("--emit", choices=["markdown", "latex", "both", "none"],
                     default="both")
     args = ap.parse_args()
+
+    if args.compare:
+        a, b = args.compare
+        labels = {"5seed": "F (switch)", "ramp5seed": "R (ramp)"}
+        compare_arms(a, b, labels.get(a, a), labels.get(b, b), args.switch_step)
+        return
 
     cfg, runs = load_sweep(args.tag, args.switch_step)
     if runs is None:
