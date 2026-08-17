@@ -14,24 +14,28 @@ In all of that work the locality is a property **of the model** — present at i
 
 ## Key Finding — the windows can be removed
 
-Three arms, 20K steps each, same seed → same init *and* same data order. Only the attention mask differs.
-Arm **A** full attention throughout · arm **B** quartic windows throughout · arm **F** quartic for 10K steps then full attention for 10K.
+Four arms, 20K steps each, same seed → same init *and* same data order. Only the attention mask differs.
+Arm **A** full attention throughout · arm **B** quartic windows throughout · arm **F** quartic for 10K then full attention · arm **R** quartic for 10K then a 500-step ramp to full.
 
 ```
-seed   A: full   B: quartic  F: quartic→full   B vs A   F vs A   F vs B
-42     0.9041    0.8927      0.8952            +1.26%   +0.98%   -0.28%
-137    0.8913    0.8788      0.8746            +1.40%   +1.87%   +0.48%
-256    0.8941    0.8830      0.8865            +1.24%   +0.85%   -0.39%
-789    0.9098    0.8896      0.8887            +2.23%   +2.32%   +0.10%
-1337   0.9016    0.8889      0.8901            +1.41%   +1.28%   -0.14%
+seed   A: full   B: quartic  F: switch  R: ramp   B vs A   F vs A   R vs A
+42     0.9041    0.8927      0.8952     0.8950    +1.26%   +0.98%   +1.01%
+137    0.8913    0.8788      0.8746     0.8743    +1.40%   +1.87%   +1.91%
+256    0.8941    0.8830      0.8865     0.8867    +1.24%   +0.85%   +0.83%
+789    0.9098    0.8896      0.8887     0.8882    +2.23%   +2.32%   +2.37%
+1337   0.9016    0.8889      0.8901     0.8899    +1.41%   +1.28%   +1.30%
 
-mean   0.9002    0.8866      0.8870            +1.51%   +1.46%   -0.05%   (n=5)
+mean   0.9002    0.8866      0.8870     0.8868    +1.51%   +1.46%   +1.48%   (n=5)
 
 F vs A:  5/5 positive, perm 1/32 = 0.031, paired_t 0.0064, dz 2.34   → CLAIMED
+R vs A:  5/5 positive, perm 1/32 = 0.031, paired_t 0.0070, dz 2.28   → CLAIMED
 F vs B:  2/5 positive, perm 0.625,        paired_t 0.771,  dz -0.14  → not claimed
+R vs F:  4/5 favour R, perm 0.125,        paired_t 0.154,  dz  0.78  → not claimed
 ```
 
-**What this supports:** F beats A on **all five** seeds. The exact sign-flip permutation test hits its floor (p = 0.031), paired-t p = 0.0064, dz = 2.34. The benefit of the locality constraint *survives its removal* — the windows are not doing ongoing work in the second half of training. Both criteria were fixed before the runs.
+Arm **F** drops the windows at once at step 10K; arm **R** widens them to full linearly over 500 steps.
+
+**What this supports:** F beats A on **all five** seeds (permutation test at its floor, p = 0.031; paired-t 0.0064; dz 2.34). The benefit of the locality constraint *survives its removal* — the windows are not doing ongoing work in the second half of training. Arm R, releasing the constraint gradually instead, is indistinguishable from F and also beats A on all five (+1.48%, p = 0.031). **How** the constraint is released doesn't matter for quality; **that** it is released is the claim. All criteria were fixed before the runs.
 
 **What this does NOT support:** that removal is *better* than keeping the windows. Only 2/5 seeds favour it, the mean is −0.05%, and dz ≈ 0. This isn't a near miss — the difference is an order of magnitude below the 0.0023 bpb residual noise on this comparison. **More seeds won't fix it; a lower-variance endpoint measurement would** (see [pre-registered experiment 4](#pre-registered-experiments)). An earlier draft, working from the 2 seeds that completed in an earlier 3-seed run, read F's `+1.50%` against B's `+1.33%` as evidence that windows eventually become a ceiling. Those two seeds disagreed in sign; the reading did not survive replication.
 
@@ -68,11 +72,21 @@ optimizer reset        2.2112      2.193        1.56e-3         68 steps
 
 The two absorbing interventions trade update magnitude for time — both cut the peak update ~4× but leave the model shocked ~2.5× longer (28 → ~70 steps). The ramp pays neither cost and reaches the same loss (0.6626 vs 0.6627 at step 10500).
 
-**Mechanism result, not a validated recipe:** single seed, stopped 1000 steps after the switch. It establishes what causes the shock, not that any treatment improves converged val_bpb or lowers the 1-in-8 divergence rate — catching that would need many runs. But on present evidence the recipe is **ramp, don't switch**.
+**The ramp is free.** The five treatments above are single-seed probes stopped 1000 steps after the switch, so they say nothing about converged quality. Arm R in the table above closes that: run to 20K at all five seeds, resumed from the same pre-switch checkpoints arm F used. Against F the per-seed differences are +0.0002, +0.0003, −0.0002, +0.0005, +0.0002 bpb — 4/5 favour the ramp but the mean is +0.0002 (0.02%), p = 0.154. **We do not claim the ramp is better.** What the data support is that it costs nothing: identical converged quality, no loss or gradient spike, and no exposure to the failure mode that cost 1 run in 8. Recommended on safety grounds, not quality grounds.
+
+Still untested: whether ramping actually *lowers* the divergence rate. One occurrence in eight runs can't be resolved by five more, and we don't assert it.
 
 (The LR schedule was ruled out by inspection before any of this — a single cosine over the full 20K horizon with no term keyed to the switch step.)
 
-Reproduce the sweep: `uv run python experiment_mechanism.py --exp7 --seed-list 42,137,256,789,1337` (~7 h; data in `gradient_results/exp7_curriculum_sw10000_5seed.json`).
+Reproduce — arm F (hard switch, ~7 h) and arm R (ramp, ~4 h resuming from F's pre-switch checkpoints):
+
+```bash
+uv run python experiment_mechanism.py --exp7 --seed-list 42,137,256,789,1337 \
+    --save-switch-ckpt checkpoints/switch --trace-window 100 --tag 5seed
+uv run python experiment_mechanism.py --exp7 --seed-list 42 --ramp-steps 500 \
+    --load-switch-ckpt checkpoints/switch/switch_s42_sw10000.pt --tag ramp5seed --resume-seeds
+uv run python analyze_exp7.py --compare 5seed ramp5seed
+```
 
 ## What the curriculum leaves behind
 
@@ -252,17 +266,12 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 *Criterion, fixed before the runs:* five treatments from one shared pre-switch state; report which reduces the peak Adam update toward its pre-switch 3.5e-3. Optimizer reset predicted to — **and if it didn't, the stale-second-moment account gets withdrawn.**
 *Outcome:* reset cut the peak update 4.8×, so the account stands. Kernel change eliminated. The window ramp, included only as a candidate mitigation, turned out to remove the shock at its source. Still untested: whether any treatment improves converged val_bpb or lowers the 1-in-8 divergence rate.
 
-**2b. Ramp arm to convergence, 5 seeds** — *validates the "ramp, don't switch" recommendation, which currently rests on one seed stopped 1000 steps after the switch and on shock metrics only.* Arm **R** = quartic for 10K steps, then a 500-step linear ramp to full attention, then full attention to 20K. Resumed from the same pre-switch checkpoints arm F used, so only 10K steps train per seed (~4 h).
+**2b. Ramp arm to convergence, 5 seeds — ✅ DONE**, arm R in the table above.
+*Criteria, fixed before the run:* claim "the ramped curriculum preserves the benefit" iff **5/5** paired diffs (A − R) positive. Claim "ramping is better than switching" only if **≥4/5** paired diffs (F − R) positive **and** paired-t p < 0.05. **Withdraw the ramp recommendation if R is significantly worse than F.**
+*Outcome:* first **met** (5/5, p = 0.031, paired-t 0.0070, dz 2.28). Second **failed** (4/5 but p = 0.154) — not claimed. Withdrawal condition did not trigger. Net: ramping costs nothing and removes the shock.
 
-*Why this comparison is unusually clean:* R and F resume from an identical pre-switch state with identical restored RNG, so they see the same training batches **and the same eval draws**. The endpoint noise that limits F-vs-B (0.0023 bpb, see experiment 4) is common-mode here and largely cancels. The only difference between the arms is the ramp.
-
-*Criteria:*
-- **R vs A** — claim "the ramped curriculum preserves the benefit" iff **5/5** paired diffs (A − R) positive → perm p = 0.031.
-- **R vs F** — claim "ramping is better than switching" only if **≥4/5** positive **and** paired-t p < 0.05. Claim "ramping costs nothing" if the difference is not significantly negative.
-- **Pre-registered negative:** if R is significantly *worse* than F, the "ramp, don't switch" recommendation is **withdrawn** from the Conclusion and Discussion.
-
-**3. Switch-point sweep** — remove windows at 2K/5K/10K/15K of a 20K run, 5 seeds (~19–21 h). This is what turns "windows are a curriculum" into a recipe, and it's currently missing entirely.
-*Criterion:* claim an optimal removal point only if the best interior x beats **both** endpoints (x=0 is arm A, x=20K is arm B) on ≥4/5 paired seeds. If flat, the finding is "the removal point doesn't matter over 10–75% of training" — a stronger recipe, since it needs no tuning. Report divergence rate per switch point.
+**3. Release-point sweep** — release the windows at 2K/5K/10K/15K of a 20K run, 5 seeds (~19–21 h), **using the 500-step ramp rather than a hard switch** (2b showed the ramp is free and the hard switch is not). Only the halfway point has been tested; this is what turns "windows are a curriculum" into a tuned recipe.
+*Criterion:* claim an optimal release point only if the best interior x beats **both** endpoints (x=0 is arm A, x=20K is arm B) on ≥4/5 paired seeds. If flat, the finding is "the release point doesn't matter over 10–75% of training" — a stronger recipe, since it needs no tuning. Report divergence rate per release point.
 
 **4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
 

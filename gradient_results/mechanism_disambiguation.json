@@ -137,7 +137,7 @@
     "F_switch_s42": {
       "config": "F_switch",
       "seed": 42,
-      "final_bpb": 0.8952,
+      "final_bpb": 0.895,
       "source": "resumed_from_switch",
       "switch_step": 10000,
       "switch_mode": "full",
@@ -145,15 +145,15 @@
       "stop_step": null,
       "post_switch_warmup": 0,
       "reset_optimizer": false,
-      "ramp_steps": 0,
+      "ramp_steps": 500,
       "diverged_at": null,
       "curve_start": [
         10000,
-        3.4229
+        0.9754
       ],
       "curve_end": [
         20000,
-        0.8952
+        0.895
       ]
     },
     "A_full_s137": {
@@ -187,23 +187,23 @@
     "F_switch_s137": {
       "config": "F_switch",
       "seed": 137,
-      "final_bpb": 0.8746,
-      "source": "trained",
+      "final_bpb": 0.8743,
+      "source": "resumed_from_switch",
       "switch_step": 10000,
       "switch_mode": "full",
       "total_steps": 20000,
       "stop_step": null,
       "post_switch_warmup": 0,
       "reset_optimizer": false,
-      "ramp_steps": 0,
+      "ramp_steps": 500,
       "diverged_at": null,
       "curve_start": [
-        0,
-        7.9982
+        10000,
+        0.9708
       ],
       "curve_end": [
         20000,
-        0.8746
+        0.8743
       ]
     },
     "A_full_s256": {
@@ -237,23 +237,23 @@
     "F_switch_s256": {
       "config": "F_switch",
       "seed": 256,
-      "final_bpb": 0.8865,
-      "source": "trained",
+      "final_bpb": 0.8867,
+      "source": "resumed_from_switch",
       "switch_step": 10000,
       "switch_mode": "full",
       "total_steps": 20000,
       "stop_step": null,
       "post_switch_warmup": 0,
       "reset_optimizer": false,
-      "ramp_steps": 0,
+      "ramp_steps": 500,
       "diverged_at": null,
       "curve_start": [
-        0,
-        8.0
+        10000,
+        0.9754
       ],
       "curve_end": [
         20000,
-        0.8865
+        0.8867
       ]
     },
     "A_full_s789": {
@@ -287,23 +287,23 @@
     "F_switch_s789": {
       "config": "F_switch",
       "seed": 789,
-      "final_bpb": 0.8887,
-      "source": "trained",
+      "final_bpb": 0.8882,
+      "source": "resumed_from_switch",
       "switch_step": 10000,
       "switch_mode": "full",
       "total_steps": 20000,
       "stop_step": null,
       "post_switch_warmup": 0,
       "reset_optimizer": false,
-      "ramp_steps": 0,
+      "ramp_steps": 500,
       "diverged_at": null,
       "curve_start": [
-        0,
-        7.9975
+        10000,
+        0.9768
       ],
       "curve_end": [
         20000,
-        0.8887
+        0.8882
       ]
     },
     "A_full_s1337": {
@@ -337,23 +337,23 @@
     "F_switch_s1337": {
       "config": "F_switch",
       "seed": 1337,
-      "final_bpb": 0.8901,
-      "source": "trained",
+      "final_bpb": 0.8899,
+      "source": "resumed_from_switch",
       "switch_step": 10000,
       "switch_mode": "full",
       "total_steps": 20000,
       "stop_step": null,
       "post_switch_warmup": 0,
       "reset_optimizer": false,
-      "ramp_steps": 0,
+      "ramp_steps": 500,
       "diverged_at": null,
       "curve_start": [
-        0,
-        7.9961
+        10000,
+        0.9802
       ],
       "curve_end": [
         20000,
-        0.8901
+        0.8899
       ]
     }
   }
