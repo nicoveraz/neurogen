@@ -50,9 +50,27 @@ max Adam update        3.5e-3       3.6e-3       7.5-7.6e-3         3.3e-3
 
 The peak Adam update is **2.13–2.16× pre-switch on every one of the five seeds** — a 1.4% spread. That consistency is what makes it a usable diagnostic, where the divergence itself (1 in 8) is not.
 
-The last row is the informative one. Grad clipping at 1.0 bounds the *gradient* — the 2.1-2.7 spike is duly clipped — but the largest **Adam update still climbs 2.1×** over the next ~100 steps. That's the stale-second-moment signature: `v` was accumulated under window-8 gradients, so `m/√v` is large where historical `v` is small, and clipping the gradient does not bound it. Recovery is complete by ~400 steps.
+**Which part of the switch causes which part of the shock.** Five treatments, all resumed from one identical pre-switch state (seed 256), so they differ only in the intervention:
 
-The LR schedule is ruled out by inspection — a single cosine over the full 20K horizon with no term keyed to the switch step.
+```
+treatment              peak loss   peak gnorm   peak Adam upd   recovery
+unmodified switch      2.2112      2.193        7.54e-3         28 steps
+masked-softmax control 2.2112      2.193        7.54e-3         28 steps
+optimizer reset        2.2112      2.193        1.56e-3         68 steps
+200-step LR re-warmup  2.2424      2.193        1.90e-3         72 steps
+500-step window ramp   0.7490      0.181        6.71e-3          1 step
+(pre-switch reference) 0.68        0.136        3.53e-3          —
+```
+
+- **(i) kernel change — eliminated.** The masked-softmax control agrees with the unmodified switch to 1e-6 (the log's rounding precision) at all 501 traced steps. *Caveat:* MPS `scaled_dot_product_attention` appears to dispatch to the same arithmetic as the explicit path, so this may not transfer to a genuinely fused CUDA kernel.
+- **(ii) stale Adam second moment — confirmed as the amplifier.** Optimizer reset leaves loss and gradient spikes untouched but cuts the peak update 4.8×, below its pre-switch value (a fresh Adam has `m̂/√v̂ ≈ ±1` on step 1, bounding the update near the LR itself).
+- **(iii) softmax denominator jump — confirmed as the source.** Ramping the windows over 500 steps widens the denominator gradually and **removes the shock rather than absorbing it**: loss spike 3.3× → 1.1×, gradient spike 12× smaller and *below the 1.0 clip threshold*, so no clipping fires at all.
+
+The two absorbing interventions trade update magnitude for time — both cut the peak update ~4× but leave the model shocked ~2.5× longer (28 → ~70 steps). The ramp pays neither cost and reaches the same loss (0.6626 vs 0.6627 at step 10500).
+
+**Mechanism result, not a validated recipe:** single seed, stopped 1000 steps after the switch. It establishes what causes the shock, not that any treatment improves converged val_bpb or lowers the 1-in-8 divergence rate — catching that would need many runs. But on present evidence the recipe is **ramp, don't switch**.
+
+(The LR schedule was ruled out by inspection before any of this — a single cosine over the full 20K horizon with no term keyed to the switch step.)
 
 Reproduce the sweep: `uv run python experiment_mechanism.py --exp7 --seed-list 42,137,256,789,1337` (~7 h; data in `gradient_results/exp7_curriculum_sw10000_5seed.json`).
 
@@ -230,17 +248,9 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 *Criteria, fixed before the runs:* claim "removal preserves the benefit" iff **5/5** paired diffs (A − F) positive → permutation floor p = 0.031. Claim "removal is better than keeping" only if **≥4/5** paired diffs (B − F) positive **and** paired-t p < 0.05; at 2/5 or 3/5, report no detectable difference. Diverged seeds count in the denominator.
 *Outcome:* first criterion **met** (5/5, p = 0.031, paired-t 0.0064, dz 2.34); second **failed** (2/5, p = 0.625). No seed diverged.
 
-**2. Shock diagnosis** — the divergence does **not** reproduce on demand (~1 in 8 runs, not seed-tied), so an experiment keyed to reproducing the NaN would be badly powered. Target the *shock* instead: continuous, large, and present on every seed. From one shared pre-switch state, run five treatments and compare peak loss / peak pre-clip grad norm / peak Adam update over `[switch, switch+500]`:
-
-| treatment | tests |
-|---|---|
-| (a) unmodified switch | reference |
-| (b) `list:256,256,256,256` instead of `{}` | keeps the masked-softmax path, changes *only* the mask → separates (i) kernel change from (ii)/(iii) |
-| (c) optimizer-state reset | removes (ii) stale Adam second moment by construction |
-| (d) 200-step LR re-warmup | mitigation |
-| (e) 500-step linear window ramp | mitigation |
-
-Sharing one pre-switch state makes these a controlled comparison rather than five independent runs (`--load-switch-ckpt`). *Criterion:* report which treatment pulls the peak Adam update back toward its pre-switch 3.5e-3. **(c) is predicted to — if it doesn't, the stale-second-moment account above is wrong and gets withdrawn.** (~25 min)
+**2. Shock diagnosis — ✅ DONE**, results in [the shock section](#key-finding--the-windows-can-be-removed) above.
+*Criterion, fixed before the runs:* five treatments from one shared pre-switch state; report which reduces the peak Adam update toward its pre-switch 3.5e-3. Optimizer reset predicted to — **and if it didn't, the stale-second-moment account gets withdrawn.**
+*Outcome:* reset cut the peak update 4.8×, so the account stands. Kernel change eliminated. The window ramp, included only as a candidate mitigation, turned out to remove the shock at its source. Still untested: whether any treatment improves converged val_bpb or lowers the 1-in-8 divergence rate.
 
 **3. Switch-point sweep** — remove windows at 2K/5K/10K/15K of a 20K run, 5 seeds (~19–21 h). This is what turns "windows are a curriculum" into a recipe, and it's currently missing entirely.
 *Criterion:* claim an optimal removal point only if the best interior x beats **both** endpoints (x=0 is arm A, x=20K is arm B) on ≥4/5 paired seeds. If flat, the finding is "the removal point doesn't matter over 10–75% of training" — a stronger recipe, since it needs no tuning. Report divergence rate per switch point.
