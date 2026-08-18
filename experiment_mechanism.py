@@ -587,17 +587,27 @@ def experiment7(seeds=(42, 137, 256), switch_step: int = 10000,
         first_step = 0
         if load_switch_ckpt:
             blob = torch.load(load_switch_ckpt, map_location=DEVICE, weights_only=False)
-            if blob["seed"] != seed or blob["switch_step"] != switch_step:
+            ck_step = blob["switch_step"]
+            if blob["seed"] != seed:
+                raise ValueError(f"{load_switch_ckpt} is seed={blob['seed']}, "
+                                 f"not seed={seed}")
+            # The checkpoint holds a WINDOWED state, so it may be resumed at its
+            # own step and trained on (still windowed) up to any later release
+            # point. That is what an uninterrupted run does over the same steps,
+            # and it lets a release-point sweep reuse one prefix per seed.
+            if ck_step > switch_step:
                 raise ValueError(
-                    f"{load_switch_ckpt} is seed={blob['seed']} "
-                    f"switch_step={blob['switch_step']}, not seed={seed} "
-                    f"switch_step={switch_step}")
+                    f"{load_switch_ckpt} is at step {ck_step}, after the release "
+                    f"point {switch_step}; a checkpoint cannot be resumed past "
+                    f"the point it is meant to precede")
             model.load_state_dict(blob["model_state_dict"])
             optimizer.load_state_dict(blob["optimizer_state_dict"])
             _restore_rng(blob["rng_state"])
-            first_step = switch_step
-            print(f"  loaded pre-switch state from {load_switch_ckpt} "
-                  f"(step {switch_step})")
+            first_step = ck_step
+            extra = "" if ck_step == switch_step else \
+                f", training windowed to the release point at {switch_step}"
+            print(f"  loaded windowed state from {load_switch_ckpt} "
+                  f"(step {ck_step}){extra}")
 
         t0 = time.time()
         curve = []

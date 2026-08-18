@@ -240,3 +240,41 @@ def test_switch_step_out_of_range_rejected():
             assert "switch-step" in str(e)
         else:
             raise AssertionError(f"expected ValueError for switch_step={bad}")
+
+
+def test_checkpoint_may_be_resumed_before_the_release_point(monkeypatch, tmp_path):
+    """A windowed checkpoint can be resumed at its own step and trained on.
+
+    This is what lets a release-point sweep reuse one windowed prefix per seed
+    for every release point at or after the checkpoint.
+    """
+    _stub_training(monkeypatch, tmp_path)
+    ck = tmp_path / "ck"
+    em.experiment7(seeds=[42], switch_step=4, total_steps=20, stop_step=6,
+                   save_switch_ckpt=str(ck), tag="pre")
+    p = ck / "switch_s42_sw4.pt"
+
+    # Resume the step-4 checkpoint for a run that releases later, at step 10.
+    r = em.experiment7(seeds=[42], switch_step=10, total_steps=20,
+                       load_switch_ckpt=str(p), tag="later")
+    run = r["F_switch_s42"]
+    assert run["switch_step"] == 10
+    assert run["curve"][0][0] == 4, "should resume at the checkpoint's step, not 0"
+
+    # Resuming past the release point is refused: the prefix would be wrong.
+    try:
+        em.experiment7(seeds=[42], switch_step=2, total_steps=20,
+                       load_switch_ckpt=str(p), tag="earlier")
+    except ValueError as e:
+        assert "after the release point" in str(e)
+    else:
+        raise AssertionError("expected ValueError resuming past the release point")
+
+    # Seed mismatch is still refused.
+    try:
+        em.experiment7(seeds=[137], switch_step=10, total_steps=20,
+                       load_switch_ckpt=str(p), tag="wrongseed")
+    except ValueError as e:
+        assert "seed" in str(e)
+    else:
+        raise AssertionError("expected ValueError on seed mismatch")

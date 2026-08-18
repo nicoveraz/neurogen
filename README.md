@@ -289,8 +289,16 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 *Criteria, fixed before the run:* claim "the ramped curriculum preserves the benefit" iff **5/5** paired diffs (A − R) positive. Claim "ramping is better than switching" only if **≥4/5** paired diffs (F − R) positive **and** paired-t p < 0.05. **Withdraw the ramp recommendation if R is significantly worse than F.**
 *Outcome:* first **met** (5/5, p = 0.031, paired-t 0.0070, dz 2.28). Second **failed** (4/5 but p = 0.154) — not claimed. Withdrawal condition did not trigger. Net: ramping costs nothing and removes the shock.
 
-**3. Release-point sweep** — release the windows at 2K/5K/10K/15K of a 20K run, 5 seeds (~19–21 h), **using the 500-step ramp rather than a hard switch** (2b showed the ramp is free and the hard switch is not). Only the halfway point has been tested; this is what turns "windows are a curriculum" into a tuned recipe.
-*Criterion:* claim an optimal release point only if the best interior x beats **both** endpoints (x=0 is arm A, x=20K is arm B) on ≥4/5 paired seeds. If flat, the finding is "the release point doesn't matter over 10–75% of training" — a stronger recipe, since it needs no tuning. Report divergence rate per release point.
+**3. Release-point sweep — 🔄 RUNNING** (started 2026-08-18). Release the windows at 2K / 5K / 10K / 15K of a 20K run, 5 seeds, using the 500-step ramp (2b showed the hard switch is not free). x=10K is arm R, already done; x=15K resumes from the saved windowed checkpoints at 10K, so only 2K and 5K need full runs. ~19 h MPS.
+
+Only one release point has ever been tested. This asks whether the curriculum has a duration that matters, or whether any release across the middle of training works equally well.
+
+*Criteria, fixed before the runs:*
+- **Does the curriculum work at release point x?** For each x, claim it iff **5/5** paired diffs (A − R_x) positive → perm p = 0.031.
+- **Is there an optimal release point?** Claim one only if the best x beats **every** other x on **≥4/5** paired seeds **and** paired-t p < 0.05 against the runner-up. This is deliberately strict: between-release-point differences are the small comparisons, and the 0.0023 bpb residual (experiment 4) already sank F-vs-B.
+- **Pre-registered null:** if all four release points fall within that residual of each other, the finding is *"the release point does not matter across 10–75% of training"* — a **stronger** recipe than a peak, since it needs no tuning. This is a result, not a failure.
+- **Pre-registered negative:** if early release (x=2K) fails the 5/5 bar while x=10K passes, the curriculum has a minimum duration and the recipe must state it.
+- Report the divergence rate per release point. Diverged seeds count in the denominator.
 
 **4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
 
