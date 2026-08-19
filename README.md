@@ -90,6 +90,40 @@ uv run python experiment_mechanism.py --exp7 --seed-list 42 --ramp-steps 500 \
 uv run python analyze_exp7.py --compare 5seed ramp5seed
 ```
 
+## When to release: the curriculum is short
+
+Releasing at the halfway mark was where we first tried it, not a tuned choice. Sweeping the release point over 2K / 5K / 10K / 15K of a 20K budget — 10% to 75% of training spent windowed — 5 seeds each, 500-step ramp throughout:
+
+```
+  seed        A     R@2K     R@5K    R@10K    R@15K        B   best
+    42   0.9041   0.8932   0.8924   0.8950   0.8956   0.8927   5K
+   137   0.8913   0.8726   0.8741   0.8743   0.8754   0.8788   2K
+   256   0.8941   0.8833   0.8847   0.8867   0.8875   0.8830   2K
+   789   0.9098   0.8855   0.8875   0.8882   0.8890   0.8896   2K
+  1337   0.9016   0.8863   0.8892   0.8899   0.8915   0.8889   2K
+
+  mean   0.9002   0.8842   0.8856   0.8868   0.8878   0.8866
+  vs A        —   +1.78%   +1.62%   +1.48%   +1.38%   +1.51%
+```
+
+**Works at every release point.** All four columns beat their paired baseline 5/5 → perm p = 0.031, dz 2.12–2.84. **10% of training windowed is already enough for the full effect.** No run diverged in 15.
+
+**Earlier is better, and the curve is NOT flat.** I pre-registered a null that all points would fall within the 0.0023 residual, which would have meant the recipe needs no tuning. Falsified — the spread is 0.0036 bpb, ~a quarter of the whole baseline→quartic effect. Ordering is monotone and identical on every seed for the three later points:
+
+```
+2K  beats 10K:  5/5, paired-t 0.0026
+2K  beats 15K:  5/5, paired-t 0.0019
+10K beats 15K:  5/5, paired-t 0.0049
+```
+
+**But no optimum is claimed.** The bar was: beat *every* other point on ≥4/5 **and** paired-t p<0.05 against the runner-up. R@2K has the best mean but against R@5K it's 4/5 at **p = 0.0836** — 2K and 5K are not separated by these data. The honest statement is *release early, somewhere in the first 10–25%*, and we can't say where in that range.
+
+**Releasing still doesn't beat retaining.** Even the best release point is indistinguishable from never releasing: R@2K vs B is 3/5, p = 0.125, mean +0.0024. Same conclusion as at the halfway point — the recipe is justified by shipping a standard architecture, not by a quality gain.
+
+**Untested:** the other side of the minimum. Does releasing *earlier* than 2K still work, or does the benefit collapse below some duration?
+
+Reproduce: `uv run python analyze_exp7.py --compare ramp5seed rel2k`
+
 ## What the curriculum leaves behind
 
 If removing the windows preserves the benefit, something they created must persist without them. Two measurements.
@@ -265,13 +299,16 @@ Larger batches look better only because they saw 4× more data. At equal token b
 | Windowed schedule beats baseline at 3.4M | 5 seeds, 5/5, perm p=0.031, dz 3.59 | **settled** |
 | Benefit survives releasing the constraint | 5 seeds, 5/5, perm p=0.031, dz 2.34 | **settled** |
 | Release method (switch vs ramp) doesn't affect quality | both 5/5 vs baseline; R−F mean +0.0002 bpb | **settled** |
+| Curriculum works at any release point 10–75% | 4 points × 5 seeds, all 5/5, p=0.031 | **settled** |
+| Earlier release is better | monotone on 5/5; 2K>10K p=0.0026 | **settled** |
+| There is an optimal release point | 2K vs 5K: 4/5, p=0.084 | **not claimed** |
 | Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
 | Releasing *beats* retaining | 2/5, p=0.625 — below the noise floor | **not resolvable** without exp. 4 |
 | Ramping lowers the divergence rate | 1 event in 8 runs | **untested** |
 | Any of this holds above 3.4M | none — no release arm has run at 125M | **untested** ⚠️ |
 | Windows help at 125M (windows-throughout only) | 5 seeds, 4/5, p=0.063, unconverged | suggestive |
 
-Three of five pre-registered experiments are complete. Both experiments whose criteria were fixed in advance had their *secondary* criterion fail, and both are recorded as failed.
+Four of five pre-registered experiments are complete. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance.
 
 ## Pre-registered experiments
 
@@ -289,16 +326,9 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 *Criteria, fixed before the run:* claim "the ramped curriculum preserves the benefit" iff **5/5** paired diffs (A − R) positive. Claim "ramping is better than switching" only if **≥4/5** paired diffs (F − R) positive **and** paired-t p < 0.05. **Withdraw the ramp recommendation if R is significantly worse than F.**
 *Outcome:* first **met** (5/5, p = 0.031, paired-t 0.0070, dz 2.28). Second **failed** (4/5 but p = 0.154) — not claimed. Withdrawal condition did not trigger. Net: ramping costs nothing and removes the shock.
 
-**3. Release-point sweep — 🔄 RUNNING** (started 2026-08-18). Release the windows at 2K / 5K / 10K / 15K of a 20K run, 5 seeds, using the 500-step ramp (2b showed the hard switch is not free). x=10K is arm R, already done; x=15K resumes from the saved windowed checkpoints at 10K, so only 2K and 5K need full runs. ~19 h MPS.
-
-Only one release point has ever been tested. This asks whether the curriculum has a duration that matters, or whether any release across the middle of training works equally well.
-
-*Criteria, fixed before the runs:*
-- **Does the curriculum work at release point x?** For each x, claim it iff **5/5** paired diffs (A − R_x) positive → perm p = 0.031.
-- **Is there an optimal release point?** Claim one only if the best x beats **every** other x on **≥4/5** paired seeds **and** paired-t p < 0.05 against the runner-up. This is deliberately strict: between-release-point differences are the small comparisons, and the 0.0023 bpb residual (experiment 4) already sank F-vs-B.
-- **Pre-registered null:** if all four release points fall within that residual of each other, the finding is *"the release point does not matter across 10–75% of training"* — a **stronger** recipe than a peak, since it needs no tuning. This is a result, not a failure.
-- **Pre-registered negative:** if early release (x=2K) fails the 5/5 bar while x=10K passes, the curriculum has a minimum duration and the recipe must state it.
-- Report the divergence rate per release point. Diverged seeds count in the denominator.
+**3. Release-point sweep — ✅ DONE**, results in [When to release](#when-to-release-the-curriculum-is-short) above. 15 runs, ~19h, no divergences.
+*Criteria, fixed before the runs:* (a) claim the curriculum works at release point x iff **5/5** paired diffs (A − R_x) positive; (b) claim an optimal release point only if the winner beats **every** other point on **≥4/5** seeds **and** paired-t p<0.05 vs the runner-up; (c) **pre-registered null:** a flat curve (all points within the 0.0023 residual) is a *result*, not a failure — it would mean the recipe needs no tuning.
+*Outcome:* (a) **met at all four points** (5/5, p=0.031). (b) **not met** — R@2K vs R@5K is 4/5 at p=0.0836. (c) **null falsified** — spread 0.0036 bpb. Net: release early (first 10–25%), no finer resolution available.
 
 **4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
 
@@ -343,6 +373,8 @@ A, B           seeds 42/137 both; 256 baseline only         retrain the other 7 
 *Ready to launch:* `train_125m.py --switch-step` and `--min-lr` exist and are tested (`tests/test_curriculum.py`).
 
 ## How It Works
+
+**Recipe:** apply the depth-wise window schedule for the first 10–25% of training, then widen the windows to full over ~500 steps and train normally. Ship a standard transformer.
 
 A standard transformer uses full attention at every layer. The window schedule restricts each layer's attention based on depth, forcing early layers to build local features before later layers integrate globally:
 
