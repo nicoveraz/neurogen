@@ -330,6 +330,17 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 *Criteria, fixed before the runs:* (a) claim the curriculum works at release point x iff **5/5** paired diffs (A − R_x) positive; (b) claim an optimal release point only if the winner beats **every** other point on **≥4/5** seeds **and** paired-t p<0.05 vs the runner-up; (c) **pre-registered null:** a flat curve (all points within the 0.0023 residual) is a *result*, not a failure — it would mean the recipe needs no tuning.
 *Outcome:* (a) **met at all four points** (5/5, p=0.031). (b) **not met** — R@2K vs R@5K is 4/5 at p=0.0836. (c) **null falsified** — spread 0.0036 bpb. Net: release early (first 10–25%), no finer resolution available.
 
+**3b. How short can the curriculum be? — 🔄 RUNNING** (started 2026-08-19). Release at 250 / 500 / 1000 steps of a 20K budget — 1.25% / 2.5% / 5% of training — 5 seeds each, 500-step ramp as before. ~22h MPS. The sweep found 2K (10%) is enough for the full effect and that earlier is better; this asks where that stops.
+
+*No LR confound:* the cosine is at peak (~2e-3) at all of 250/500/1000/2000, unlike the 10K/15K comparison.
+
+*Criteria, fixed before the runs:*
+- **Does it work at x?** Claim iff **5/5** paired diffs (A − R_x) positive → perm p = 0.031.
+- **Where does it collapse?** Report the smallest x passing that bar. A point that fails while x=2K passes brackets a minimum duration.
+- **⚠️ Pre-registered reframe risk.** If x=250 still delivers the full effect, "curriculum" becomes the wrong word. A constraint applied for 1.25% of training — ~250 optimizer steps — that permanently changes the outcome is better described as an **initialization or early-transient effect** than as a curriculum. In that case the paper's central framing needs revisiting, not just its numbers. We commit to that reading in advance rather than defending the title.
+
+*Known confound:* the ramp is fixed at 500 steps, so at x=250 the windows are fully applied for 250 steps and partially applied until 750 — the ramp is longer than the windowed phase. Effective windowed duration is roughly x + 250. Reported on that axis.
+
 **4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
 
 The reported `final_bpb` of every run in this repo is a single eval over **12 randomly drawn batches = 98,304 tokens, 0.51% of the val set**, resampled on every call. Measured directly, by evaluating one *frozen* checkpoint 12 times:
