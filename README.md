@@ -1,8 +1,8 @@
 # NeuroGen
 
-**Early-layer attention locality is a training curriculum, not an architectural requirement.**
+**Early-layer attention locality is a transient requirement, not an architectural one.**
 
-An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting early transformer layers to a local attention window and letting later layers attend globally is well-established prior art — **this repo does not claim it**. What it tests is *when* the constraint is needed. Answer: only early. Train a 3.4M transformer with quartic attention windows for the first 10K of 20K steps, then switch to ordinary full attention, and the benefit survives. The locality prior belongs in the training recipe, not in the deployed architecture.
+An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting early transformer layers to a local attention window and letting later layers attend globally is well-established prior art — **this repo does not claim it**. What it tests is *when* the constraint is needed, and for *how long*. Answer: only at the very start, and only briefly. Applying quartic attention windows for **250 of 20,000 steps** — 1.25% of training, fully released by step 750 — gives the largest effect measured here, **+1.91%**, and it persists to convergence. The locality prior belongs in the training recipe, not in the deployed architecture.
 
 ## What's known vs. what's new
 
@@ -10,7 +10,7 @@ An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting
 
 In all of that work the locality is a property **of the model** — present at init, during training, and at inference.
 
-**New (our claim).** It is a property of the **training trajectory**. Release the windows halfway through training and the benefit stays. Nothing above tests that; the closest neighbors go the other direction (SWAT trains *with* windows to keep them at inference; Shortformer is a curriculum over sequence length, not over per-layer span).
+**New (our claim).** It is a **transient** property of early training. Release the windows — at any point from 75% of training down to 1.25% — and the benefit stays; the shortest application is the best. Nothing above tests that; the closest neighbours go the other direction (SWAT trains *with* windows to keep them at inference; Shortformer is a curriculum over sequence length, staged across much of training, not a brief constraint on per-layer span).
 
 **Scope.** Demonstrated at 3.4M on TinyStories, 5 matched seeds, criteria pre-registered. **Not yet tested above 3.4M** — see [Status](#status).
 
@@ -90,7 +90,7 @@ uv run python experiment_mechanism.py --exp7 --seed-list 42 --ramp-steps 500 \
 uv run python analyze_exp7.py --compare 5seed ramp5seed
 ```
 
-## When to release: the curriculum is short
+## When to release, and for how long
 
 Releasing at the halfway mark was where we first tried it, not a tuned choice. Sweeping the release point over 2K / 5K / 10K / 15K of a 20K budget — 10% to 75% of training spent windowed — 5 seeds each, 500-step ramp throughout:
 
@@ -120,11 +120,29 @@ Releasing at the halfway mark was where we first tried it, not a tuned choice. S
 
 **Releasing still doesn't beat retaining.** Even the best release point is indistinguishable from never releasing: R@2K vs B is 3/5, p = 0.125, mean +0.0024. Same conclusion as at the halfway point — the recipe is justified by shipping a standard architecture, not by a quality gain.
 
-**Untested:** the other side of the minimum. Does releasing *earlier* than 2K still work, or does the benefit collapse below some duration?
+**How short can it be?** Sweeping further down — 1000, 500, 250 steps (5%, 2.5%, 1.25%), same 5 seeds, all at peak LR so no schedule confound:
+
+```
+release at     250      500      1K       2K       5K       10K      15K        B
+% of training  1.25%    2.50%    5.00%    10.00%   25.00%   50.00%   75.00%     —
+mean bpb       0.8830   0.8833   0.8846   0.8842   0.8856   0.8868   0.8878   0.8866
+vs baseline    +1.91%   +1.87%   +1.73%   +1.78%   +1.62%   +1.48%   +1.38%   +1.51%
+dz             2.92     2.69     2.57     2.81     2.84     2.28     2.12        —
+
+every point: 5/5 vs baseline, perm p = 0.031
+```
+
+**The benefit never collapses, and the shortest is the best.** R@250 is the largest effect anywhere in this project (+1.91%) — and with the 500-step ramp that model is at **full attention from step 750 of 20,000**, then trains 19,250 steps unconstrained. **No lower bound was found**; the curve is flat-to-improving all the way down.
+
+**This is why the project was retitled.** [Pre-registered before the sweep](#pre-registered-experiments): if 250 steps still delivered the full effect, "curriculum" would be the wrong word and the framing would change rather than be defended. A curriculum implies a staged process over a meaningful share of training. What this is: a constraint on ~1% of optimizer steps, fully released before the model sees 4% of its data, whose benefit is still there at convergence. We call it a **transient requirement** and stop short of "initialization effect" — 250 steps at batch 32 is still 2M tokens, and the floor is still unknown.
+
+**One result NOT claimed.** R@250 beats never-releasing on 4/5 with paired-t p=0.041, which *would* clear the bar set in experiment 1. But that came from testing seven release points and picking the best — with seven comparisons the threshold is nearer p<0.007. Reported as not claimed, on multiple-comparisons grounds rather than on the number.
+
+**Still open:** where the floor is. [Experiment 3c](#pre-registered-experiments) is running now (50 / 100 / 250 steps, ramp = x).
 
 Reproduce: `uv run python analyze_exp7.py --compare ramp5seed rel2k`
 
-## What the curriculum leaves behind
+## What the constraint leaves behind
 
 If removing the windows preserves the benefit, something they created must persist without them. Two measurements.
 
@@ -227,9 +245,9 @@ paired: perm_p = 2/32 = 0.063,  paired_t p = 0.045,  dz = 1.29
 
 **The 125M headline is +2.6% at 20K across 5 seeds with one seed negative.** This is weaker than the 3.4M result (5/5 positive, permutation at its floor) and is a suggestive scale probe, not a demonstrated scaling law.
 
-> ⚠️ **The curriculum claim has never been tested at 125M.** This section shows only that *windows help* at 125M, at an unconverged 20K steps. No release arm — no F, no R, no release at any point — has ever been run at this scale. **Everything in [Key Finding](#key-finding--the-windows-can-be-removed) rests on a 3.4M model trained on TinyStories.** Closing this is [pre-registered experiment 5](#pre-registered-experiments) and is the single most important open item in the project.
+> ⚠️ **The release claim has never been tested at 125M.** This section shows only that *windows help* at 125M, at an unconverged 20K steps. No release arm — no F, no R, no release at any point — has ever been run at this scale. **Everything in [Key Finding](#key-finding--the-windows-can-be-removed) rests on a 3.4M model trained on TinyStories.** Closing this is [pre-registered experiment 5](#pre-registered-experiments) and is the single most important open item in the project.
 
-Windowed 125M runs are slightly faster than baseline (2.83–2.84 vs 2.73–2.78 steps/sec) — Flash Attention's sliding window computes fewer scores. Under the curriculum recipe that advantage applies only to the windowed phase; inference runs at standard full-attention cost.
+Windowed 125M runs are slightly faster than baseline (2.83–2.84 vs 2.73–2.78 steps/sec) — Flash Attention's sliding window computes fewer scores. Under this recipe the advantage applies only to the brief windowed phase; inference runs at standard full-attention cost.
 
 Reproduce: `uv run python analyze_125m.py`.
 
@@ -298,10 +316,12 @@ Larger batches look better only because they saw 4× more data. At equal token b
 |---|---|---|
 | Windowed schedule beats baseline at 3.4M | 5 seeds, 5/5, perm p=0.031, dz 3.59 | **settled** |
 | Benefit survives releasing the constraint | 5 seeds, 5/5, perm p=0.031, dz 2.34 | **settled** |
+| The constraint is a *curriculum* | 250 steps (1.25%) suffices | **retracted** — retitled |
 | Release method (switch vs ramp) doesn't affect quality | both 5/5 vs baseline; R−F mean +0.0002 bpb | **settled** |
-| Curriculum works at any release point 10–75% | 4 points × 5 seeds, all 5/5, p=0.031 | **settled** |
-| Earlier release is better | monotone on 5/5; 2K>10K p=0.0026 | **settled** |
+| Works at any release point 1.25–75% | 7 points × 5 seeds, all 5/5, p=0.031 | **settled** |
+| Shorter application is better (down to 250) | monotone 15K→2K; best is the shortest tested | **settled** |
 | There is an optimal release point | 2K vs 5K: 4/5, p=0.084 | **not claimed** |
+| The benefit has a floor (a minimum duration) | none found down to 250 steps | **unknown** — 3c running |
 | Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
 | Releasing *beats* retaining | 2/5, p=0.625 — below the noise floor | **not resolvable** without exp. 4 |
 | Ramping lowers the divergence rate | 1 event in 8 runs | **untested** |
@@ -326,20 +346,13 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 *Criteria, fixed before the run:* claim "the ramped curriculum preserves the benefit" iff **5/5** paired diffs (A − R) positive. Claim "ramping is better than switching" only if **≥4/5** paired diffs (F − R) positive **and** paired-t p < 0.05. **Withdraw the ramp recommendation if R is significantly worse than F.**
 *Outcome:* first **met** (5/5, p = 0.031, paired-t 0.0070, dz 2.28). Second **failed** (4/5 but p = 0.154) — not claimed. Withdrawal condition did not trigger. Net: ramping costs nothing and removes the shock.
 
-**3. Release-point sweep — ✅ DONE**, results in [When to release](#when-to-release-the-curriculum-is-short) above. 15 runs, ~19h, no divergences.
+**3. Release-point sweep — ✅ DONE**, results in [When to release](#when-to-release-and-for-how-long) above. 15 runs, ~19h, no divergences.
 *Criteria, fixed before the runs:* (a) claim the curriculum works at release point x iff **5/5** paired diffs (A − R_x) positive; (b) claim an optimal release point only if the winner beats **every** other point on **≥4/5** seeds **and** paired-t p<0.05 vs the runner-up; (c) **pre-registered null:** a flat curve (all points within the 0.0023 residual) is a *result*, not a failure — it would mean the recipe needs no tuning.
 *Outcome:* (a) **met at all four points** (5/5, p=0.031). (b) **not met** — R@2K vs R@5K is 4/5 at p=0.0836. (c) **null falsified** — spread 0.0036 bpb. Net: release early (first 10–25%), no finer resolution available.
 
-**3b. How short can the curriculum be? — 🔄 RUNNING** (started 2026-08-19). Release at 250 / 500 / 1000 steps of a 20K budget — 1.25% / 2.5% / 5% of training — 5 seeds each, 500-step ramp as before. ~22h MPS. The sweep found 2K (10%) is enough for the full effect and that earlier is better; this asks where that stops.
-
-*No LR confound:* the cosine is at peak (~2e-3) at all of 250/500/1000/2000, unlike the 10K/15K comparison.
-
-*Criteria, fixed before the runs:*
-- **Does it work at x?** Claim iff **5/5** paired diffs (A − R_x) positive → perm p = 0.031.
-- **Where does it collapse?** Report the smallest x passing that bar. A point that fails while x=2K passes brackets a minimum duration.
-- **⚠️ Pre-registered reframe risk.** If x=250 still delivers the full effect, "curriculum" becomes the wrong word. A constraint applied for 1.25% of training — ~250 optimizer steps — that permanently changes the outcome is better described as an **initialization or early-transient effect** than as a curriculum. In that case the paper's central framing needs revisiting, not just its numbers. We commit to that reading in advance rather than defending the title.
-
-*Known confound:* the ramp is fixed at 500 steps, so at x=250 the windows are fully applied for 250 steps and partially applied until 750 — the ramp is longer than the windowed phase. Effective windowed duration is roughly x + 250. Reported on that axis.
+**3b. How short can it be? — ✅ DONE**, results in [When to release](#when-to-release-and-for-how-long) above. Release at 250 / 500 / 1000 steps, 5 seeds, ~30h.
+*Criteria, fixed before the runs:* claim it works at x iff **5/5** paired diffs positive; report the smallest x passing; **⚠️ pre-registered reframe** — if x=250 delivers the full effect, "curriculum" is the wrong word and the framing changes rather than being defended.
+*Outcome:* **all three met** (5/5, p=0.031). No collapse; the shortest point tested is the best (+1.91%). **The reframe trigger fired and was honoured** — the project is retitled from "a training curriculum" to "a transient requirement". Also recorded: R@250 vs never-releasing is 4/5 at p=0.041, which would clear the experiment-1 bar, but it was selected from seven release points and is *not claimed* on multiple-comparisons grounds.
 
 **3c. Where is the floor? — 🔄 RUNNING** (started 2026-08-20). Release at 50 / 100 / 250 steps with **ramp = x** (so the release takes as long as the windowed phase), 5 seeds each. ~20–35h MPS. Sweep 3b found no collapse down to 250 steps and the shortest point was the best, so the floor is still unknown.
 
@@ -394,7 +407,7 @@ A, B           seeds 42/137 both; 256 baseline only         retrain the other 7 
 
 ## How It Works
 
-**Recipe:** apply the depth-wise window schedule for the first 10–25% of training, then widen the windows to full over ~500 steps and train normally. Ship a standard transformer.
+**Recipe:** apply the depth-wise window schedule for the first **~1–3% of training** (250–500 steps of 20K), then widen the windows to full over a few hundred steps and train normally. Ship a standard transformer. Longer application is mildly *worse*.
 
 A standard transformer uses full attention at every layer. The window schedule restricts each layer's attention based on depth, forcing early layers to build local features before later layers integrate globally:
 
@@ -478,7 +491,7 @@ This project ran 200+ autonomous experiments across 5 phases. The window schedul
 - Embryogenic activity-dependent CA (marginal gains, high overhead)
 
 ### What Did Work
-- **Attention windows as a training curriculum** (quartic growth, +1.5% at 3.4M with 5/5 seeds; benefit survives removal at 10K)
+- **Attention windows as a brief early constraint** (quartic growth; +1.91% at 3.4M applying them for only 250 of 20,000 steps, 5/5 seeds, benefit survives full release)
 - **Block-diagonal CA init** (+0.6% at 10min, constant offset)
 
 ## Follow-up: Trajectory Analysis & Topographic Regularization
@@ -528,7 +541,7 @@ A functional test followed: if this organization is useful for prediction, quart
 
 **Structural correlation is not functional utilization.** Quartic's topographic-like organization is real but ornamental. Both models encode co-occurrence information; quartic does so in static embedding geometry while baseline does so in attention patterns and context-dependent computation. Either strategy solves the LM task equally well. This double-reframes the topographic regularization program: not only are the Gaussian-kernel loss formulations pathological (§2 of the writeup), but even when topographic organization is produced as a free side effect (via architectural constraint), the model doesn't exploit it for prediction. The original hypothesis — that topographic organization would improve learning on this task at this scale — is not supported.
 
-The quartic val_bpb improvement reported above appears to come from the curriculum mechanism documented in the "Mechanism" section, **not** from the emergent topographic-like organization. Two distinct effects produced by the same architecture: one functionally useful, one functionally ornamental.
+The quartic val_bpb improvement reported above appears to come from the mechanism documented in the "Mechanism" section, **not** from the emergent topographic-like organization. Two distinct effects produced by the same architecture: one functionally useful, one functionally ornamental.
 
 ### Methodological contributions
 
