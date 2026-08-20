@@ -341,6 +341,15 @@ Criteria stated in advance so outcomes can't be re-framed after the fact. **None
 
 *Known confound:* the ramp is fixed at 500 steps, so at x=250 the windows are fully applied for 250 steps and partially applied until 750 — the ramp is longer than the windowed phase. Effective windowed duration is roughly x + 250. Reported on that axis.
 
+**3c. Where is the floor? — 🔄 RUNNING** (started 2026-08-20). Release at 50 / 100 / 250 steps with **ramp = x** (so the release takes as long as the windowed phase), 5 seeds each. ~20–35h MPS. Sweep 3b found no collapse down to 250 steps and the shortest point was the best, so the floor is still unknown.
+
+*Why the ramp must scale:* with a fixed 500-step ramp, "full attention from" would move only 550 → 750 across x=50…250 — the ramp would swamp the variable being swept. With ramp = x, the model reaches full attention at step **2x**: 100, 200, 500.
+
+*Criteria, fixed before the runs:*
+- **Does it work at x?** Claim iff **5/5** paired diffs (A − R_x) positive → perm p = 0.031. Report the smallest x that passes.
+- **Ramp control.** x=250 is re-run at ramp=250 to bridge to the existing x=250/ramp=500 result. If the two differ, ramp length is a confound and the whole curve must be read on the "full attention from step 2x" axis rather than on x.
+- **⚠️ Second pre-registered reframe.** If x=50 — full attention from step **100 of 20,000**, before the 200-step LR warmup even ends — still delivers the effect, then "transient requirement" is itself too weak and **"initialization effect" becomes the accurate description**. The constraint would be shaping the first few dozen updates and nothing more. Committing to that reading now, as with 3b.
+
 **4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
 
 The reported `final_bpb` of every run in this repo is a single eval over **12 randomly drawn batches = 98,304 tokens, 0.51% of the val set**, resampled on every call. Measured directly, by evaluating one *frozen* checkpoint 12 times:
