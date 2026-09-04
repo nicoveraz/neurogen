@@ -140,7 +140,7 @@ every point: 5/5 vs baseline, perm p = 0.031
 
 **Still open:** where the floor is. [Experiment 3c](#pre-registered-experiments) is running now (50 / 100 / 250 steps, ramp = x).
 
-Reproduce: `uv run python analyze_exp7.py --compare ramp5seed rel2k`
+Reproduce: `uv run python analyze_exp7.py --compare ramp5seed rel2k --switch-step 10000,2000`
 
 ## What the constraint leaves behind
 
@@ -328,11 +328,11 @@ Larger batches look better only because they saw 4× more data. At equal token b
 | Any of this holds above 3.4M | none — no release arm has run at 125M | **untested** ⚠️ |
 | Windows help at 125M (windows-throughout only) | 5 seeds, 4/5, p=0.063, unconverged | suggestive |
 
-Four of five pre-registered experiments are complete. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance.
+Five of the eight pre-registered experiments below are complete (1, 2, 2b, 3, 3b); 3c is running, and 4 and 5 have not started. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance.
 
 ## Pre-registered experiments
 
-Criteria stated in advance so outcomes can't be re-framed after the fact. **None of these have been run.**
+Criteria stated in advance so outcomes can't be re-framed after the fact — including the ones that went on to fail. Each entry carries its own status.
 
 **1. Removal at 5 seeds — ✅ DONE**, results in [Key Finding](#key-finding--the-windows-can-be-removed) above.
 *Criteria, fixed before the runs:* claim "removal preserves the benefit" iff **5/5** paired diffs (A − F) positive → permutation floor p = 0.031. Claim "removal is better than keeping" only if **≥4/5** paired diffs (B − F) positive **and** paired-t p < 0.05; at 2/5 or 3/5, report no detectable difference. Diverged seeds count in the denominator.
