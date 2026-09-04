@@ -278,3 +278,37 @@ def test_checkpoint_may_be_resumed_before_the_release_point(monkeypatch, tmp_pat
         assert "seed" in str(e)
     else:
         raise AssertionError("expected ValueError on seed mismatch")
+
+
+def test_tagged_runs_do_not_clobber_each_other_in_the_shared_file(monkeypatch, tmp_path):
+    """Two tags at one switch step must not overwrite each other's results.
+
+    Regression test. mechanism_disambiguation.json keyed exp7 blocks by switch
+    step alone, and runs are keyed by config+seed WITHIN a block, so the floor
+    sweep (sw=250, ramp=250) overwrote the release-point sweep (sw=250,
+    ramp=500) value-for-value -- and deleted the two seeds it had no data for,
+    because the block is assigned rather than merged into.
+    """
+    _stub_training(monkeypatch, tmp_path)
+    a = em.experiment7(seeds=[42], switch_step=4, total_steps=8, tag="tagA",
+                       ramp_steps=0)
+    em.print_summary(None, None, None, a, tag="tagA")
+    b = em.experiment7(seeds=[42], switch_step=4, total_steps=8, tag="tagB",
+                       ramp_steps=2)
+    em.print_summary(None, None, None, b, tag="tagB")
+
+    blob = json.loads((tmp_path / "mechanism_disambiguation.json").read_text())
+    assert "exp7_sw4_tagA" in blob, "the first tag's block was overwritten"
+    assert "exp7_sw4_tagB" in blob
+    # Same config, same seed, same stubbed bpb -- only the treatment differs, so
+    # ramp_steps is what proves the two blocks are not the same run twice.
+    assert blob["exp7_sw4_tagA"]["F_switch_s42"]["ramp_steps"] == 0
+    assert blob["exp7_sw4_tagB"]["F_switch_s42"]["ramp_steps"] == 2
+
+
+def test_untagged_10k_run_keeps_the_canonical_exp7_key():
+    """The historical key is preserved, so committed files stay readable."""
+    assert em.exp7_key(10000, "") == "exp7"
+    assert em.exp7_key(10000, "5seed") == "exp7_sw10000_5seed"
+    assert em.exp7_key(250, "") == "exp7_sw250"
+    assert em.exp7_key(250, "floor250") == "exp7_sw250_floor250"

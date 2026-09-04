@@ -8,6 +8,7 @@ so numbers reach README/paper without hand transcription.
 Usage:
     uv run python analyze_exp7.py
     uv run python analyze_exp7.py --tag 5seed --emit latex
+    uv run python analyze_exp7.py --compare ramp5seed rel2k --switch-step 10000,2000
 """
 import argparse
 import glob
@@ -126,25 +127,41 @@ def shock_table(switch_step=10000):
     print("  second moment should pull 'peak upd' back toward 'pre upd' (ratio -> 1).")
 
 
-def compare_arms(tag_a, tag_b, label_a, label_b, switch_step=10000):
-    """Paired comparison of two arms measured under the same tag scheme.
+def compare_arms(tag_a, tag_b, label_a, label_b, switch_step=10000,
+                 switch_step_b=None):
+    """Paired comparison of two arms, seed by seed.
 
-    Used for ramp-vs-hard-switch: both resume from the same pre-switch state
-    with the same restored RNG, so they see identical batches and identical
-    eval draws. The endpoint noise that limits other comparisons is
-    common-mode here and largely cancels.
+    The two arms may sit at different release points (`switch_step_b`), which is
+    what comparing across the release-point sweep requires -- rel2k lives at
+    sw=2000, not at the other arm's switch step.
+
+    Pairing is by seed: same init and same data order. When BOTH arms also
+    resumed from the same pre-switch checkpoint they share the restored RNG as
+    well, so they draw identical batches and identical eval samples and the
+    endpoint noise is common-mode; the header says which case this is, because
+    the residual differs by ~2x between them.
     """
-    _, ra = load_sweep(tag_a, switch_step)
-    _, rb = load_sweep(tag_b, switch_step)
+    switch_step_b = switch_step if switch_step_b is None else switch_step_b
+    ca, ra = load_sweep(tag_a, switch_step)
+    cb, rb = load_sweep(tag_b, switch_step_b)
     if not ra or not rb:
+        missing = [f"{t} at sw={s}" for t, s, r in
+                   ((tag_a, switch_step, ra), (tag_b, switch_step_b, rb)) if not r]
+        print(f"No sweep found for {' and '.join(missing)} "
+              f"(looked for gradient_results/exp7_curriculum_sw<step>_<tag>.json).")
         return
+    shared_prefix = bool((ca or {}).get("resumed_from")) and bool((cb or {}).get("resumed_from"))
     seeds = sorted({r["seed"] for r in ra.values() if r["config"] == "F_switch"}
                    & {r["seed"] for r in rb.values() if r["config"] == "F_switch"},
                    key=lambda s: SEED_ORDER.index(s) if s in SEED_ORDER else 99)
     if not seeds:
         return
+    sw_note = "" if switch_step == switch_step_b else \
+        f", release at {switch_step} vs {switch_step_b}"
+    pairing = ("paired, same pre-switch state and RNG" if shared_prefix
+               else "paired by seed: same init and data order, independent runs")
     print("\n" + "=" * 92)
-    print(f"  {label_a} vs {label_b}  (paired, same pre-switch state and RNG)")
+    print(f"  {label_a} vs {label_b}  ({pairing}{sw_note})")
     print("=" * 92)
     print(f"  {'seed':>6} {'baseline':>10} {label_a:>12} {label_b:>12} "
           f"{'B-arm vs A':>11} {'diff':>10} {label_b+' vs '+label_a:>16}")
@@ -178,25 +195,35 @@ def main():
     ap.add_argument("--compare", nargs=2, metavar=("TAG_A", "TAG_B"),
                     help="Paired comparison of two arms, e.g. --compare 5seed ramp5seed")
     ap.add_argument("--tag", default="5seed")
-    ap.add_argument("--switch-step", type=int, default=10000)
+    ap.add_argument("--switch-step", default="10000",
+                    help="Release point. With --compare, accepts two "
+                         "comma-separated values (e.g. 10000,2000) when the two "
+                         "arms sit at different release points")
     ap.add_argument("--emit", choices=["markdown", "latex", "both", "none"],
                     default="both")
     args = ap.parse_args()
 
+    steps = [int(x) for x in str(args.switch_step).split(",") if x.strip()]
+    if len(steps) > 2 or not steps:
+        ap.error("--switch-step takes one value, or two for --compare")
+    sw_a, sw_b = steps[0], steps[-1]
+    if len(steps) == 2 and not args.compare:
+        ap.error("two --switch-step values only make sense with --compare")
+
     if args.compare:
         a, b = args.compare
         labels = {"5seed": "F (switch)", "ramp5seed": "R (ramp)"}
-        compare_arms(a, b, labels.get(a, a), labels.get(b, b), args.switch_step)
+        compare_arms(a, b, labels.get(a, a), labels.get(b, b), sw_a, sw_b)
         return
 
-    cfg, runs = load_sweep(args.tag, args.switch_step)
+    cfg, runs = load_sweep(args.tag, sw_a)
     if runs is None:
-        print(f"No sweep found for tag '{args.tag}' at switch {args.switch_step}.")
+        print(f"No sweep found for tag '{args.tag}' at switch {sw_a}.")
         return
     rows = _rows(runs)
     n_done = sum(1 for r in rows if r[3])
     print("=" * 92)
-    print(f"  EXPERIMENT 7 — window removal at step {args.switch_step} "
+    print(f"  EXPERIMENT 7 — window removal at step {sw_a} "
           f"({n_done}/{len(SEED_ORDER)} seeds complete)")
     print("=" * 92)
 
@@ -207,7 +234,7 @@ def main():
     if args.emit in ("latex", "both"):
         emit_latex(rows)
 
-    shock_table(args.switch_step)
+    shock_table(sw_a)
 
 
 if __name__ == "__main__":

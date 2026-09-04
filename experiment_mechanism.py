@@ -448,6 +448,18 @@ def _restore_rng(st):
         torch.cuda.set_rng_state_all([s.cpu().to(torch.uint8) for s in st["cuda"]])
 
 
+def exp7_key(switch_step, tag):
+    """Key for one exp7 treatment inside mechanism_disambiguation.json.
+
+    The tag is part of the identity, not decoration: `--tag` already separates
+    the per-sweep curve files, and the shared file must separate them the same
+    way or two treatments at one switch step overwrite each other.
+    """
+    if switch_step == 10000 and not tag:
+        return "exp7"
+    return f"exp7_sw{switch_step}" + (f"_{tag}" if tag else "")
+
+
 def _write_exp7_files(curve_path, all_results, traces, seeds, switch_step,
                       total_steps, stop_step, switch_mode, post_switch_warmup,
                       reset_optimizer, ramp_steps, load_switch_ckpt, suffix):
@@ -832,7 +844,7 @@ def summarize_exp7(all_results):
 # ===========================================================================
 # Combined Summary
 # ===========================================================================
-def print_summary(r4, r5, r6, r7):
+def print_summary(r4, r5, r6, r7, tag=""):
     print("\n" + "=" * 80)
     print("  MECHANISM DISAMBIGUATION: COMPLETE RESULTS")
     print("=" * 80)
@@ -909,8 +921,12 @@ def print_summary(r4, r5, r6, r7):
             print("  Exp 7: partial run — canonical exp7 block left untouched.")
         else:
             # Endpoints only here (full curves live in exp7_curriculum_sw*.json).
-            # A switch-point sweep writes to its own key so it cannot clobber the
-            # canonical 10k result.
+            # The key must carry the TAG as well as the switch step. Runs are
+            # keyed by config+seed inside the block, so two treatments at the
+            # same switch step collide: the floor sweep (sw=250, ramp=250)
+            # overwrote the release-point sweep (sw=250, ramp=500) key-for-key
+            # AND dropped the two seeds it had no data for, since the assignment
+            # below replaces the whole block rather than merging into it.
             r7_save = {}
             sw = 10000
             for k, v in r7.items():
@@ -919,7 +935,7 @@ def print_summary(r4, r5, r6, r7):
                     r7_save[k]["curve_start"] = v["curve"][0] if v["curve"] else None
                     r7_save[k]["curve_end"] = v["curve"][-1] if v["curve"] else None
                 sw = v.get("switch_step", sw)
-            combined["exp7" if sw == 10000 else f"exp7_sw{sw}"] = r7_save
+            combined[exp7_key(sw, tag)] = r7_save
     with open(out_path, "w") as f:
         json.dump(combined, f, indent=2)
     print(f"\n  Results saved to {out_path}")
@@ -1003,7 +1019,7 @@ def main():
                      tag=args.tag, resume_seeds=args.resume_seeds) \
         if (args.exp7 or args.all) else None
 
-    print_summary(r4, r5, r6, r7)
+    print_summary(r4, r5, r6, r7, tag=args.tag)
 
 
 if __name__ == "__main__":
