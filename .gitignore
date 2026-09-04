@@ -24,6 +24,9 @@ __pycache__/
 .vscode/
 .idea/
 
+# Agent tooling (local settings, scratch output)
+.claude/
+
 # OS
 .DS_Store
 
