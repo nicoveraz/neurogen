@@ -361,7 +361,7 @@ Larger batches look better only because they saw 4× more data. At equal token b
 | Applying it too briefly is *harmful*, not just useless | x=50 worse than baseline on 2/5 seeds (−1.34%, −1.42%) | suggestive — n=5, sign-split |
 | Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
 | Releasing *beats* retaining | 2/5, p=0.625 — below the noise floor | **not resolvable** without exp. 4 |
-| Ramping lowers the divergence rate | 1 event in 8 runs | **untested** |
+| Ramping lowers the divergence rate | 0 in 50 ramped vs 1 in 8 hard-switch; Fisher p=0.138 | **untested** — one event can't carry it |
 | Any of this holds above 3.4M | none — no release arm has run at 125M | **untested** ⚠️ |
 | Windows help at 125M (windows-throughout only) | 5 seeds, 4/5, p=0.063, unconverged | suggestive |
 
@@ -387,7 +387,7 @@ Criteria stated in advance so outcomes can't be re-framed after the fact — inc
 *Criteria, fixed before the runs:* (a) claim the curriculum works at release point x iff **5/5** paired diffs (A − R_x) positive; (b) claim an optimal release point only if the winner beats **every** other point on **≥4/5** seeds **and** paired-t p<0.05 vs the runner-up; (c) **pre-registered null:** a flat curve (all points within the 0.0023 residual) is a *result*, not a failure — it would mean the recipe needs no tuning.
 *Outcome:* (a) **met at all four points** (5/5, p=0.031). (b) **not met** — R@2K vs R@5K is 4/5 at p=0.0836. (c) **null falsified** — spread 0.0036 bpb. Net: release early (first 10–25%), no finer resolution available.
 
-**3b. How short can it be? — ✅ DONE**, results in [When to release](#when-to-release-and-for-how-long) above. Release at 250 / 500 / 1000 steps, 5 seeds, ~30h.
+**3b. How short can it be? — ✅ DONE**, results in [When to release](#when-to-release-and-for-how-long) above. Release at 250 / 500 / 1000 steps, 5 seeds, ~19h (measured; an earlier ~30h was an estimate, not a measurement).
 *Criteria, fixed before the runs:* claim it works at x iff **5/5** paired diffs positive; report the smallest x passing; **⚠️ pre-registered reframe** — if x=250 delivers the full effect, "curriculum" is the wrong word and the framing changes rather than being defended.
 *Outcome:* **all three met** (5/5, p=0.031). No collapse; the shortest point tested is the best (+1.91%). **The reframe trigger fired and was honoured** — the project is retitled from "a training curriculum" to "a transient requirement". Also recorded: R@250 vs never-releasing is 4/5 at p=0.041, which would clear the experiment-1 bar, but it was selected from seven release points and is *not claimed* on multiple-comparisons grounds.
 
@@ -434,12 +434,11 @@ Arm F sits on a slightly different RNG stream — `validate.py` calls `measure_a
 
 ```
 arm            checkpoints available                        cost to re-measure
-F (switch)     seeds 137/256/789/1337 (saved by exp7)       re-evaluate (minutes)
-F, seed 42     none — but its pre-switch state is saved     ~55 min from the switch
+F, R (all)     all 5 seeds, 10-15 release arms each         re-evaluate (minutes)
 A, B           seeds 42/137 both; 256 baseline only         retrain the other 7 arms
 ```
 
-`experiment7` now saves its final F model with the **post-switch** `arch_cfg` recorded, because an F model is full-attention at the end — reloading it under the quartic config would silently evaluate the wrong operator. `validate.py` already saves A and B, but 5 of those 10 checkpoints predate current practice and are missing, so a full re-measurement is ~19–22 h MPS today and falls to roughly the A/B retrain alone once F checkpoints exist.
+`experiment7` now saves its final F model with the **post-switch** `arch_cfg` recorded, because an F model is full-attention at the end — reloading it under the quartic config would silently evaluate the wrong operator. `validate.py` already saves A and B, but 5 of those 10 checkpoints predate current practice and are missing. The F/R side is no longer the constraint: sweeps 3, 3b and 3c have since saved every release arm at all five seeds (seed 42 included, which was the gap when this was written), so the cost is now **the A/B retrain alone** — 7 arms, roughly 8–10 h MPS — plus minutes to re-evaluate everything else.
 
 *Criteria:* re-evaluating one frozen checkpoint 12× must give **sd exactly 0.0** (bit-identical), not merely small — that is the whole point. Report the new baseline mean (expect within ~0.01 bpb of the old; sanity check, not a claim) and the new paired residual sd for A-B and A-F (expect A-F to fall from 0.0023 toward the A-B value).
 
@@ -535,7 +534,7 @@ This project ran 200+ autonomous experiments across 5 phases. The window schedul
 - Embryogenic activity-dependent CA (marginal gains, high overhead)
 
 ### What Did Work
-- **Attention windows as a brief early constraint** (quartic growth; +1.91% at 3.4M applying them for only 250 of 20,000 steps, 5/5 seeds, benefit survives full release)
+- **Attention windows as a brief early constraint** (quartic growth; +1.91% at 3.4M applying them for only 250 of 20,000 steps, 5/5 seeds, benefit survives full release — but not *briefer*: 100 steps halves the effect and 50 steps loses it)
 - **Block-diagonal CA init** (+0.6% at 10min, constant offset)
 
 ## Follow-up: Trajectory Analysis & Topographic Regularization
