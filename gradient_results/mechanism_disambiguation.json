@@ -2473,6 +2473,56 @@
         20000,
         0.8757
       ]
+    },
+    "A_full_s256": {
+      "config": "A_full",
+      "seed": 256,
+      "final_bpb": 0.894124,
+      "source": "cached",
+      "curve_start": [
+        0,
+        8.00041
+      ],
+      "curve_end": [
+        20000,
+        0.894124
+      ]
+    },
+    "B_quartic_s256": {
+      "config": "B_quartic",
+      "seed": 256,
+      "final_bpb": 0.883028,
+      "source": "cached",
+      "curve_start": [
+        0,
+        8.000046
+      ],
+      "curve_end": [
+        20000,
+        0.883028
+      ]
+    },
+    "F_switch_s256": {
+      "config": "F_switch",
+      "seed": 256,
+      "final_bpb": 0.8901,
+      "source": "trained",
+      "switch_step": 100,
+      "switch_mode": "full",
+      "total_steps": 20000,
+      "stop_step": null,
+      "post_switch_warmup": 0,
+      "reset_optimizer": false,
+      "ramp_steps": 100,
+      "diverged_at": null,
+      "curve_start": [
+        0,
+        8.0
+      ],
+      "curve_end": [
+        20000,
+        0.8901
+      ]
     }
   }
 }
