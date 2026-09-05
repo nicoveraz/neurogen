@@ -1,0 +1,595 @@
+{
+  "harness": {
+    "fixed_eval_tokens": 1048576,
+    "batches": 128,
+    "seed": 0,
+    "batch_size": 32,
+    "block_size": 256,
+    "device": "mps"
+  },
+  "warning": "Fixed-harness values. NOT comparable to any val_bpb recorded elsewhere in this repo, which were measured by resampling. old_harness_bpb is present for identification only.",
+  "matched_comparison_blocked_by": {
+    "arms": [
+      "baseline_s42",
+      "baseline_s137",
+      "baseline_s256",
+      "baseline_s789",
+      "baseline_s1337",
+      "window_power_4.0_s42",
+      "window_power_4.0_s137",
+      "window_power_4.0_s256",
+      "window_power_4.0_s789",
+      "window_power_4.0_s1337"
+    ],
+    "reason": "No saved checkpoint is the 20K A or B run. The five that exist are different runs: seed 42's are the 100K run (0.807/0.799), seeds 137/256 are ~0.965-0.975, while the 20K arms are 0.904/0.893. All 10 A/B arms must be retrained (~12 h MPS) before any paired comparison can move to this harness."
+  },
+  "runs": {
+    "model_F_switch_1337_sw10000_5seed.pt": {
+      "fixed_bpb": 0.8818488144368944,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8901,
+      "old_harness_source": "exp7_curriculum_sw10000_5seed.json"
+    },
+    "model_F_switch_1337_sw10000_ramp5seed.pt": {
+      "fixed_bpb": 0.8817018707132984,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8899,
+      "old_harness_source": "exp7_curriculum_sw10000_ramp5seed.json"
+    },
+    "model_F_switch_1337_sw1000_rel1k.pt": {
+      "fixed_bpb": 0.8784133306553071,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 1000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8883,
+      "old_harness_source": "exp7_curriculum_sw1000_rel1k.json"
+    },
+    "model_F_switch_1337_sw100_floor100.pt": {
+      "fixed_bpb": 0.8832459034086483,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 100,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8918,
+      "old_harness_source": "exp7_curriculum_sw100_floor100.json"
+    },
+    "model_F_switch_1337_sw15000_rel15k.pt": {
+      "fixed_bpb": 0.8830722231009154,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 15000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8915,
+      "old_harness_source": "exp7_curriculum_sw15000_rel15k.json"
+    },
+    "model_F_switch_1337_sw2000_rel2k.pt": {
+      "fixed_bpb": 0.8792111796704911,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 2000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8863,
+      "old_harness_source": "exp7_curriculum_sw2000_rel2k.json"
+    },
+    "model_F_switch_1337_sw250_floor250.pt": {
+      "fixed_bpb": 0.8788436204988502,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8865,
+      "old_harness_source": "exp7_curriculum_sw250_floor250.json"
+    },
+    "model_F_switch_1337_sw250_rel250.pt": {
+      "fixed_bpb": 0.8768130818027637,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8852,
+      "old_harness_source": "exp7_curriculum_sw250_rel250.json"
+    },
+    "model_F_switch_1337_sw5000_rel5k.pt": {
+      "fixed_bpb": 0.8800177218712304,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 5000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8892,
+      "old_harness_source": "exp7_curriculum_sw5000_rel5k.json"
+    },
+    "model_F_switch_1337_sw500_rel500.pt": {
+      "fixed_bpb": 0.8784045158726432,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 500,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8874,
+      "old_harness_source": "exp7_curriculum_sw500_rel500.json"
+    },
+    "model_F_switch_1337_sw50_floor50.pt": {
+      "fixed_bpb": 0.8894696250142162,
+      "arch": "F_switch",
+      "seed": 1337,
+      "switch_step": 50,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9004,
+      "old_harness_source": "exp7_curriculum_sw50_floor50.json"
+    },
+    "model_F_switch_137_sw10000_5seed.pt": {
+      "fixed_bpb": 0.8821564007053119,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8746,
+      "old_harness_source": "exp7_curriculum_sw10000_5seed.json"
+    },
+    "model_F_switch_137_sw10000_ramp5seed.pt": {
+      "fixed_bpb": 0.8819347889671451,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8743,
+      "old_harness_source": "exp7_curriculum_sw10000_ramp5seed.json"
+    },
+    "model_F_switch_137_sw1000_rel1k.pt": {
+      "fixed_bpb": 0.8799056704715427,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 1000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8735,
+      "old_harness_source": "exp7_curriculum_sw1000_rel1k.json"
+    },
+    "model_F_switch_137_sw100_floor100.pt": {
+      "fixed_bpb": 0.8841738888741497,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 100,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8757,
+      "old_harness_source": "exp7_curriculum_sw100_floor100.json"
+    },
+    "model_F_switch_137_sw15000_rel15k.pt": {
+      "fixed_bpb": 0.8833958165202006,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 15000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8754,
+      "old_harness_source": "exp7_curriculum_sw15000_rel15k.json"
+    },
+    "model_F_switch_137_sw2000_rel2k.pt": {
+      "fixed_bpb": 0.8803900858081797,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 2000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8726,
+      "old_harness_source": "exp7_curriculum_sw2000_rel2k.json"
+    },
+    "model_F_switch_137_sw250_floor250.pt": {
+      "fixed_bpb": 0.8798363171239677,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.874,
+      "old_harness_source": "exp7_curriculum_sw250_floor250.json"
+    },
+    "model_F_switch_137_sw250_rel250.pt": {
+      "fixed_bpb": 0.8794042778943979,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8725,
+      "old_harness_source": "exp7_curriculum_sw250_rel250.json"
+    },
+    "model_F_switch_137_sw5000_rel5k.pt": {
+      "fixed_bpb": 0.8808147922618348,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 5000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8741,
+      "old_harness_source": "exp7_curriculum_sw5000_rel5k.json"
+    },
+    "model_F_switch_137_sw500_rel500.pt": {
+      "fixed_bpb": 0.8797809528183418,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 500,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8706,
+      "old_harness_source": "exp7_curriculum_sw500_rel500.json"
+    },
+    "model_F_switch_137_sw50_floor50.pt": {
+      "fixed_bpb": 0.8911183024345438,
+      "arch": "F_switch",
+      "seed": 137,
+      "switch_step": 50,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8833,
+      "old_harness_source": "exp7_curriculum_sw50_floor50.json"
+    },
+    "model_F_switch_256_sw10000_5seed.pt": {
+      "fixed_bpb": 0.8819417858394448,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8865,
+      "old_harness_source": "exp7_curriculum_sw10000_5seed.json"
+    },
+    "model_F_switch_256_sw10000_kernel_control.pt": {
+      "fixed_bpb": 0.9581333006613124,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9593,
+      "old_harness_source": "exp7_curriculum_sw10000_kernel_control.json"
+    },
+    "model_F_switch_256_sw10000_ramp500.pt": {
+      "fixed_bpb": 0.9585225323341909,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9597,
+      "old_harness_source": "exp7_curriculum_sw10000_ramp500.json"
+    },
+    "model_F_switch_256_sw10000_ramp5seed.pt": {
+      "fixed_bpb": 0.8816576503460025,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8867,
+      "old_harness_source": "exp7_curriculum_sw10000_ramp5seed.json"
+    },
+    "model_F_switch_256_sw10000_reset_optimizer.pt": {
+      "fixed_bpb": 0.9572646236816839,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9588,
+      "old_harness_source": "exp7_curriculum_sw10000_reset_optimizer.json"
+    },
+    "model_F_switch_256_sw10000_warmup200.pt": {
+      "fixed_bpb": 0.9560794986244678,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9571,
+      "old_harness_source": "exp7_curriculum_sw10000_warmup200.json"
+    },
+    "model_F_switch_256_sw1000_rel1k.pt": {
+      "fixed_bpb": 0.8792652030488861,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 1000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8833,
+      "old_harness_source": "exp7_curriculum_sw1000_rel1k.json"
+    },
+    "model_F_switch_256_sw100_floor100.pt": {
+      "fixed_bpb": 0.887407088139768,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 100,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8901,
+      "old_harness_source": "exp7_curriculum_sw100_floor100.json"
+    },
+    "model_F_switch_256_sw15000_rel15k.pt": {
+      "fixed_bpb": 0.8829347303614301,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 15000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8875,
+      "old_harness_source": "exp7_curriculum_sw15000_rel15k.json"
+    },
+    "model_F_switch_256_sw2000_rel2k.pt": {
+      "fixed_bpb": 0.8800000607309627,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 2000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8833,
+      "old_harness_source": "exp7_curriculum_sw2000_rel2k.json"
+    },
+    "model_F_switch_256_sw250_floor250.pt": {
+      "fixed_bpb": 0.8796896595902517,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8848,
+      "old_harness_source": "exp7_curriculum_sw250_floor250.json"
+    },
+    "model_F_switch_256_sw250_rel250.pt": {
+      "fixed_bpb": 0.8791817189080369,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8832,
+      "old_harness_source": "exp7_curriculum_sw250_rel250.json"
+    },
+    "model_F_switch_256_sw5000_rel5k.pt": {
+      "fixed_bpb": 0.8804371089552389,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 5000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8847,
+      "old_harness_source": "exp7_curriculum_sw5000_rel5k.json"
+    },
+    "model_F_switch_256_sw500_rel500.pt": {
+      "fixed_bpb": 0.8789766625154373,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 500,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.883,
+      "old_harness_source": "exp7_curriculum_sw500_rel500.json"
+    },
+    "model_F_switch_256_sw50_floor50.pt": {
+      "fixed_bpb": 0.9022810916755417,
+      "arch": "F_switch",
+      "seed": 256,
+      "switch_step": 50,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9068,
+      "old_harness_source": "exp7_curriculum_sw50_floor50.json"
+    },
+    "model_F_switch_42_sw10000_ramp5seed.pt": {
+      "fixed_bpb": 0.8842871522140803,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.895,
+      "old_harness_source": "exp7_curriculum_sw10000_ramp5seed.json"
+    },
+    "model_F_switch_42_sw1000_rel1k.pt": {
+      "fixed_bpb": 0.8823608323171878,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 1000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8933,
+      "old_harness_source": "exp7_curriculum_sw1000_rel1k.json"
+    },
+    "model_F_switch_42_sw100_floor100.pt": {
+      "fixed_bpb": 0.8895296960012951,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 100,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8975,
+      "old_harness_source": "exp7_curriculum_sw100_floor100.json"
+    },
+    "model_F_switch_42_sw15000_rel15k.pt": {
+      "fixed_bpb": 0.8857493050442459,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 15000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8956,
+      "old_harness_source": "exp7_curriculum_sw15000_rel15k.json"
+    },
+    "model_F_switch_42_sw2000_rel2k.pt": {
+      "fixed_bpb": 0.8824321050180185,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 2000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8932,
+      "old_harness_source": "exp7_curriculum_sw2000_rel2k.json"
+    },
+    "model_F_switch_42_sw250_floor250.pt": {
+      "fixed_bpb": 0.8831704648311847,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8906,
+      "old_harness_source": "exp7_curriculum_sw250_floor250.json"
+    },
+    "model_F_switch_42_sw250_rel250.pt": {
+      "fixed_bpb": 0.882525576245148,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8905,
+      "old_harness_source": "exp7_curriculum_sw250_rel250.json"
+    },
+    "model_F_switch_42_sw5000_rel5k.pt": {
+      "fixed_bpb": 0.8832007398240016,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 5000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8924,
+      "old_harness_source": "exp7_curriculum_sw5000_rel5k.json"
+    },
+    "model_F_switch_42_sw500_rel500.pt": {
+      "fixed_bpb": 0.881818573034439,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 500,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8918,
+      "old_harness_source": "exp7_curriculum_sw500_rel500.json"
+    },
+    "model_F_switch_42_sw50_floor50.pt": {
+      "fixed_bpb": 0.9064738614235768,
+      "arch": "F_switch",
+      "seed": 42,
+      "switch_step": 50,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9162,
+      "old_harness_source": "exp7_curriculum_sw50_floor50.json"
+    },
+    "model_F_switch_789_sw10000_5seed.pt": {
+      "fixed_bpb": 0.8833825503428311,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8887,
+      "old_harness_source": "exp7_curriculum_sw10000_5seed.json"
+    },
+    "model_F_switch_789_sw10000_ramp5seed.pt": {
+      "fixed_bpb": 0.883090926886004,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 10000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8882,
+      "old_harness_source": "exp7_curriculum_sw10000_ramp5seed.json"
+    },
+    "model_F_switch_789_sw1000_rel1k.pt": {
+      "fixed_bpb": 0.8805438369544366,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 1000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8847,
+      "old_harness_source": "exp7_curriculum_sw1000_rel1k.json"
+    },
+    "model_F_switch_789_sw100_floor100.pt": {
+      "fixed_bpb": 0.8876749222307759,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 100,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8976,
+      "old_harness_source": "exp7_curriculum_sw100_floor100.json"
+    },
+    "model_F_switch_789_sw15000_rel15k.pt": {
+      "fixed_bpb": 0.8845136614269533,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 15000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.889,
+      "old_harness_source": "exp7_curriculum_sw15000_rel15k.json"
+    },
+    "model_F_switch_789_sw2000_rel2k.pt": {
+      "fixed_bpb": 0.8805164950719856,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 2000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8855,
+      "old_harness_source": "exp7_curriculum_sw2000_rel2k.json"
+    },
+    "model_F_switch_789_sw250_floor250.pt": {
+      "fixed_bpb": 0.8784138204027778,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8823,
+      "old_harness_source": "exp7_curriculum_sw250_floor250.json"
+    },
+    "model_F_switch_789_sw250_rel250.pt": {
+      "fixed_bpb": 0.8787521526008805,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 250,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8835,
+      "old_harness_source": "exp7_curriculum_sw250_rel250.json"
+    },
+    "model_F_switch_789_sw5000_rel5k.pt": {
+      "fixed_bpb": 0.8816645283084226,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 5000,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8875,
+      "old_harness_source": "exp7_curriculum_sw5000_rel5k.json"
+    },
+    "model_F_switch_789_sw500_rel500.pt": {
+      "fixed_bpb": 0.8796631420152718,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 500,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.8839,
+      "old_harness_source": "exp7_curriculum_sw500_rel500.json"
+    },
+    "model_F_switch_789_sw50_floor50.pt": {
+      "fixed_bpb": 0.894648696454347,
+      "arch": "F_switch",
+      "seed": 789,
+      "switch_step": 50,
+      "total_steps": 20000,
+      "old_harness_bpb": 0.9017,
+      "old_harness_source": "exp7_curriculum_sw50_floor50.json"
+    },
+    "model_baseline_137.pt": {
+      "fixed_bpb": 0.9724410929711687,
+      "arch": "baseline",
+      "seed": 137,
+      "switch_step": null,
+      "total_steps": 16578,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_baseline_256.pt": {
+      "fixed_bpb": 0.9734435617042527,
+      "arch": "baseline",
+      "seed": 256,
+      "switch_step": null,
+      "total_steps": 16599,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_baseline_42.pt": {
+      "fixed_bpb": 0.8070631160345048,
+      "arch": "baseline",
+      "seed": 42,
+      "switch_step": null,
+      "total_steps": 100000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_window_power_4.0_137.pt": {
+      "fixed_bpb": 0.9821905697676171,
+      "arch": "window_power_4.0",
+      "seed": 137,
+      "switch_step": null,
+      "total_steps": 11710,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_window_power_4.0_42.pt": {
+      "fixed_bpb": 0.8033753756920536,
+      "arch": "window_power_4.0",
+      "seed": 42,
+      "switch_step": null,
+      "total_steps": 100000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    }
+  }
+}

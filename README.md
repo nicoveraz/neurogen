@@ -407,7 +407,19 @@ Criteria stated in advance so outcomes can't be re-framed after the fact — inc
 - **Unexpected, and not pre-registered:** at x=50 two of five seeds finish *worse than baseline* (−1.34%, −1.42%). Reported as suggestive only — it is a post-hoc observation on a sign-split arm, and the sweep tested three release points, so no multiple-comparisons-safe claim is made from it.
 - Divergences: **0 in 15**.
 
-**4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
+**4. Fixed evaluation set — 🟡 HARNESS DONE, re-measurement blocked.** *Prerequisite for resolving #1's secondary claim.*
+
+*Status:* `fixed_eval_batches()` and `evaluate_val_bpb(..., fixed=True)` are implemented and tested in `prepare.py`. **The acceptance criterion is met** — one frozen checkpoint evaluated 12× gives sd **exactly 0.000000** (1 distinct value in 12), against sd 0.0104 / range 0.032 for the resampling harness on the same checkpoint. All 63 saved checkpoints have been re-measured under it into `gradient_results/fixed_eval_remeasure.json` (8.4 min, no failures). **No number in this README has moved**, and none can until the A/B arms are retrained (see below) — new-harness and old-harness values must never be mixed in one comparison. Reproduce: `uv run python remeasure_fixed.py`.
+
+*One thing it already settles.* The [floor result](#the-floor-a-minimum-duration-exists) is arm-vs-arm, so it needs no baseline and can be re-tested entirely inside the new harness. It replicates, with the same 5/5 signs and a tighter measurement:
+
+```
+comparison        old harness          fixed harness
+x=250 vs x=100    5/5, t_p 0.0382      5/5, t_p 0.0025, dz 3.01
+x=100 vs x=50     5/5, t_p 0.0164      5/5, t_p 0.0104, dz 2.04
+```
+
+The two columns are separate measurements of the same checkpoints, shown side by side and **never pooled**. That the effect sharpens under a 10.7× larger eval set is what a real effect partly masked by endpoint noise should do.
 
 The reported `final_bpb` of every run in this repo is a single eval over **12 randomly drawn batches = 98,304 tokens, 0.51% of the val set**, resampled on every call. Measured directly, by evaluating one *frozen* checkpoint 12 times:
 
@@ -434,11 +446,13 @@ Arm F sits on a slightly different RNG stream — `validate.py` calls `measure_a
 
 ```
 arm            checkpoints available                        cost to re-measure
-F, R (all)     all 5 seeds, 10-15 release arms each         re-evaluate (minutes)
-A, B           seeds 42/137 both; 256 baseline only         retrain the other 7 arms
+F, R (all)     58 arms, all 5 seeds — all verified          re-evaluate (~8 s each)
+A, B           none of the 20K runs                         retrain all 10 arms
 ```
 
-`experiment7` now saves its final F model with the **post-switch** `arch_cfg` recorded, because an F model is full-attention at the end — reloading it under the quartic config would silently evaluate the wrong operator. `validate.py` already saves A and B, but 5 of those 10 checkpoints predate current practice and are missing. The F/R side is no longer the constraint: sweeps 3, 3b and 3c have since saved every release arm at all five seeds (seed 42 included, which was the gap when this was written), so the cost is now **the A/B retrain alone** — 7 arms, roughly 8–10 h MPS — plus minutes to re-evaluate everything else.
+`experiment7` saves its final F model with the **post-switch** `arch_cfg` recorded, because an F model is full-attention at the end — reloading it under the quartic config would silently evaluate the wrong operator. All 58 saved F/R checkpoints reproduce their committed endpoint exactly, so that side is fully re-measurable.
+
+⚠️ **The A/B side is worse off than this section used to claim.** `validate.py` does save checkpoints, but **none of the five that exist are the 20K runs** the paired comparisons use: seed 42's are the 100K run (0.807 / 0.799), seeds 137 and 256 are other runs (~0.965–0.975), against 20K arms of 0.904 / 0.893. So it is not "7 arms to retrain" — it is **all 10**, roughly 12 h MPS. Until they exist, no paired comparison can move to the new harness, because a matched re-measurement needs every arm measured together.
 
 *Criteria:* re-evaluating one frozen checkpoint 12× must give **sd exactly 0.0** (bit-identical), not merely small — that is the whole point. Report the new baseline mean (expect within ~0.01 bpb of the old; sanity check, not a claim) and the new paired residual sd for A-B and A-F (expect A-F to fall from 0.0023 toward the A-B value).
 
