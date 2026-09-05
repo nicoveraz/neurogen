@@ -2423,6 +2423,56 @@
         20000,
         0.8975
       ]
+    },
+    "A_full_s137": {
+      "config": "A_full",
+      "seed": 137,
+      "final_bpb": 0.891267,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.998151
+      ],
+      "curve_end": [
+        20000,
+        0.891267
+      ]
+    },
+    "B_quartic_s137": {
+      "config": "B_quartic",
+      "seed": 137,
+      "final_bpb": 0.878824,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.998205
+      ],
+      "curve_end": [
+        20000,
+        0.878824
+      ]
+    },
+    "F_switch_s137": {
+      "config": "F_switch",
+      "seed": 137,
+      "final_bpb": 0.8757,
+      "source": "trained",
+      "switch_step": 100,
+      "switch_mode": "full",
+      "total_steps": 20000,
+      "stop_step": null,
+      "post_switch_warmup": 0,
+      "reset_optimizer": false,
+      "ramp_steps": 100,
+      "diverged_at": null,
+      "curve_start": [
+        0,
+        7.9982
+      ],
+      "curve_end": [
+        20000,
+        0.8757
+      ]
     }
   }
 }
