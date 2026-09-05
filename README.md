@@ -2,7 +2,7 @@
 
 **Early-layer attention locality is a transient requirement, not an architectural one.**
 
-An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting early transformer layers to a local attention window and letting later layers attend globally is well-established prior art — **this repo does not claim it**. What it tests is *when* the constraint is needed, and for *how long*. Answer: only at the very start, and only briefly. Applying quartic attention windows for **250 of 20,000 steps** — 1.25% of training, fully released by step 750 — gives the largest effect measured here, **+1.91%**, and it persists to convergence. The locality prior belongs in the training recipe, not in the deployed architecture.
+An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting early transformer layers to a local attention window and letting later layers attend globally is well-established prior art — **this repo does not claim it**. What it tests is *when* the constraint is needed, and for *how long*. Answer: only at the very start, and only briefly. Applying quartic attention windows for **250 of 20,000 steps** — 1.25% of training, fully released by step 750 — gives the largest effect measured here, **+1.91%**, and it persists to convergence. But the window has a floor as well as a ceiling: at 100 steps the benefit falls to +1.07%, and at 50 steps it is gone (−0.17%, 3/5 seeds, [not claimed](#the-floor-a-minimum-duration-exists)). The locality prior belongs in the training recipe, not in the deployed architecture — applied briefly, but not too briefly.
 
 ## What's known vs. what's new
 
@@ -10,7 +10,7 @@ An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting
 
 In all of that work the locality is a property **of the model** — present at init, during training, and at inference.
 
-**New (our claim).** It is a **transient** property of early training. Release the windows — at any point from 75% of training down to 1.25% — and the benefit stays; the shortest application is the best. Nothing above tests that; the closest neighbours go the other direction (SWAT trains *with* windows to keep them at inference; Shortformer is a curriculum over sequence length, staged across much of training, not a brief constraint on per-layer span).
+**New (our claim).** It is a **transient** property of early training. Release the windows — at any point from 75% of training down to 0.5% — and the benefit stays. Within that range shorter is better down to 1.25%, after which it reverses: the constraint has a **minimum duration**, and applying it for 50 steps is worse than never applying it at all. Nothing above tests that; the closest neighbours go the other direction (SWAT trains *with* windows to keep them at inference; Shortformer is a curriculum over sequence length, staged across much of training, not a brief constraint on per-layer span).
 
 **Scope.** Demonstrated at 3.4M on TinyStories, 5 matched seeds, criteria pre-registered. **Not yet tested above 3.4M** — see [Status](#status).
 
@@ -76,7 +76,7 @@ The two absorbing interventions trade update magnitude for time — both cut the
 
 **The ramp is free.** The five treatments above are single-seed probes stopped 1000 steps after the switch, so they say nothing about converged quality. Arm R in the table above closes that: run to 20K at all five seeds, resumed from the same pre-switch checkpoints arm F used. Against F the per-seed differences are +0.0002, +0.0003, −0.0002, +0.0005, +0.0002 bpb — 4/5 favour the ramp but the mean is +0.0002 (0.02%), p = 0.154. **We do not claim the ramp is better.** What the data support is that it costs nothing: identical converged quality, no loss or gradient spike, and no exposure to the failure mode that cost 1 run in 8. Recommended on safety grounds, not quality grounds.
 
-Still untested: whether ramping actually *lowers* the divergence rate. One occurrence in eight runs can't be resolved by five more, and we don't assert it.
+Still untested: whether ramping actually *lowers* the divergence rate. The ramped arms have since grown to **0 divergences in 50 completed runs**, against 1 in 8 for the hard switch — but a single event cannot carry that comparison (Fisher one-sided p = 0.138), so we still don't assert it. Reproduce the tally: `uv run python analyze_exp7.py --floor-sweep`.
 
 (The LR schedule was ruled out by inspection before any of this — a single cosine over the full 20K horizon with no term keyed to the switch step.)
 
@@ -132,15 +132,51 @@ dz             2.92     2.69     2.57     2.81     2.84     2.28     2.12       
 every point: 5/5 vs baseline, perm p = 0.031
 ```
 
-**The benefit never collapses, and the shortest is the best.** R@250 is the largest effect anywhere in this project (+1.91%) — and with the 500-step ramp that model is at **full attention from step 750 of 20,000**, then trains 19,250 steps unconstrained. **No lower bound was found**; the curve is flat-to-improving all the way down.
+**Down to 250 steps the benefit never collapses.** R@250 is the largest effect anywhere in this project (+1.91%) — and with the 500-step ramp that model is at **full attention from step 750 of 20,000**, then trains 19,250 steps unconstrained. This sweep found no lower bound, and read on its own the curve is flat-to-improving all the way down. ⚠️ **That reading did not survive going lower** — see [the floor](#the-floor-a-minimum-duration-exists), which falsifies it below 250.
 
-**This is why the project was retitled.** [Pre-registered before the sweep](#pre-registered-experiments): if 250 steps still delivered the full effect, "curriculum" would be the wrong word and the framing would change rather than be defended. A curriculum implies a staged process over a meaningful share of training. What this is: a constraint on ~1% of optimizer steps, fully released before the model sees 4% of its data, whose benefit is still there at convergence. We call it a **transient requirement** and stop short of "initialization effect" — 250 steps at batch 32 is still 2M tokens, and the floor is still unknown.
+**This is why the project was retitled.** [Pre-registered before the sweep](#pre-registered-experiments): if 250 steps still delivered the full effect, "curriculum" would be the wrong word and the framing would change rather than be defended. A curriculum implies a staged process over a meaningful share of training. What this is: a constraint on ~1% of optimizer steps, fully released before the model sees 4% of its data, whose benefit is still there at convergence. We call it a **transient requirement** and stop short of "initialization effect" — 250 steps at batch 32 is still 2M tokens. (The floor was unknown when this was written; experiment 3c has since found it, and it sits just below this point.)
 
 **One result NOT claimed.** R@250 beats never-releasing on 4/5 with paired-t p=0.041, which *would* clear the bar set in experiment 1. But that came from testing seven release points and picking the best — with seven comparisons the threshold is nearer p<0.007. Reported as not claimed, on multiple-comparisons grounds rather than on the number.
 
-**Still open:** where the floor is. [Experiment 3c](#pre-registered-experiments) is running now (50 / 100 / 250 steps, ramp = x).
-
 Reproduce: `uv run python analyze_exp7.py --compare ramp5seed rel2k --switch-step 10000,2000`
+
+## The floor: a minimum duration exists
+
+Sweep 3b stopped at 250 steps and found the curve still improving, so [experiment 3c](#pre-registered-experiments) went below it: release at 50 / 100 / 250 steps with the **ramp scaled to the release point** (ramp = x, so full attention arrives at step 2x), 5 seeds each, 15 runs, ~19 h MPS.
+
+```
+release at x      50        100       250
+full attn from   100        200       500
+% of training    0.25%     0.50%     1.25%
+mean bpb         0.9017    0.8905    0.8836
+vs baseline      -0.17%    +1.07%    +1.84%
+seeds positive    3/5       5/5       5/5
+perm p           0.656     0.031     0.031
+paired-t         0.763     0.0090    0.0055
+dz              -0.14      2.12      2.44
+                 NOT       claimed   claimed
+```
+
+**The curve turns over, and then goes negative.** x=250 beats x=100 on **5/5** seeds (paired-t 0.0382, dz −1.36, mean 0.0069 bpb) and x=100 beats x=50 on **5/5** (paired-t 0.0164, dz −1.78, mean 0.0111 bpb). Both margins are several times the 0.0023 residual on this comparison. So "the shortest application is the best" holds only down to 250 steps; below that, shorter is reliably *worse*.
+
+**At 50 steps the constraint stops working.** 3/5 positive, mean **−0.17%** — the arm does not beat its own baseline, and the failure is bimodal rather than noisy: two seeds at +0.89% and +0.14%, two at −1.34% and −1.42%.
+
+```
+seed      A: full   x=50      vs A
+42        0.9041    0.9162    -1.34%
+137       0.8913    0.8833    +0.89%
+256       0.8941    0.9068    -1.42%
+789       0.9098    0.9017    +0.89%
+1337      0.9016    0.9004    +0.14%
+```
+
+For scale, the only other configuration in this repo that underperforms baseline is the deliberately-reversed `only_last` control (−0.95%). Applying the locality constraint for 50 steps is worse than that, and worse than never applying it. **Two of the five seeds are actively harmed**; the effect is not merely absent.
+
+**What this settles.** The constraint has a genuine **minimum duration**, somewhere between 50 and 100 steps (0.25–0.5% of training). It is not an initialization trick that fires in the first few dozen updates: at x=50 full attention arrives at step 100, before the 200-step LR warmup ends, and the benefit is gone. The working range is bounded on both sides — too long costs ~0.5 percentage points, too short costs everything.
+
+**No divergences in 15 runs.**
+
+Reproduce: `uv run python analyze_exp7.py --floor-sweep`
 
 ## What the constraint leaves behind
 
@@ -318,17 +354,18 @@ Larger batches look better only because they saw 4× more data. At equal token b
 | Benefit survives releasing the constraint | 5 seeds, 5/5, perm p=0.031, dz 2.34 | **settled** |
 | The constraint is a *curriculum* | 250 steps (1.25%) suffices | **retracted** — retitled |
 | Release method (switch vs ramp) doesn't affect quality | both 5/5 vs baseline; R−F mean +0.0002 bpb | **settled** |
-| Works at any release point 1.25–75% | 7 points × 5 seeds, all 5/5, p=0.031 | **settled** |
-| Shorter application is better (down to 250) | monotone 15K→2K; best is the shortest tested | **settled** |
+| Works at any release point 0.5–75% | 8 points × 5 seeds, all 5/5, p=0.031 | **settled** |
+| Shorter application is better — but only down to 250 | monotone 15K→250; reverses below it (250 beats 100 5/5, p=0.038) | **settled** |
 | There is an optimal release point | 2K vs 5K: 4/5, p=0.084 | **not claimed** |
-| The benefit has a floor (a minimum duration) | none found down to 250 steps | **unknown** — 3c running |
+| The benefit has a floor (a minimum duration) | x=50 is −0.17%, 3/5 — fails; x=100 is +1.07%, 5/5 | **settled** — floor between 50 and 100 |
+| Applying it too briefly is *harmful*, not just useless | x=50 worse than baseline on 2/5 seeds (−1.34%, −1.42%) | suggestive — n=5, sign-split |
 | Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
 | Releasing *beats* retaining | 2/5, p=0.625 — below the noise floor | **not resolvable** without exp. 4 |
 | Ramping lowers the divergence rate | 1 event in 8 runs | **untested** |
 | Any of this holds above 3.4M | none — no release arm has run at 125M | **untested** ⚠️ |
 | Windows help at 125M (windows-throughout only) | 5 seeds, 4/5, p=0.063, unconverged | suggestive |
 
-Five of the eight pre-registered experiments below are complete (1, 2, 2b, 3, 3b); 3c is running, and 4 and 5 have not started. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance.
+Six of the eight pre-registered experiments below are complete (1, 2, 2b, 3, 3b, 3c); 4 and 5 have not started. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance. 3c adds a fourth outcome recorded against interest: its x=50 arm **failed its primary criterion** (3/5), and the reframe that had been pre-committed to a pass there did not fire.
 
 ## Pre-registered experiments
 
@@ -354,7 +391,7 @@ Criteria stated in advance so outcomes can't be re-framed after the fact — inc
 *Criteria, fixed before the runs:* claim it works at x iff **5/5** paired diffs positive; report the smallest x passing; **⚠️ pre-registered reframe** — if x=250 delivers the full effect, "curriculum" is the wrong word and the framing changes rather than being defended.
 *Outcome:* **all three met** (5/5, p=0.031). No collapse; the shortest point tested is the best (+1.91%). **The reframe trigger fired and was honoured** — the project is retitled from "a training curriculum" to "a transient requirement". Also recorded: R@250 vs never-releasing is 4/5 at p=0.041, which would clear the experiment-1 bar, but it was selected from seven release points and is *not claimed* on multiple-comparisons grounds.
 
-**3c. Where is the floor? — 🔄 RUNNING** (started 2026-08-20, interrupted the same day at 3 of 15 runs, resumed 2026-09-04). Release at 50 / 100 / 250 steps with **ramp = x** (so the release takes as long as the windowed phase), 5 seeds each. ~20h MPS at a measured ~78 min/run. Sweep 3b found no collapse down to 250 steps and the shortest point was the best, so the floor is still unknown.
+**3c. Where is the floor? — ✅ DONE**, results in [The floor](#the-floor-a-minimum-duration-exists) above. Release at 50 / 100 / 250 steps with **ramp = x** (so the release takes as long as the windowed phase), 5 seeds each. 15 runs, ~19h MPS, no divergences. Started 2026-08-20, interrupted the same day at 3 of 15 runs, resumed and completed 2026-09-05.
 
 *Why the ramp must scale:* with a fixed 500-step ramp, "full attention from" would move only 550 → 750 across x=50…250 — the ramp would swamp the variable being swept. With ramp = x, the model reaches full attention at step **2x**: 100, 200, 500.
 
@@ -362,6 +399,13 @@ Criteria stated in advance so outcomes can't be re-framed after the fact — inc
 - **Does it work at x?** Claim iff **5/5** paired diffs (A − R_x) positive → perm p = 0.031. Report the smallest x that passes.
 - **Ramp control.** x=250 is re-run at ramp=250 to bridge to the existing x=250/ramp=500 result. If the two differ, ramp length is a confound and the whole curve must be read on the "full attention from step 2x" axis rather than on x. **"Differ" means ≥4/5 paired diffs one-signed and paired-t p<0.05** — this repo's *secondary*-criterion bar, deliberately easier to clear than the 5/5 bar used for claims, because a confound missed is a whole curve read on the wrong axis. *Added 2026-09-04, with 3 of the 5 bridge seeds already run and all 3 one-signed (mean −0.00107 bpb, dz −1.27, paired-t 0.159 — n=3 cannot reach 0.05); the bar is fixed here before seeds 789 and 1337 exist, and the trend suggests it will fire.*
 - **⚠️ Second pre-registered reframe.** If x=50 — full attention from step **100 of 20,000**, before the 200-step LR warmup even ends — still delivers the effect, then "transient requirement" is itself too weak and **"initialization effect" becomes the accurate description**. The constraint would be shaping the first few dozen updates and nothing more. Committing to that reading now, as with 3b.
+
+*Outcome:*
+- **Works at x:** met at x=250 (5/5, p=0.031, +1.84%) and x=100 (5/5, p=0.031, +1.07%); **failed at x=50** (3/5, p=0.656, −0.17%). **Smallest x that passes: 100** — full attention from step 200, 0.5% of training.
+- **Ramp control: did not fire.** 4/5 seeds favour ramp=500 over ramp=250 at x=250, but paired-t is **0.2866**. The bar — ≥4/5 one-signed *and* paired-t p<0.05, [fixed before the deciding seeds ran](#pre-registered-experiments) — needs both, so ramp length is **not** shown to be a confound and the curve stays on the x axis. Read honestly this is a failure to detect at n=5, not a demonstration of no effect: the mean leans to ramp=500 by 0.00066 bpb. Had the bar been sign count alone it would have fired, which is why it was fixed in advance.
+- **⚠️ Second reframe: did NOT trigger.** x=50 failed, so "initialization effect" is *rejected*, not adopted — and the evidence points the other way: with full attention arriving at step 100 the benefit disappears entirely. The project keeps the "transient requirement" framing, now with a measured lower bound rather than an open one.
+- **Unexpected, and not pre-registered:** at x=50 two of five seeds finish *worse than baseline* (−1.34%, −1.42%). Reported as suggestive only — it is a post-hoc observation on a sign-split arm, and the sweep tested three release points, so no multiple-comparisons-safe claim is made from it.
+- Divergences: **0 in 15**.
 
 **4. Fixed evaluation set** — *prerequisite for resolving #1's secondary claim.*
 
@@ -407,7 +451,7 @@ A, B           seeds 42/137 both; 256 baseline only         retrain the other 7 
 
 ## How It Works
 
-**Recipe:** apply the depth-wise window schedule for the first **~1–3% of training** (250–500 steps of 20K), then widen the windows to full over a few hundred steps and train normally. Ship a standard transformer. Longer application is mildly *worse*.
+**Recipe:** apply the depth-wise window schedule for the first **~1–3% of training** (250–500 steps of 20K), then widen the windows to full over a few hundred steps and train normally. Ship a standard transformer. Longer application is mildly *worse* — and **shorter is sharply worse**: at 0.5% the benefit halves, at 0.25% it disappears and can turn negative. Do not tune below ~1% of training.
 
 A standard transformer uses full attention at every layer. The window schedule restricts each layer's attention based on depth, forcing early layers to build local features before later layers integrate globally:
 
