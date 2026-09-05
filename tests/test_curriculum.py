@@ -312,3 +312,20 @@ def test_untagged_10k_run_keeps_the_canonical_exp7_key():
     assert em.exp7_key(10000, "5seed") == "exp7_sw10000_5seed"
     assert em.exp7_key(250, "") == "exp7_sw250"
     assert em.exp7_key(250, "floor250") == "exp7_sw250_floor250"
+
+
+def test_ramp_control_counts_reads_the_sign_the_right_way():
+    """Lower bpb is better, so the arm with the lower value must be the one
+    reported as favoured. An inverted read here flips a pre-registered verdict.
+    """
+    import analyze_exp7 as ax
+    # arm A (ramp500) better on seeds 1-3, arm B (ramp250) better on seed 4 --
+    # the actual shape of the 3c bridge after four seeds.
+    a = [0.8905, 0.8725, 0.8832, 0.8835]
+    b = [0.8906, 0.8740, 0.8848, 0.8823]
+    diffs, n_a, n_b = ax.ramp_control_counts(a, b)
+    assert (n_a, n_b) == (3, 1), "the arm with the lower bpb must be the favoured one"
+    assert [d < 0 for d in diffs] == [True, True, True, False]
+    # And the trivial case, stated explicitly: b strictly better everywhere.
+    _, n_a, n_b = ax.ramp_control_counts([1.0, 1.0], [0.9, 0.9])
+    assert (n_a, n_b) == (0, 2)

@@ -250,6 +250,19 @@ def _arm_means(runs):
     return st.mean(Rs), st.mean(As), len(Rs)
 
 
+def ramp_control_counts(bpb_a, bpb_b):
+    """Paired diffs for two arms at one release point, and who each seed favours.
+
+    `bpb_a` and `bpb_b` are per-seed val_bpb, aligned. Diffs are a - b, so a
+    POSITIVE diff means arm b reached the LOWER bpb and is the better arm on
+    that seed. Lower is better throughout this repo, so reading the sign the
+    other way inverts the verdict -- which is exactly the mistake this helper
+    exists to make impossible.
+    """
+    diffs = [x - y for x, y in zip(bpb_a, bpb_b)]
+    return diffs, sum(1 for d in diffs if d < 0), sum(1 for d in diffs if d > 0)
+
+
 def floor_sweep():
     """Experiment 3c: every number the README's 3c block cites."""
     print("=" * 92)
@@ -301,22 +314,25 @@ def floor_sweep():
     if a and b:
         seeds = [s for s in SEED_ORDER
                  if f"F_switch_s{s}" in a and f"F_switch_s{s}" in b]
-        diffs = [a[f"F_switch_s{s}"]["final_bpb"] - b[f"F_switch_s{s}"]["final_bpb"]
-                 for s in seeds]
+        diffs, n500, n250 = ramp_control_counts(
+            [a[f"F_switch_s{s}"]["final_bpb"] for s in seeds],
+            [b[f"F_switch_s{s}"]["final_bpb"] for s in seeds])
         for s, d in zip(seeds, diffs):
-            print(f"  seed {s:>5}   ramp500 {a[f'F_switch_s{s}']['final_bpb']:.4f}   "
-                  f"ramp250 {b[f'F_switch_s{s}']['final_bpb']:.4f}   diff {d:>+9.5f}")
-        n, npos = len(diffs), sum(1 for d in diffs if d > 0)
+            x, y = a[f"F_switch_s{s}"]["final_bpb"], b[f"F_switch_s{s}"]["final_bpb"]
+            print(f"  seed {s:>5}   ramp500 {x:.4f}   ramp250 {y:.4f}   "
+                  f"diff {d:>+9.5f}   favours {'ramp500' if d < 0 else 'ramp250'}")
+        n = len(diffs)
         if n >= 2:
             p, _, _ = paired_permutation_p(diffs)
             tp, dz = paired_t_p(diffs), cohens_dz(diffs)
-            print(f"\n  {npos}/{n} favour ramp=500, perm {p:.3f}, t_p={tp:.4f}, "
-                  f"dz={dz:.2f}, mean {st.mean(diffs):+.5f} bpb")
+            print(f"\n  {n500}/{n} favour ramp=500, {n250}/{n} favour ramp=250, "
+                  f"perm {p:.3f}, t_p={tp:.4f}, dz={dz:.2f}, "
+                  f"mean {st.mean(diffs):+.5f} bpb (negative = ramp=500 lower)")
             # Bar fixed in advance (README, experiment 3c): >=4/5 one-signed AND
             # paired-t p<0.05. Deliberately the weaker, secondary-criterion bar:
             # a confound should be easier to declare than a claim, because one
             # missed means reporting the whole curve on the wrong axis.
-            one_signed = max(npos, n - npos)
+            one_signed = max(n500, n250)
             if n < 5:
                 print(f"  INCOMPLETE ({n}/5 seeds) - criterion not yet applicable.")
             elif one_signed >= 4 and tp < 0.05:
