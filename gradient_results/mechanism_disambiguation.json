@@ -2321,6 +2321,56 @@
         20000,
         0.8823
       ]
+    },
+    "A_full_s1337": {
+      "config": "A_full",
+      "seed": 1337,
+      "final_bpb": 0.901622,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.996217
+      ],
+      "curve_end": [
+        20000,
+        0.901622
+      ]
+    },
+    "B_quartic_s1337": {
+      "config": "B_quartic",
+      "seed": 1337,
+      "final_bpb": 0.888882,
+      "source": "cached",
+      "curve_start": [
+        0,
+        7.996098
+      ],
+      "curve_end": [
+        20000,
+        0.888882
+      ]
+    },
+    "F_switch_s1337": {
+      "config": "F_switch",
+      "seed": 1337,
+      "final_bpb": 0.8865,
+      "source": "trained",
+      "switch_step": 250,
+      "switch_mode": "full",
+      "total_steps": 20000,
+      "stop_step": null,
+      "post_switch_warmup": 0,
+      "reset_optimizer": false,
+      "ramp_steps": 250,
+      "diverged_at": null,
+      "curve_start": [
+        0,
+        7.9961
+      ],
+      "curve_end": [
+        20000,
+        0.8865
+      ]
     }
   }
 }
