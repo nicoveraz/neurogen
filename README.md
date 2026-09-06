@@ -10,7 +10,11 @@ An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting
 
 In all of that work the locality is a property **of the model** — present at init, during training, and at inference.
 
-**New (our claim).** It is a **transient** property of early training. Release the windows — at any point from 75% of training down to 0.5% — and the benefit stays. Within that range shorter is better down to 1.25%, after which it reverses: the constraint has a **minimum duration**, and applying it for 50 steps is worse than never applying it at all. Nothing above tests that; the closest neighbours go the other direction (SWAT trains *with* windows to keep them at inference; Shortformer is a curriculum over sequence length, staged across much of training, not a brief constraint on per-layer span).
+**New (our claim).** It is a **transient** property of early training. Release the windows — at any point from 75% of training down to 0.5% — and the benefit stays. Within that range shorter is better down to 1.25%, after which it reverses: the constraint has a **minimum duration**, and applying it for 50 steps is worse than never applying it at all. None of the prior art above tests that — SWAT trains *with* windows to keep them at inference, and Shortformer is a curriculum over sequence length staged across much of training, not a brief constraint on per-layer span.
+
+⚠️ **But the surrounding claim is no longer unexamined at scale, and this section used to imply it was.** [Learning Less Is More](https://arxiv.org/abs/2605.10504) (2026) reports the same *shape* of result at **270M and 0.7B**: a transient early intervention on attention, released partway through training, whose benefit persists to the end. Their mechanism is different — and close to a mirror image of ours. They multiply the learning rate of **upper-half** W_Q/W_K by 0.25, hold it there for ~4% of training, then anneal back to 1.0 over the next 1% of steps. No attention window or mask is used anywhere in that work; all attention stays full causal. Constraining early layers with a window and throttling upper layers with a learning rate are two routes to the same stated diagnosis: **upper layers commit to sharp attention before lower-layer features have stabilised.** They report −0.497 ± 0.079 perplexity at 270M and 13.2% fewer tokens to match the control's final loss, over 3 seeds, with no formal significance test.
+
+So what is left unclaimed here is narrower than "nobody has tested transient attention shaping": it is the **windowed** form of it — a depth-wise local mask on early layers, applied for ~1% of training and then released — together with the release-point curve and the floor below it. The family-level finding has independent support at ~80–200× our scale, which is corroboration rather than a scoop, but the README should not have been implying the question was untouched.
 
 **Scope.** Demonstrated at 3.4M on TinyStories, 5 matched seeds, criteria pre-registered. **Not yet tested above 3.4M** — see [Status](#status).
 
@@ -362,7 +366,8 @@ Larger batches look better only because they saw 4× more data. At equal token b
 | Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
 | Releasing *beats* retaining | 2/5, p=0.625 — below the noise floor | **not resolvable** without exp. 4 |
 | Ramping lowers the divergence rate | 0 in 50 ramped vs 1 in 8 hard-switch; Fisher p=0.138 | **untested** — one event can't carry it |
-| Any of this holds above 3.4M | none — no release arm has run at 125M | **untested** ⚠️ |
+| Any of this holds above 3.4M | none — no release arm has run at 125M (10 files at 125M, all baseline or windows-throughout) | **untested** ⚠️ |
+| The *family* (transient early attention shaping) holds above 3.4M | external: 270M and 0.7B, 3 seeds, different mechanism, effect shrinks with scale | outside evidence, not ours |
 | Windows help at 125M (windows-throughout only) | 5 seeds, 4/5, p=0.063, unconverged | suggestive |
 
 Six of the eight pre-registered experiments below are complete (1, 2, 2b, 3, 3b, 3c); 4 and 5 have not started. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance. 3c adds a fourth outcome recorded against interest: its x=50 arm **failed its primary criterion** (3/5), and the reframe that had been pre-committed to a pass there did not fire.
@@ -461,6 +466,8 @@ A, B           none of the 20K runs                         retrain all 10 arms
 **5. Converged 125M, three arms, one horizon — ⭐ the one that matters.** This is not only a convergence check: it is **the only experiment that tests the paper's central claim outside a 3.4M toy model.** Arms: baseline / windows-throughout / windows-released-at-25K (500-step ramp, per 2b), 50K steps (6.55B tokens ≈ 53 tok/param), single fully-annealed cosine, no resume, 3–5 seeds. **≈45 H100-hours at 3 seeds, ≈75 at 5.**
 *Criteria:* a run counts as converged only if its decline over the final 10K steps is <0.002 bpb/1k; report the measured value for every run. Claim "the curriculum transfers to 125M" iff the released arm beats baseline on every seed. **Budget 5 seeds if at all possible** — n=3 floors the permutation test at 0.125 and can never reach p<0.05 by the test used everywhere else in this repo, so a 3-seed result is descriptive only. **Pre-registered negative:** if the converged gap is smaller than the 20K gap, we report that the 50K figures were an undertraining artifact; if the released arm underperforms the windowed arm at scale, the deployment recommendation is withdrawn.
 *Ready to launch:* `train_125m.py --switch-step` and `--min-lr` exist and are tested (`tests/test_curriculum.py`).
+
+*External prior on what to expect, added 2026-09-06 — not a pre-registered criterion.* The nearest published neighbour ([Learning Less Is More](https://arxiv.org/abs/2605.10504), see [What's known](#whats-known-vs-whats-new)) measured the same family of effect at two scales, and **it shrank**: −0.497 ± 0.079 perplexity at 270M against −0.127 ± 0.007 at 0.7B, roughly a 4× reduction across a 2.6× size step. That is one data point from a different mechanism and should not be over-read, but it is the only scale-trend evidence available for this family, and it points the wrong way for us. It does not change the pre-registered criteria — they were fixed in advance and stay as written — but it is worth stating before the run rather than after, so that a smaller-than-hoped 125M gap is not treated as a surprise.
 
 ## How It Works
 
@@ -723,6 +730,10 @@ papers/                 — paper (LaTeX + PDF)
 - [MSWA: Refining Local Attention with Multi-Scale Window Attention](https://arxiv.org/abs/2501.01039) — Xu, Nag, Li, Tian & Barsoum, 2025. Progressively increases window size shallow→deep.
 - [Mistral 7B](https://arxiv.org/abs/2310.06825) — Jiang et al., 2023. Sliding window attention in production.
 - [Gemma 3 Technical Report](https://arxiv.org/abs/2503.19786) — Gemma Team, Google DeepMind, 2025. High local:global layer ratio with short local span.
+
+**Transient early-training interventions on attention (the closest family, found 2026-09-06):**
+- [Learning Less Is More: Premature Upper-Layer Attention Specialization Hurts Language Model Pretraining](https://arxiv.org/abs/2605.10504) — 2026. Upper-half Q/K learning rate ×0.25 for ~4% of training, then annealed back over 1% of steps. 270M (2.5B tokens) and 0.7B (7.0B tokens), 3 seeds. The closest published neighbour to our claim's *shape*, by a different mechanism and with no windowing.
+- [MiniMax Sparse Attention](https://arxiv.org/abs/2606.13392) — 2026. 10B pilot, 109B main. Often mis-read as removing an early local prior; it does not. The local block stays **mandatory through training and inference** by design, and what it shows to be unnecessary is the forced first-block *attention sink*. Its indexer warmup also runs full attention first and then switches to sparse — the opposite direction to this work. Listed here to record what it does and does not support.
 
 **Curriculum precedents on adjacent axes:**
 - [Shortformer](https://arxiv.org/abs/2012.15832) — Press, Smith & Lewis, 2021. Sequence-length curriculum: train short first, then long. The closest curriculum precedent, on a different axis.
