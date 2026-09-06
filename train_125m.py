@@ -303,8 +303,35 @@ class GPT125M(nn.Module):
 # ---------------------------------------------------------------------------
 DATA_DIR = Path("data_fineweb")
 
-def prepare_data():
-    """Download and shard FineWeb-Edu with GPT-2 tokenizer."""
+
+def steps_to_tokens(max_steps: int, seq_len: int = 1024) -> int:
+    """Tokens a run of `max_steps` optimizer steps consumes."""
+    return max_steps * BATCH_SIZE * GRAD_ACCUM * seq_len
+
+
+def epochs_over_corpus(max_steps: int, n_tokens: int, seq_len: int = 1024) -> float:
+    """How many times a run passes over the prepared corpus.
+
+    Worth checking before quoting a tokens-per-parameter ratio: that ratio is
+    only meaningful in UNIQUE tokens, and this pipeline repeats a fixed corpus.
+    """
+    return steps_to_tokens(max_steps, seq_len) / max(1, n_tokens)
+
+# FineWeb-Edu sample-10BT holds ~10B tokens, so the ceiling here is the sample,
+# not the source. 100M is what the existing 20k and 50k runs used; the
+# pre-registered converged run needs 6.55B (50k steps x 131,072 tokens/step) and
+# must be prepared with --prepare-tokens, or it repeats the corpus ~66 times.
+DEFAULT_PREPARE_TOKENS = 100_000_000
+
+
+def prepare_data(target_train_tokens: int = DEFAULT_PREPARE_TOKENS):
+    """Download and shard FineWeb-Edu with GPT-2 tokenizer.
+
+    The default reproduces the corpus the existing runs used. It is NOT enough
+    for the converged 50k experiment: at an effective batch of 131,072 tokens a
+    50k-step run consumes 6.55B tokens, which over a 100M-token corpus is ~66
+    epochs. Pass a larger budget for that run; see steps_to_tokens().
+    """
     import numpy as np
     try:
         import tiktoken
@@ -324,7 +351,7 @@ def prepare_data():
                        split="train", streaming=True)
 
     # Collect ~100M tokens for train, ~5M for val
-    for split, target_tokens in [("train", 100_000_000), ("val", 5_000_000)]:
+    for split, target_tokens in [("train", target_train_tokens), ("val", 5_000_000)]:
         print(f"Tokenizing {split} ({target_tokens/1e6:.0f}M tokens)...")
         all_tokens = []
         total = 0
@@ -492,6 +519,21 @@ def train(arch: str, max_steps: int = 50000, seed: int = 42,
     train_data = load_data("train")
     val_data = load_data("val")
     seq_len = config.max_seq_len
+
+    # A tokens-per-parameter ratio is only meaningful in UNIQUE tokens, and this
+    # loader samples with replacement from a fixed corpus. Say so at launch
+    # rather than letting a repeated-corpus run be written up as a
+    # compute-optimal one.
+    n_epochs = epochs_over_corpus(max_steps, len(train_data), seq_len)
+    print(f"corpus: {len(train_data)/1e6:.0f}M tokens  |  run consumes "
+          f"{steps_to_tokens(max_steps, seq_len)/1e9:.2f}B  |  {n_epochs:.1f} epochs")
+    if n_epochs > 1.5:
+        print(f"WARNING: this run passes over the corpus {n_epochs:.0f} times. "
+              f"Unique tokens per parameter is "
+              f"{len(train_data)/sum(q.numel() for q in model.parameters()):.2f}, "
+              f"not {steps_to_tokens(max_steps, seq_len)/sum(q.numel() for q in model.parameters()):.0f}. "
+              f"Prepare more data with --prepare-tokens before quoting a "
+              f"tokens-per-parameter ratio.")
 
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=MAX_LR, weight_decay=WEIGHT_DECAY,
@@ -790,11 +832,15 @@ def main():
     parser.add_argument("--compare", nargs="+", metavar="CKPT", help="Compare generations from multiple checkpoints")
     parser.add_argument("--prompt", type=str, help="Custom prompt for generation")
     parser.add_argument("--max-tokens", type=int, default=200)
+    parser.add_argument("--prepare-tokens", type=int, default=None,
+                        help="Training tokens to prepare (default 100M). The "
+                             "converged 50k run needs 6_553_600_000 or it "
+                             "repeats the corpus ~66 times")
     parser.add_argument("--temperature", type=float, default=0.8)
     args = parser.parse_args()
 
     if args.prepare:
-        prepare_data()
+        prepare_data(args.prepare_tokens or DEFAULT_PREPARE_TOKENS)
     elif args.throughput:
         throughput_audit()
     elif args.tier1:

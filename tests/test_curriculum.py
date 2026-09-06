@@ -366,3 +366,20 @@ def test_validate_records_arch_cfg_in_checkpoint():
     import validate
     src = inspect.getsource(validate.train_steps)
     assert '"arch_cfg": dict(arch_cfg)' in src
+
+
+def test_token_budget_helpers_expose_the_repetition():
+    """A tokens-per-parameter ratio must be computed on UNIQUE tokens.
+
+    train_125m samples with replacement from a fixed corpus, so the 50k run's
+    6.55B tokens are ~66 passes over a 100M-token corpus unless more is
+    prepared. Quoting 53 tokens/param from that is wrong by the epoch count.
+    """
+    import train_125m as t
+    assert t.steps_to_tokens(50_000) == 50_000 * t.BATCH_SIZE * t.GRAD_ACCUM * 1024
+    assert t.steps_to_tokens(50_000) == 6_553_600_000
+    assert round(t.epochs_over_corpus(50_000, 100_000_000), 1) == 65.5
+    # One epoch over the default corpus is reached long before 50k steps.
+    assert t.epochs_over_corpus(762, 100_000_000) < 1.0   # 100M / 131072 = 762.9
+    assert t.epochs_over_corpus(763, 100_000_000) > 1.0
+    assert t.DEFAULT_PREPARE_TOKENS == 100_000_000
