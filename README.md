@@ -146,6 +146,8 @@ Reproduce: `uv run python analyze_exp7.py --compare ramp5seed rel2k --switch-ste
 
 ## The floor: a minimum duration exists
 
+![Release curve and the floor](charts/release_curve_and_floor.svg)
+
 Sweep 3b stopped at 250 steps and found the curve still improving, so [experiment 3c](#pre-registered-experiments) went below it: release at 50 / 100 / 250 steps with the **ramp scaled to the release point** (ramp = x, so full attention arrives at step 2x), 5 seeds each, 15 runs, ~19 h MPS.
 
 ```
@@ -180,7 +182,7 @@ For scale, the only other configuration in this repo that underperforms baseline
 
 **No divergences in 15 runs.**
 
-Reproduce: `uv run python analyze_exp7.py --floor-sweep`
+Reproduce: `uv run python analyze_exp7.py --floor-sweep`  ·  figure: `uv run python analyze_exp7.py --plot`
 
 ## What the constraint leaves behind
 

@@ -397,6 +397,109 @@ def divergence_tally():
     print("  from gradient_results/ - they are counted from the log alone.")
 
 
+def plot_release_curve(out_dir="charts"):
+    """The release-point curve with the floor, per seed and on the mean.
+
+    This is the project's headline result and had no figure. Both series are
+    drawn because they are two different experiments: the ramp=500 sweep (3, 3b)
+    holds the ramp fixed, the ramp=x sweep (3c) scales it with the release point.
+    They are never averaged together.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    C_REL, C_FLOOR, C_BASE = "#2b6cb0", "#c05621", "#718096"
+
+    def series(arms):
+        out = []
+        for x, tag in arms:
+            _, runs = load_sweep(tag, x)
+            if not runs:
+                continue
+            per = {sd: runs[f"F_switch_s{sd}"]["final_bpb"] for sd in SEED_ORDER
+                   if f"F_switch_s{sd}" in runs}
+            A = {sd: runs[f"A_full_s{sd}"]["final_bpb"] for sd in per}
+            if len(per) < 5:
+                continue
+            out.append((x, per, A))
+        return out
+
+    rel, floor = series(REL_ARMS), series(FLOOR_ARMS)
+    if not rel and not floor:
+        print("no complete arms to plot")
+        return
+    baseline = st.mean(next(iter(rel + floor))[2].values())
+
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(13, 5.2))
+
+    # ---- left: gain vs baseline, per seed and mean -----------------------
+    for pts, color, label, marker in ((rel, C_REL, "ramp = 500 (sweeps 3, 3b)", "o"),
+                                      (floor, C_FLOOR, "ramp = x (sweep 3c)", "s")):
+        if not pts:
+            continue
+        xs = [x for x, _, _ in pts]
+        for sd in SEED_ORDER:                      # thin per-seed lines
+            ys = [(A[sd] - per[sd]) / A[sd] * 100 for _, per, A in pts if sd in per]
+            if len(ys) == len(xs):
+                ax.plot(xs, ys, color=color, alpha=0.18, linewidth=0.9)
+        means = [st.mean((A[sd] - per[sd]) / A[sd] * 100 for sd in per) for _, per, A in pts]
+        ax.plot(xs, means, color=color, linewidth=2.4, marker=marker,
+                markersize=6, label=label, zorder=3)
+
+    ax.axhline(0, color=C_BASE, linewidth=1.2, linestyle="--")
+    ax.text(60, 0.07, "full-attention baseline", color=C_BASE, fontsize=9)
+    ax.set_xscale("log")
+    ax.set_xlabel("Release point $x$ (steps of 20,000, log scale)", fontsize=11)
+    ax.set_ylabel("Gain over paired baseline (%)", fontsize=11)
+    ax.set_title("The constraint works from 75% of training down to 0.5%,\n"
+                 "then collapses", fontsize=12)
+    ax.legend(fontsize=9, loc="lower right")
+    ax.grid(True, alpha=0.3)
+
+    # Mark where it stops passing 5/5.
+    if floor:
+        bad = [x for x, per, A in floor
+               if sum(1 for sd in per if A[sd] > per[sd]) < 5]
+        if bad:
+            lo, hi = min(FLOOR_ARMS)[0] * 0.72, max(bad) * 1.3
+            ax.axvspan(lo, hi, color=C_FLOOR, alpha=0.10, zorder=0)
+            ax.annotate("below the floor:\nfails 5/5", xy=(max(bad), -0.17),
+                        xytext=(max(bad) * 2.6, -0.95), color=C_FLOOR, fontsize=9,
+                        ha="center", va="center",
+                        arrowprops=dict(arrowstyle="->", color=C_FLOOR, lw=1.1))
+    ax.set_xlim(left=min(FLOOR_ARMS)[0] * 0.6)
+
+    # ---- right: the floor, per seed -------------------------------------
+    if floor:
+        xs = [x for x, _, _ in floor]
+        for sd in SEED_ORDER:
+            ys = [(A[sd] - per[sd]) / A[sd] * 100 for _, per, A in floor if sd in per]
+            ax2.plot(xs, ys, marker="o", markersize=4, linewidth=1.3, alpha=0.85,
+                     label=f"seed {sd}")
+        ax2.axhline(0, color=C_BASE, linewidth=1.2, linestyle="--")
+        ax2.set_xscale("log")
+        ax2.set_xticks(xs)
+        ax2.set_xticklabels([str(x) for x in xs])
+        # A log axis relabels its minor ticks (6x10^1, 2x10^2); with only three
+        # points those are noise, so drop them.
+        ax2.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        ax2.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+        ax2.set_xlabel("Release point $x$ (ramp = $x$)", fontsize=11)
+        ax2.set_ylabel("Gain over paired baseline (%)", fontsize=11)
+        ax2.set_title("Below the floor the seeds split:\n"
+                      "two are actively harmed at $x=50$", fontsize=12)
+        ax2.legend(fontsize=9)
+        ax2.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    d = Path(out_dir); d.mkdir(exist_ok=True)
+    for ext in ("svg", "png"):
+        fig.savefig(d / f"release_curve_and_floor.{ext}", dpi=150)
+    plt.close(fig)
+    print(f"Saved: {out_dir}/release_curve_and_floor.svg/.png")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -409,6 +512,8 @@ def main():
                          "arms sit at different release points")
     ap.add_argument("--emit", choices=["markdown", "latex", "both", "none"],
                     default="both")
+    ap.add_argument("--plot", action="store_true",
+                    help="Write charts/release_curve_and_floor.svg/.png")
     ap.add_argument("--floor-sweep", action="store_true",
                     help="Experiment 3c report: per-x paired verdicts, the "
                          "pre-registered ramp control, both release axes, and "
@@ -421,6 +526,10 @@ def main():
     sw_a, sw_b = steps[0], steps[-1]
     if len(steps) == 2 and not args.compare:
         ap.error("two --switch-step values only make sense with --compare")
+
+    if args.plot:
+        plot_release_curve()
+        return
 
     if args.floor_sweep:
         floor_sweep()
