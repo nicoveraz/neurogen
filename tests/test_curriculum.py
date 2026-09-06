@@ -329,3 +329,40 @@ def test_ramp_control_counts_reads_the_sign_the_right_way():
     # And the trivial case, stated explicitly: b strictly better everywhere.
     _, n_a, n_b = ax.ramp_control_counts([1.0, 1.0], [0.9, 0.9])
     assert (n_a, n_b) == (0, 2)
+
+
+# --------------------------------------------------------------------------
+# validate.py output paths
+# --------------------------------------------------------------------------
+def test_validate_tag_separates_reference_arms(monkeypatch, tmp_path):
+    """A re-measurement run must not overwrite the canonical A/B references.
+
+    validation_results/{arch}_s{seed}.json is what experiment_mechanism loads
+    for its cached A and B arms, so an untagged rerun would silently move the
+    baseline of every paired result in the repo -- the same collision class as
+    the exp7 shared-file bug, in the one place it does the most damage.
+    """
+    import inspect
+    import validate
+
+    # The tag must reach both output paths.
+    src = inspect.getsource(validate.train_steps)
+    assert 'suffix = f"_{tag}" if tag else ""' in src
+    assert 'out_dir / f"{arch}_s{seed}{suffix}.json"' in src
+    assert 'ckpt_dir / f"model_{arch}_{seed}{suffix}.pt"' in src
+
+    # And it must be reachable from the CLI, on both paths.
+    for fn in (validate.train_steps, validate.run_tier1):
+        assert "tag" in inspect.signature(fn).parameters, f"{fn.__name__} lacks tag"
+
+
+def test_validate_records_arch_cfg_in_checkpoint():
+    """Re-evaluating a saved A/B model needs the config it was trained under.
+
+    Without it a windowed checkpoint reloads as full attention and silently
+    scores the wrong operator -- the same reason experiment7 records it.
+    """
+    import inspect
+    import validate
+    src = inspect.getsource(validate.train_steps)
+    assert '"arch_cfg": dict(arch_cfg)' in src

@@ -116,8 +116,16 @@ def measure_attention_spans(model, val_data, device):
 # Step-budget training
 # ---------------------------------------------------------------------------
 def train_steps(arch: str, max_steps: int = 20000, seed: int = 42,
-                eval_interval: int = 500, quiet: bool = False):
-    """Train for exactly max_steps steps (not time-based)."""
+                eval_interval: int = 500, quiet: bool = False, tag: str = ""):
+    """Train for exactly max_steps steps (not time-based).
+
+    `tag` suffixes both output paths. Without it a rerun overwrites
+    validation_results/{arch}_s{seed}.json, and those files are the arm-A and
+    arm-B references that every paired comparison in this repo loads -- exp7
+    reads them for its cached arms. Silently replacing them with a fresh run
+    would shift the baseline of every published result, since MPS run-to-run
+    variance is ~0.055 bpb. Re-measurement runs must pass a tag.
+    """
     arch_cfg = get_arch_cfg(arch)
     torch.manual_seed(seed)
 
@@ -225,7 +233,8 @@ def train_steps(arch: str, max_steps: int = 20000, seed: int = 42,
     # Save detailed curve
     out_dir = Path("validation_results")
     out_dir.mkdir(exist_ok=True)
-    curve_path = out_dir / f"{arch}_s{seed}.json"
+    suffix = f"_{tag}" if tag else ""
+    curve_path = out_dir / f"{arch}_s{seed}{suffix}.json"
     with open(curve_path, "w") as f:
         json.dump({"summary": summary, "curve": results}, f, indent=2)
     print(f"Saved: {curve_path}")
@@ -233,11 +242,13 @@ def train_steps(arch: str, max_steps: int = 20000, seed: int = 42,
     # Save model checkpoint
     ckpt_dir = Path("checkpoints")
     ckpt_dir.mkdir(exist_ok=True)
-    ckpt_path = ckpt_dir / f"model_{arch}_{seed}.pt"
+    ckpt_path = ckpt_dir / f"model_{arch}_{seed}{suffix}.pt"
     torch.save({
         "model_state_dict": model.state_dict(),
         "arch": arch,
+        "arch_cfg": dict(arch_cfg),
         "seed": seed,
+        "tag": tag,
         "max_steps": max_steps,
         "val_bpb": final_vbpb,
         "total_time_s": round(total_time, 1),
@@ -313,10 +324,11 @@ def throughput_audit():
 # ---------------------------------------------------------------------------
 # Phase V2: Tier 1 convergence runs
 # ---------------------------------------------------------------------------
-def run_tier1(max_steps=20000):
-    """Run all Tier 1 experiments: 4 configs x 5 seeds."""
-    configs = ["baseline", "window_power_4.0", "window_quadratic", "window_quad_induction"]
-    seeds = [42, 137, 256, 789, 1337]
+def run_tier1(max_steps=20000, tag: str = "", configs=None, seeds=None):
+    """Run all Tier 1 experiments: 4 configs x 5 seeds by default."""
+    configs = configs or ["baseline", "window_power_4.0", "window_quadratic",
+                          "window_quad_induction"]
+    seeds = seeds or [42, 137, 256, 789, 1337]
 
     print(f"=== Phase V2 Tier 1: Convergence Runs ({max_steps} steps) ===")
     print(f"Configs: {configs}")
@@ -328,7 +340,8 @@ def run_tier1(max_steps=20000):
             print(f"\n{'='*60}")
             print(f"  {arch} seed={seed}")
             print(f"{'='*60}")
-            train_steps(arch=arch, max_steps=max_steps, seed=seed, quiet=False)
+            train_steps(arch=arch, max_steps=max_steps, seed=seed, quiet=False,
+                        tag=tag)
 
 
 # ---------------------------------------------------------------------------
@@ -343,15 +356,29 @@ def main():
     parser.add_argument("--throughput", action="store_true", help="Phase V1: throughput audit")
     parser.add_argument("--tier1", action="store_true", help="Phase V2 Tier 1: all convergence runs")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--tag", type=str, default="",
+                        help="Suffix for output paths. REQUIRED for any "
+                             "re-measurement run: without it this overwrites "
+                             "validation_results/{arch}_s{seed}.json, which are "
+                             "the arm-A/arm-B references every paired "
+                             "comparison in this repo loads")
+    parser.add_argument("--configs", type=str, default=None,
+                        help="Comma-separated arch list for --tier1")
+    parser.add_argument("--seed-list", type=str, default=None,
+                        help="Comma-separated seeds for --tier1")
     args = parser.parse_args()
 
     if args.throughput:
         throughput_audit()
     elif args.tier1:
-        run_tier1(max_steps=args.steps)
+        run_tier1(max_steps=args.steps, tag=args.tag,
+                  configs=args.configs.split(",") if args.configs else None,
+                  seeds=[int(x) for x in args.seed_list.split(",")]
+                        if args.seed_list else None)
     else:
         train_steps(arch=args.arch, max_steps=args.steps, seed=args.seed,
-                    eval_interval=args.eval_interval, quiet=args.quiet)
+                    eval_interval=args.eval_interval, quiet=args.quiet,
+                    tag=args.tag)
 
 
 if __name__ == "__main__":
