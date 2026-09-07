@@ -43,7 +43,7 @@ Arm **F** drops the windows at once at step 10K; arm **R** widens them to full l
 
 **What this supports:** F beats A on **all five** seeds (permutation test at its floor, p = 0.031; paired-t 0.0064; dz 2.34). The benefit of the locality constraint *survives its removal* — the windows are not doing ongoing work in the second half of training. Arm R, releasing the constraint gradually instead, is indistinguishable from F and also beats A on all five (+1.48%, p = 0.031). **How** the constraint is released doesn't matter for quality; **that** it is released is the claim. All criteria were fixed before the runs.
 
-**What this does NOT support:** that removal is *better* than keeping the windows. Only 2/5 seeds favour it, the mean is −0.05%, and dz ≈ 0. This isn't a near miss — the difference is an order of magnitude below the 0.0023 bpb residual noise on this comparison. **More seeds won't fix it; a lower-variance endpoint measurement would** (see [pre-registered experiment 4](#pre-registered-experiments)). An earlier draft, working from the 2 seeds that completed in an earlier 3-seed run, read F's `+1.50%` against B's `+1.33%` as evidence that windows eventually become a ceiling. Those two seeds disagreed in sign; the reading did not survive replication.
+**What this does NOT support:** that removal is *better* than keeping the windows. Only 2/5 seeds favour it, the mean is −0.05%, and dz ≈ 0. This isn't a near miss — the difference is an order of magnitude below the 0.0023 bpb residual noise on this comparison. **More seeds won't fix it; a lower-variance endpoint measurement would** (see [pre-registered experiment 4](#pre-registered-experiments)). ✅ **That measurement has since been made, and it settles this**: under the fixed harness the comparison is adequately powered and the difference is +0.031%, with any effect ≥0.0014 bpb ruled out. Not "too noisy to tell" — there is nothing there. An earlier draft, working from the 2 seeds that completed in an earlier 3-seed run, read F's `+1.50%` against B's `+1.33%` as evidence that windows eventually become a ceiling. Those two seeds disagreed in sign; the reading did not survive replication.
 
 Reproduce: `uv run python analyze_exp7.py`
 
@@ -366,13 +366,13 @@ Larger batches look better only because they saw 4× more data. At equal token b
 | The benefit has a floor (a minimum duration) | x=50 is −0.17%, 3/5 — fails; x=100 is +1.07%, 5/5 | **settled** — floor between 50 and 100 |
 | Applying it too briefly is *harmful*, not just useless | x=50 worse than baseline on 2/5 seeds (−1.34%, −1.42%) | suggestive — n=5, sign-split |
 | Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
-| Releasing *beats* retaining | 2/5, p=0.625 — below the noise floor | **not resolvable** without exp. 4 |
+| Releasing *beats* retaining | fixed harness, adequately powered: 3/5, p=0.61, +0.031% | **excluded** — an effect ≥0.0014 would have shown |
 | Ramping lowers the divergence rate | 0 in 50 ramped vs 1 in 8 hard-switch; Fisher p=0.138 | **untested** — one event can't carry it |
 | Any of this holds above 3.4M | none — no release arm has run at 125M (10 files at 125M, all baseline or windows-throughout) | **untested** ⚠️ |
 | The *family* (transient early attention shaping) holds above 3.4M | external: 270M and 0.7B, 3 seeds, different mechanism, effect shrinks with scale | outside evidence, not ours |
 | Windows help at 125M (windows-throughout only) | 5 seeds, 4/5, p=0.063, unconverged | suggestive |
 
-Six of the eight pre-registered experiments below are complete (1, 2, 2b, 3, 3b, 3c); 4 and 5 have not started. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance. 3c adds a fourth outcome recorded against interest: its x=50 arm **failed its primary criterion** (3/5), and the reframe that had been pre-committed to a pass there did not fire.
+Seven of the eight pre-registered experiments below are complete (1, 2, 2b, 3, 3b, 3c, 4); only 5, the converged 125M run, has not started — it needs GPUs this project does not have. In all three that had a secondary criterion, the secondary criterion **failed** — releasing-beats-retaining (p=0.771), ramping-beats-switching (p=0.154), and an-optimal-release-point (p=0.084). All three are recorded as failed rather than rounded down to significance. 3c adds a fourth outcome recorded against interest: its x=50 arm **failed its primary criterion** (3/5), and the reframe that had been pre-committed to a pass there did not fire.
 
 ## Pre-registered experiments
 
@@ -414,9 +414,34 @@ Criteria stated in advance so outcomes can't be re-framed after the fact — inc
 - **Unexpected, and not pre-registered:** at x=50 two of five seeds finish *worse than baseline* (−1.34%, −1.42%). Reported as suggestive only — it is a post-hoc observation on a sign-split arm, and the sweep tested three release points, so no multiple-comparisons-safe claim is made from it.
 - Divergences: **0 in 15**.
 
-**4. Fixed evaluation set — 🟡 HARNESS DONE, re-measurement blocked.** *Prerequisite for resolving #1's secondary claim.*
+**4. Fixed evaluation set — ✅ DONE.** *Prerequisite for resolving #1's secondary claim — and it resolved it.*
 
-*Status:* `fixed_eval_batches()` and `evaluate_val_bpb(..., fixed=True)` are implemented and tested in `prepare.py`. **The acceptance criterion is met** — one frozen checkpoint evaluated 12× gives sd **exactly 0.000000** (1 distinct value in 12), against sd 0.0104 / range 0.032 for the resampling harness on the same checkpoint. All 63 saved checkpoints have been re-measured under it into `gradient_results/fixed_eval_remeasure.json` (8.4 min, no failures). **No number in this README has moved**, and none can until the A/B arms are retrained (see below) — new-harness and old-harness values must never be mixed in one comparison. Reproduce: `uv run python remeasure_fixed.py`.
+*Status:* `fixed_eval_batches()` and `evaluate_val_bpb(..., fixed=True)` are implemented and tested in `prepare.py`. **The acceptance criterion is met** — one frozen checkpoint evaluated 12× gives sd **exactly 0.000000** (1 distinct value in 12), against sd 0.0104 / range 0.032 for the resampling harness on the same checkpoint. All 63 saved checkpoints have been re-measured under it into `gradient_results/fixed_eval_remeasure.json` (8.4 min, no failures). The A/B arms were then retrained at 20K under tag `fixedeval` (10 runs, ~12 h) because no saved checkpoint was a 20K A or B run, and **every arm is now scored under one harness**. Reproduce: `uv run python remeasure_fixed.py`.
+
+### The matched comparison
+
+```
+seed      A: full   B: quartic    R: ramp    F: switch
+42       0.896829    0.886277   0.884287    no ckpt
+137      0.890918    0.881080   0.881935    0.882156
+256      0.893546    0.881770   0.881658    0.881942
+789      0.903246    0.883737   0.883091    0.883383
+1337     0.890574    0.881191   0.881702    0.881849
+
+mean     0.895023    0.882811   0.882534
+
+A-B  windows help              5/5, perm 0.031, t_p 0.0028, dz 2.92, +1.36%
+A-R  release preserves it      5/5, perm 0.031, t_p 0.0037, dz 2.72, +1.40%
+B-R  release BEATS retaining   3/5, perm 0.344, t_p 0.6096, dz 0.25, +0.031%
+A-F  (hard switch, n=4)        4/4, perm 0.062, t_p 0.0187, dz 2.33
+B-F  (hard switch, n=4)        1/4, perm 0.875, t_p 0.2981, dz -0.63
+```
+
+No old-harness value appears in that table, and none is pooled with one.
+
+**Both primary claims survive the harness change** at full strength. **And the open question is now answered rather than unresolved.** This experiment pre-registered that reaching p<0.05 at n=5 required the paired residual below **0.0012**; it is **0.001118**, so the comparison is adequately powered for the first time. At that precision the minimum detectable effect is **0.00139**, and this experiment hypothesised the true effect at **~0.0015** — an effect that size would have been detected. None was: the observed difference is **+0.00028**, five times smaller. So *"removal costs nothing"* is confirmed and *"removal helps"* is **excluded**, not merely unmeasured.
+
+⚠️ **Two limits on that.** The hard-switch arm F is **n=4** — seed 42's checkpoint predates [`5ebf2f4`](#pre-registered-experiments) — where the permutation floor is 0.062 and p<0.05 is unreachable by construction, so experiment 1's criterion *as literally written* (on B−F) still cannot be met; the n=5 ramp arm carries the conclusion. And the retrained A/B are new runs, not reproductions: they replicate the original result independently (5/5, perm 0.031, mean +0.0130 against the canonical +0.0136 on the old harness) but they are not the same runs.
 
 *One thing it already settles.* The [floor result](#the-floor-a-minimum-duration-exists) is arm-vs-arm, so it needs no baseline and can be re-tested entirely inside the new harness. It replicates, with the same 5/5 signs and a tighter measurement:
 
@@ -461,7 +486,7 @@ A, B           none of the 20K runs                         retrain all 10 arms
 
 ⚠️ **The A/B side is worse off than this section used to claim.** `validate.py` does save checkpoints, but **none of the five that exist are the 20K runs** the paired comparisons use: seed 42's are the 100K run (0.807 / 0.799), seeds 137 and 256 are other runs (~0.965–0.975), against 20K arms of 0.904 / 0.893. So it is not "7 arms to retrain" — it is **all 10**, roughly 12 h MPS. Until they exist, no paired comparison can move to the new harness, because a matched re-measurement needs every arm measured together.
 
-*Criteria:* re-evaluating one frozen checkpoint 12× must give **sd exactly 0.0** (bit-identical), not merely small — that is the whole point. Report the new baseline mean (expect within ~0.01 bpb of the old; sanity check, not a claim) and the new paired residual sd for A-B and A-F (expect A-F to fall from 0.0023 toward the A-B value).
+*Criteria (met):* re-evaluating one frozen checkpoint 12× must give **sd exactly 0.0** (bit-identical), not merely small — that is the whole point. Report the new baseline mean (expect within ~0.01 bpb of the old; sanity check, not a claim) and the new paired residual sd for A-B and A-F (expect A-F to fall from 0.0023 toward the A-B value).
 
 *What it unlocks, and what it says about #1:* with residual sd 0.0023 and the observed F-vs-B effect (~0.0015), n=5 gives P(5/5 positive) ≈ 22% and expected paired-t p ≈ 0.22 — so **experiment #1 is unlikely to resolve F vs B**, and that is expected, not a failure. Reaching p<0.05 at n=5 needs the residual below ~0.0012, which removing the eval component plausibly achieves. `F vs A` and `A vs B` are already far outside the noise and do not depend on this.
 

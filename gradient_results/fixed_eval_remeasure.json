@@ -546,12 +546,30 @@
       "old_harness_bpb": 0.9017,
       "old_harness_source": "exp7_curriculum_sw50_floor50.json"
     },
+    "model_baseline_1337_fixedeval.pt": {
+      "fixed_bpb": 0.8905744120038408,
+      "arch": "baseline",
+      "seed": 1337,
+      "switch_step": null,
+      "total_steps": 20000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
     "model_baseline_137.pt": {
       "fixed_bpb": 0.9724410929711687,
       "arch": "baseline",
       "seed": 137,
       "switch_step": null,
       "total_steps": 16578,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_baseline_137_fixedeval.pt": {
+      "fixed_bpb": 0.890917786115204,
+      "arch": "baseline",
+      "seed": 137,
+      "switch_step": null,
+      "total_steps": 20000,
       "old_harness_bpb": null,
       "old_harness_source": null
     },
@@ -564,12 +582,48 @@
       "old_harness_bpb": null,
       "old_harness_source": null
     },
+    "model_baseline_256_fixedeval.pt": {
+      "fixed_bpb": 0.8935463158782201,
+      "arch": "baseline",
+      "seed": 256,
+      "switch_step": null,
+      "total_steps": 20000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
     "model_baseline_42.pt": {
       "fixed_bpb": 0.8070631160345048,
       "arch": "baseline",
       "seed": 42,
       "switch_step": null,
       "total_steps": 100000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_baseline_42_fixedeval.pt": {
+      "fixed_bpb": 0.8968285053424667,
+      "arch": "baseline",
+      "seed": 42,
+      "switch_step": null,
+      "total_steps": 20000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_baseline_789_fixedeval.pt": {
+      "fixed_bpb": 0.9032463993917021,
+      "arch": "baseline",
+      "seed": 789,
+      "switch_step": null,
+      "total_steps": 20000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_window_power_4.0_1337_fixedeval.pt": {
+      "fixed_bpb": 0.8811907389467414,
+      "arch": "window_power_4.0",
+      "seed": 1337,
+      "switch_step": null,
+      "total_steps": 20000,
       "old_harness_bpb": null,
       "old_harness_source": null
     },
@@ -582,12 +636,48 @@
       "old_harness_bpb": null,
       "old_harness_source": null
     },
+    "model_window_power_4.0_137_fixedeval.pt": {
+      "fixed_bpb": 0.8810803139923573,
+      "arch": "window_power_4.0",
+      "seed": 137,
+      "switch_step": null,
+      "total_steps": 20000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_window_power_4.0_256_fixedeval.pt": {
+      "fixed_bpb": 0.8817702324734019,
+      "arch": "window_power_4.0",
+      "seed": 256,
+      "switch_step": null,
+      "total_steps": 20000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
     "model_window_power_4.0_42.pt": {
       "fixed_bpb": 0.8033753756920536,
       "arch": "window_power_4.0",
       "seed": 42,
       "switch_step": null,
       "total_steps": 100000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_window_power_4.0_42_fixedeval.pt": {
+      "fixed_bpb": 0.8862768766055267,
+      "arch": "window_power_4.0",
+      "seed": 42,
+      "switch_step": null,
+      "total_steps": 20000,
+      "old_harness_bpb": null,
+      "old_harness_source": null
+    },
+    "model_window_power_4.0_789_fixedeval.pt": {
+      "fixed_bpb": 0.8837369985245725,
+      "arch": "window_power_4.0",
+      "seed": 789,
+      "switch_step": null,
+      "total_steps": 20000,
       "old_harness_bpb": null,
       "old_harness_source": null
     }

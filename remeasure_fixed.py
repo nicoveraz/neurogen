@@ -96,11 +96,10 @@ def main():
         print(f"  [{i}/{len(paths)}] {name:<46} fixed={bpb:.6f}  ({time.time()-t:.0f}s)")
         del m
 
-    # Which arms a matched comparison still needs.
-    missing = []
-    for arch in ("baseline", "window_power_4.0"):
-        for s in SEEDS:
-            missing.append(f"{arch}_s{s}")
+    # Which arms a matched comparison still needs, checked rather than assumed.
+    missing = [f"{arch}_s{s}"
+               for arch in ("baseline", "window_power_4.0") for s in SEEDS
+               if f"model_{arch}_{s}_fixedeval.pt" not in rows]
     json.dump({
         "harness": {
             "fixed_eval_tokens": FIXED_EVAL_TOKENS, "batches": n_batches,
@@ -112,17 +111,17 @@ def main():
                     "old_harness_bpb is present for identification only."),
         "matched_comparison_blocked_by": {
             "arms": missing,
-            "reason": ("No saved checkpoint is the 20K A or B run. The five that "
-                       "exist are different runs: seed 42's are the 100K run "
-                       "(0.807/0.799), seeds 137/256 are ~0.965-0.975, while the "
-                       "20K arms are 0.904/0.893. All 10 A/B arms must be "
-                       "retrained (~12 h MPS) before any paired comparison can "
-                       "move to this harness."),
+            "reason": ("Arms still missing a checkpoint under this harness. The "
+                       "A/B arms were retrained under tag 'fixedeval' because no "
+                       "saved checkpoint was a 20K A or B run; empty means every "
+                       "arm can now be compared under one harness."
+                       if missing else "nothing - every A/B arm is present"),
         },
         "runs": rows,
     }, open(OUT, "w"), indent=2)
     print(f"\n{len(rows)} checkpoints in {(time.time()-t0)/60:.1f} min -> {OUT}")
-    print("A matched comparison is still blocked: no 20K A/B checkpoint exists.")
+    print("Matched comparison blocked by: " + (", ".join(missing) if missing
+          else "nothing - every A/B arm is present"))
 
 
 if __name__ == "__main__":
