@@ -69,7 +69,9 @@ def test_window_ramp_endpoints():
     """The ramp starts at quartic and ends at full attention."""
     T, L = 256, 4
     quartic = em._quartic_windows(n_layer=L, seq_len=T)
-    ramp = lambda frac: [int(round(w + frac * (T - w))) for w in quartic]
+    def ramp(frac):
+        return [int(round(w + frac * (T - w))) for w in quartic]
+
     assert ramp(0.0) == quartic
     assert ramp(1.0) == [T] * L
     mid = ramp(0.5)

@@ -33,3 +33,10 @@ __pycache__/
 # Env
 .env
 .venv/
+
+# Generated analysis artifacts (regenerate with the analyze_* scripts)
+figures/
+ANALYSIS_REPORT.md
+
+# Local prompt/scratch notes
+Claude outputs/

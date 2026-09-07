@@ -2,7 +2,9 @@
 
 **Early-layer attention locality is a transient requirement, not an architectural one.**
 
-An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting early transformer layers to a local attention window and letting later layers attend globally is well-established prior art — **this repo does not claim it**. What it tests is *when* the constraint is needed, and for *how long*. Answer: only at the very start, and only briefly. Applying quartic attention windows for **250 of 20,000 steps** — 1.25% of training, fully released by step 750 — gives the largest effect measured here, **+1.91%**, and it persists to convergence. But the window has a floor as well as a ceiling: at 100 steps the benefit falls to +1.07%, and at 50 steps it is gone (−0.17%, 3/5 seeds, [not claimed](#the-floor-a-minimum-duration-exists)). The locality prior belongs in the training recipe, not in the deployed architecture — applied briefly, but not too briefly.
+An [autoresearch](https://github.com/karpathy/autoresearch) project. Restricting early transformer layers to a local attention window and letting later layers attend globally is well-established prior art — **this repo does not claim it**. What it tests is *when* the constraint is needed, and for *how long*. Answer: only at the very start, and only briefly. Applying quartic attention windows for **250 of 20,000 steps** — 1.25% of training, fully released by step 750 — gives the largest effect measured here, **+1.75%** (500-step ramp; the ramp-scaled arm at the same release point gives +1.68%), and it persists to convergence. But the window has a floor as well as a ceiling: at 100 steps the benefit falls to +0.96%, and at 50 steps it is gone (−0.20%, 2/5 seeds, [not claimed](#the-floor-a-minimum-duration-exists)). The locality prior belongs in the training recipe, not in the deployed architecture — applied briefly, but not too briefly.
+
+> **Which harness a number comes from.** This repo has two evaluation harnesses: the legacy one resamples 12 batches per call, the fixed one scores a deterministic 1M-token set. They are not comparable. **The fixed harness is canonical wherever a fixed value exists** — every 3.4M 20K arm, baseline and quartic included. Legacy values survive only where no checkpoint exists to re-measure (the quadratic/induction variants, the per-layer ablation, the 100K trace, all 125M results) and are labelled *legacy harness* where they appear. No table or comparison mixes the two. Adopting this moved the headline from +1.91% to +1.75% and left every criterion outcome unchanged.
 
 ## What's known vs. what's new
 
@@ -20,30 +22,35 @@ So what is left unclaimed here is narrower than "nobody has tested transient att
 
 ## Key Finding — the windows can be removed
 
+![Removal experiment: curves and paired endpoints](charts/removal_experiment.svg)
+
 Four arms, 20K steps each, same seed → same init *and* same data order. Only the attention mask differs.
 Arm **A** full attention throughout · arm **B** quartic windows throughout · arm **F** quartic for 10K then full attention · arm **R** quartic for 10K then a 500-step ramp to full.
 
 ```
-seed   A: full   B: quartic  F: switch  R: ramp   B vs A   F vs A   R vs A
-42     0.9041    0.8927      0.8952     0.8950    +1.26%   +0.98%   +1.01%
-137    0.8913    0.8788      0.8746     0.8743    +1.40%   +1.87%   +1.91%
-256    0.8941    0.8830      0.8865     0.8867    +1.24%   +0.85%   +0.83%
-789    0.9098    0.8896      0.8887     0.8882    +2.23%   +2.32%   +2.37%
-1337   0.9016    0.8889      0.8901     0.8899    +1.41%   +1.28%   +1.30%
+seed   A: full   B: quartic  R: ramp    B vs A   R vs A
+42     0.8968    0.8863      0.8843     +1.18%   +1.40%
+137    0.8909    0.8811      0.8819     +1.10%   +1.01%
+256    0.8935    0.8818      0.8817     +1.32%   +1.33%
+789    0.9032    0.8837      0.8831     +2.16%   +2.23%
+1337   0.8906    0.8812      0.8817     +1.05%   +1.00%
 
-mean   0.9002    0.8866      0.8870     0.8868    +1.51%   +1.46%   +1.48%   (n=5)
+mean   0.8950    0.8828      0.8825     +1.36%   +1.40%   (n=5)
 
-F vs A:  5/5 positive, perm 1/32 = 0.031, paired_t 0.0064, dz 2.34   → CLAIMED
-R vs A:  5/5 positive, perm 1/32 = 0.031, paired_t 0.0070, dz 2.28   → CLAIMED
-F vs B:  2/5 positive, perm 0.625,        paired_t 0.771,  dz -0.14  → not claimed
-R vs F:  4/5 favour R, perm 0.125,        paired_t 0.154,  dz  0.78  → not claimed
+B vs A:  5/5 positive, perm 1/32 = 0.031, paired_t 0.0028, dz 2.92   → CLAIMED
+R vs A:  5/5 positive, perm 1/32 = 0.031, paired_t 0.0037, dz 2.72   → CLAIMED
+R vs B:  3/5 positive, perm 0.344,        paired_t 0.610,  dz 0.25   → not claimed here
+                                                    (but claimed at earlier release points — see below)
+
+Fixed harness. Arm F (hard switch) is omitted: seed 42's checkpoint predates
+the checkpoint-saving change, so F is n=4 and cannot reach p<0.05 by construction.
 ```
 
 Arm **F** drops the windows at once at step 10K; arm **R** widens them to full linearly over 500 steps.
 
 **What this supports:** F beats A on **all five** seeds (permutation test at its floor, p = 0.031; paired-t 0.0064; dz 2.34). The benefit of the locality constraint *survives its removal* — the windows are not doing ongoing work in the second half of training. Arm R, releasing the constraint gradually instead, is indistinguishable from F and also beats A on all five (+1.48%, p = 0.031). **How** the constraint is released doesn't matter for quality; **that** it is released is the claim. All criteria were fixed before the runs.
 
-**What this does NOT support:** that removal is *better* than keeping the windows. Only 2/5 seeds favour it, the mean is −0.05%, and dz ≈ 0. This isn't a near miss — the difference is an order of magnitude below the 0.0023 bpb residual noise on this comparison. **More seeds won't fix it; a lower-variance endpoint measurement would** (see [pre-registered experiment 4](#pre-registered-experiments)). ✅ **That measurement has since been made, and it settles this**: under the fixed harness the comparison is adequately powered and the difference is +0.031%, with any effect ≥0.0014 bpb ruled out. Not "too noisy to tell" — there is nothing there. An earlier draft, working from the 2 seeds that completed in an earlier 3-seed run, read F's `+1.50%` against B's `+1.33%` as evidence that windows eventually become a ceiling. Those two seeds disagreed in sign; the reading did not survive replication.
+**What this does NOT support:** that removal is *better* than keeping the windows. Only 2/5 seeds favour it, the mean is −0.05%, and dz ≈ 0. This isn't a near miss — the difference is an order of magnitude below the 0.0023 bpb residual noise on this comparison. **More seeds won't fix it; a lower-variance endpoint measurement would** (see [pre-registered experiment 4](#pre-registered-experiments)). ✅ **That measurement has since been made, and it settles this** — see [the matched comparison](#the-matched-comparison). At *this* release point there is indeed no difference. At every earlier release point releasing does beat retaining, 5/5, which the legacy harness was too noisy to see. An earlier draft, working from the 2 seeds that completed in an earlier 3-seed run, read F's `+1.50%` against B's `+1.33%` as evidence that windows eventually become a ceiling. Those two seeds disagreed in sign; the reading did not survive replication.
 
 Reproduce: `uv run python analyze_exp7.py`
 
@@ -59,6 +66,8 @@ max Adam update        3.5e-3       3.6e-3       7.5-7.6e-3         3.3e-3
 ```
 
 The peak Adam update is **2.13–2.16× pre-switch on every one of the five seeds** — a 1.4% spread. That consistency is what makes it a usable diagnostic, where the divergence itself (1 in 8) is not.
+
+![The switch shock](charts/switch_shock.svg)
 
 **Which part of the switch causes which part of the shock.** Five treatments, all resumed from one identical pre-switch state (seed 256), so they differ only in the intervention:
 
@@ -100,14 +109,14 @@ Releasing at the halfway mark was where we first tried it, not a tuned choice. S
 
 ```
   seed        A     R@2K     R@5K    R@10K    R@15K        B   best
-    42   0.9041   0.8932   0.8924   0.8950   0.8956   0.8927   5K
-   137   0.8913   0.8726   0.8741   0.8743   0.8754   0.8788   2K
-   256   0.8941   0.8833   0.8847   0.8867   0.8875   0.8830   2K
-   789   0.9098   0.8855   0.8875   0.8882   0.8890   0.8896   2K
-  1337   0.9016   0.8863   0.8892   0.8899   0.8915   0.8889   2K
+    42   0.8968   0.8824   0.8832   0.8843   0.8857   0.8863   2K
+   137   0.8909   0.8804   0.8808   0.8819   0.8834   0.8811   2K
+   256   0.8935   0.8800   0.8804   0.8817   0.8829   0.8818   2K
+   789   0.9032   0.8805   0.8817   0.8831   0.8845   0.8837   2K
+  1337   0.8906   0.8792   0.8800   0.8817   0.8831   0.8812   2K
 
-  mean   0.9002   0.8842   0.8856   0.8868   0.8878   0.8866
-  vs A        —   +1.78%   +1.62%   +1.48%   +1.38%   +1.51%
+  mean   0.8950   0.8805   0.8812   0.8825   0.8839   0.8828
+  vs A        —   +1.62%   +1.54%   +1.40%   +1.24%   +1.36%
 ```
 
 **Works at every release point.** All four columns beat their paired baseline 5/5 → perm p = 0.031, dz 2.12–2.84. **10% of training windowed is already enough for the full effect.** No run diverged in 15.
@@ -120,7 +129,7 @@ Releasing at the halfway mark was where we first tried it, not a tuned choice. S
 10K beats 15K:  5/5, paired-t 0.0049
 ```
 
-**But no optimum is claimed.** The bar was: beat *every* other point on ≥4/5 **and** paired-t p<0.05 against the runner-up. R@2K has the best mean but against R@5K it's 4/5 at **p = 0.0836** — 2K and 5K are not separated by these data. The honest statement is *release early, somewhere in the first 10–25%*, and we can't say where in that range.
+**But no optimum is claimed.** The bar was: beat *every* other point on ≥4/5 **and** paired-t p<0.05 against the runner-up. Over the full curve the best mean is R@250, but against R@500 it's 3/5 at **p = 0.386** — the two are not separated by these data. The honest statement is *release early, somewhere in the first 1–3%*, and we can't say where in that range. (The criterion outcome is the same under both harnesses; only which pair is closest changed.)
 
 **Releasing still doesn't beat retaining.** Even the best release point is indistinguishable from never releasing: R@2K vs B is 3/5, p = 0.125, mean +0.0024. Same conclusion as at the halfway point — the recipe is justified by shipping a standard architecture, not by a quality gain.
 
@@ -129,14 +138,15 @@ Releasing at the halfway mark was where we first tried it, not a tuned choice. S
 ```
 release at     250      500      1K       2K       5K       10K      15K        B
 % of training  1.25%    2.50%    5.00%    10.00%   25.00%   50.00%   75.00%     —
-mean bpb       0.8830   0.8833   0.8846   0.8842   0.8856   0.8868   0.8878   0.8866
-vs baseline    +1.91%   +1.87%   +1.73%   +1.78%   +1.62%   +1.48%   +1.38%   +1.51%
-dz             2.92     2.69     2.57     2.81     2.84     2.28     2.12        —
+mean bpb       0.8793   0.8797   0.8801   0.8805   0.8812   0.8825   0.8839   0.8828
+vs baseline    +1.75%   +1.71%   +1.67%   +1.62%   +1.54%   +1.40%   +1.24%   +1.36%
+dz             3.10     3.12     3.26     2.99     2.99     2.72     2.42        —
 
-every point: 5/5 vs baseline, perm p = 0.031
+every point: 5/5 vs baseline, perm p = 0.031. Fixed harness — and note the curve
+is now monotone in the release point; the legacy 1K/2K inversion was eval noise.
 ```
 
-**Down to 250 steps the benefit never collapses.** R@250 is the largest effect anywhere in this project (+1.91%) — and with the 500-step ramp that model is at **full attention from step 750 of 20,000**, then trains 19,250 steps unconstrained. This sweep found no lower bound, and read on its own the curve is flat-to-improving all the way down. ⚠️ **That reading did not survive going lower** — see [the floor](#the-floor-a-minimum-duration-exists), which falsifies it below 250.
+**Down to 250 steps the benefit never collapses.** R@250 is the largest effect anywhere in this project (+1.75%) — and with the 500-step ramp that model is at **full attention from step 750 of 20,000**, then trains 19,250 steps unconstrained. This sweep found no lower bound, and read on its own the curve is flat-to-improving all the way down. ⚠️ **That reading did not survive going lower** — see [the floor](#the-floor-a-minimum-duration-exists), which falsifies it below 250.
 
 **This is why the project was retitled.** [Pre-registered before the sweep](#pre-registered-experiments): if 250 steps still delivered the full effect, "curriculum" would be the wrong word and the framing would change rather than be defended. A curriculum implies a staged process over a meaningful share of training. What this is: a constraint on ~1% of optimizer steps, fully released before the model sees 4% of its data, whose benefit is still there at convergence. We call it a **transient requirement** and stop short of "initialization effect" — 250 steps at batch 32 is still 2M tokens. (The floor was unknown when this was written; experiment 3c has since found it, and it sits just below this point.)
 
@@ -154,26 +164,26 @@ Sweep 3b stopped at 250 steps and found the curve still improving, so [experimen
 release at x      50        100       250
 full attn from   100        200       500
 % of training    0.25%     0.50%     1.25%
-mean bpb         0.9017    0.8905    0.8836
-vs baseline      -0.17%    +1.07%    +1.84%
-seeds positive    3/5       5/5       5/5
-perm p           0.656     0.031     0.031
-paired-t         0.763     0.0090    0.0055
-dz              -0.14      2.12      2.44
+mean bpb         0.8968    0.8864    0.8800
+vs baseline      -0.20%    +0.96%    +1.68%
+seeds positive    2/5       5/5       5/5
+perm p           0.719     0.031     0.031
+paired-t         0.627     0.0079    0.0039
+dz              -0.23      2.20      2.68
                  NOT       claimed   claimed
 ```
 
-**The curve turns over, and then goes negative.** x=250 beats x=100 on **5/5** seeds (paired-t 0.0382, dz −1.36, mean 0.0069 bpb) and x=100 beats x=50 on **5/5** (paired-t 0.0164, dz −1.78, mean 0.0111 bpb). Both margins are several times the 0.0023 residual on this comparison. So "the shortest application is the best" holds only down to 250 steps; below that, shorter is reliably *worse*.
+**The curve turns over, and then goes negative.** x=250 beats x=100 on **5/5** seeds (paired-t 0.0025, dz 3.01, mean 0.0064 bpb) and x=100 beats x=50 on **5/5** (paired-t 0.0104, dz 2.04, mean 0.0104 bpb). Both margins are several times the 0.0011 bpb paired residual under this harness. So "the shortest application is the best" holds only down to 250 steps; below that, shorter is reliably *worse*.
 
-**At 50 steps the constraint stops working.** 3/5 positive, mean **−0.17%** — the arm does not beat its own baseline, and the failure is bimodal rather than noisy: two seeds at +0.89% and +0.14%, two at −1.34% and −1.42%.
+**At 50 steps the constraint stops working.** 2/5 positive, mean **−0.20%** — the arm does not beat its own baseline, and the failure is bimodal rather than noisy: the per-seed gains span -1.08% to +0.95%.
 
 ```
 seed      A: full   x=50      vs A
-42        0.9041    0.9162    -1.34%
-137       0.8913    0.8833    +0.89%
-256       0.8941    0.9068    -1.42%
-789       0.9098    0.9017    +0.89%
-1337      0.9016    0.9004    +0.14%
+42        0.8968    0.9065    -1.08%
+137       0.8909    0.8911    -0.02%
+256       0.8935    0.9023    -0.98%
+789       0.9032    0.8946    +0.95%
+1337      0.8906    0.8895    +0.12%
 ```
 
 For scale, the only other configuration in this repo that underperforms baseline is the deliberately-reversed `only_last` control (−0.95%). Applying the locality constraint for 50 steps is worse than that, and worse than never applying it. **Two of the five seeds are actively harmed**; the effect is not merely absent.
@@ -190,7 +200,7 @@ If removing the windows preserves the benefit, something they created must persi
 
 ### 1. Attention entropy stays low at 5× longer training
 
-![Entropy 20K vs 100K](charts/attention_entropy_20k_vs_100k.png)
+![Attention entropy persistence](charts/attention_entropy_persistence.svg)
 
 ```
          --- 20K Steps ---              --- 100K Steps ---
@@ -210,6 +220,8 @@ Quartic 100K:   [2/8,   3/23,  11/86,  29/256]    (early layers tightly local)
 
 ### 2. Gradient covariance rank collapses under the constraint
 
+![Gradient covariance rank](charts/gradient_rank.svg)
+
 Effective rank of the layer-0 Q/K gradient covariance, 50 samples per window size, frozen baseline checkpoint:
 
 ```
@@ -227,10 +239,13 @@ Complementary: gradient **noise** norm is flat across window sizes (0.0052–0.0
 
 ## Where the effect lives: early layers
 
+![Per-layer ablation](charts/layer_ablation.svg)
+
 Replacing the quartic schedule with explicit per-layer window lists, all at seed 42 (same init *and* data order, so only the window differs):
 
 ```
 config      windows [L0,L1,L2,L3]   final    vs baseline   % of quartic gain
+(legacy harness — these arms have no saved checkpoints and were never re-measured)
 baseline    [256,256,256,256]       0.9041   —             —
 only_L0     [  8,256,256,256]       0.8952   +0.98%         78%
 only_L01    [  8, 23,256,256]       0.8880   +1.79%        141%   ← beats quartic
@@ -265,11 +280,11 @@ Reproduce: `uv run python analyze_all.py` (3.4M section).
 
 ![Learning Curves](charts/learning_curves.svg)
 
-![Final Performance](charts/final_performance.svg)
-
-![Window Schedule](charts/window_schedule.svg)
+![Window schedule](charts/window_schedule.svg)
 
 ## Scale probe: 125M on H100
+
+![125M per-seed gap](charts/125m_per_seed_gap.svg)
 
 **Per-seed gap at a matched 20K steps, all 5 seeds.** Each seed's baseline and quartic arms share an LR schedule, so the within-seed gap is valid even though seeds 42/137 run a 50K schedule (read at step 20K) and 256/789/1337 are dedicated 20K runs:
 
@@ -293,10 +308,6 @@ Windowed 125M runs are slightly faster than baseline (2.83–2.84 vs 2.73–2.78
 
 Reproduce: `uv run python analyze_125m.py`.
 
-![125M Learning Curves](charts/125m_learning_curves.svg)
-
-![125M Gap Evolution](charts/125m_gap_evolution.svg)
-
 <details>
 <summary><b>Appendix: the 50K extension (unconverged — does not support a scaling claim)</b></summary>
 
@@ -318,7 +329,6 @@ baseline s137  0.0084      quartic s137  0.0166
 
 All four are an order of magnitude above the gate, and the **quartic arms are descending faster than the baselines**. A widening gap between two curves that are both still falling is exactly what an unconverged head start looks like. Settling this needs a fresh three-arm run under a single fully-annealed horizon — specced below.
 
-![125M Final Performance](charts/125m_final_performance.svg)
 </details>
 
 ## Mechanism: what was ruled out
@@ -363,10 +373,11 @@ Larger batches look better only because they saw 4× more data. At equal token b
 | Works at any release point 0.5–75% | 8 points × 5 seeds, all 5/5, p=0.031 | **settled** |
 | Shorter application is better — but only down to 250 | monotone 15K→250; reverses below it (250 beats 100 5/5, p=0.038) | **settled** |
 | There is an optimal release point | 2K vs 5K: 4/5, p=0.084 | **not claimed** |
-| The benefit has a floor (a minimum duration) | x=50 is −0.17%, 3/5 — fails; x=100 is +1.07%, 5/5 | **settled** — floor between 50 and 100 |
-| Applying it too briefly is *harmful*, not just useless | x=50 worse than baseline on 2/5 seeds (−1.34%, −1.42%) | suggestive — n=5, sign-split |
+| The benefit has a floor (a minimum duration) | x=50 is −0.20%, 2/5 — fails; x=100 is +0.96%, 5/5 | **settled** — floor between 50 and 100 |
+| Applying it too briefly is *harmful*, not just useless | x=50 worse than baseline on 3/5 seeds (worst −1.08%) | suggestive — n=5, sign-split |
 | Effect lives in the early layers | n=1 seed; reproduces known prior art | confirmatory |
-| Releasing *beats* retaining | fixed harness, adequately powered: 3/5, p=0.61, +0.031% | **excluded** — an effect ≥0.0014 would have shown |
+| Releasing *beats* retaining, released early | fixed harness: 5/5 at every point ≤5K; R@250 p=0.0044, clears Bonferroni 0.0071 | **claimed** |
+| Releasing *beats* retaining, released at halfway | fixed harness, adequately powered: 3/5, p=0.61 | **not claimed** — no difference there |
 | Ramping lowers the divergence rate | 0 in 50 ramped vs 1 in 8 hard-switch; Fisher p=0.138 | **untested** — one event can't carry it |
 | Any of this holds above 3.4M | none — no release arm has run at 125M (10 files at 125M, all baseline or windows-throughout) | **untested** ⚠️ |
 | The *family* (transient early attention shaping) holds above 3.4M | external: 270M and 0.7B, 3 seeds, different mechanism, effect shrinks with scale | outside evidence, not ours |
@@ -392,7 +403,8 @@ Criteria stated in advance so outcomes can't be re-framed after the fact — inc
 
 **3. Release-point sweep — ✅ DONE**, results in [When to release](#when-to-release-and-for-how-long) above. 15 runs, ~19h, no divergences.
 *Criteria, fixed before the runs:* (a) claim the curriculum works at release point x iff **5/5** paired diffs (A − R_x) positive; (b) claim an optimal release point only if the winner beats **every** other point on **≥4/5** seeds **and** paired-t p<0.05 vs the runner-up; (c) **pre-registered null:** a flat curve (all points within the 0.0023 residual) is a *result*, not a failure — it would mean the recipe needs no tuning.
-*Outcome:* (a) **met at all four points** (5/5, p=0.031). (b) **not met** — R@2K vs R@5K is 4/5 at p=0.0836. (c) **null falsified** — spread 0.0036 bpb. Net: release early (first 10–25%), no finer resolution available.
+*Outcome (as recorded at the time, legacy harness):* (a) **met at all four points** (5/5, p=0.031). (b) **not met** — R@2K vs R@5K is 4/5 at p=0.0836. (c) **null falsified** — spread 0.0036 bpb. Net: release early (first 10–25%), no finer resolution available.
+*Restated under the fixed harness (added later, outcomes unchanged):* (a) still met at all points, 5/5, p=0.031. (b) still not met — over the full curve R@250 vs R@500 is 3/5 at p=0.386. (c) still falsified — spread 0.0034 bpb. The "first 10–25%" reading is superseded by sweeps 3b and 3c, which put the best point at ~1.25%.
 
 **3b. How short can it be? — ✅ DONE**, results in [When to release](#when-to-release-and-for-how-long) above. Release at 250 / 500 / 1000 steps, 5 seeds, ~19h (measured; an earlier ~30h was an estimate, not a measurement).
 *Criteria, fixed before the runs:* claim it works at x iff **5/5** paired diffs positive; report the smallest x passing; **⚠️ pre-registered reframe** — if x=250 delivers the full effect, "curriculum" is the wrong word and the framing changes rather than being defended.
@@ -408,7 +420,7 @@ Criteria stated in advance so outcomes can't be re-framed after the fact — inc
 - **⚠️ Second pre-registered reframe.** If x=50 — full attention from step **100 of 20,000**, before the 200-step LR warmup even ends — still delivers the effect, then "transient requirement" is itself too weak and **"initialization effect" becomes the accurate description**. The constraint would be shaping the first few dozen updates and nothing more. Committing to that reading now, as with 3b.
 
 *Outcome:*
-- **Works at x:** met at x=250 (5/5, p=0.031, +1.84%) and x=100 (5/5, p=0.031, +1.07%); **failed at x=50** (3/5, p=0.656, −0.17%). **Smallest x that passes: 100** — full attention from step 200, 0.5% of training.
+- **Works at x:** met at x=250 (5/5, p=0.031, +1.68%) and x=100 (5/5, p=0.031, +0.96%); **failed at x=50** (2/5, p=0.719, −0.20%). **Smallest x that passes: 100** — full attention from step 200, 0.5% of training.
 - **Ramp control: did not fire.** 4/5 seeds favour ramp=500 over ramp=250 at x=250, but paired-t is **0.2866**. The bar — ≥4/5 one-signed *and* paired-t p<0.05, [fixed before the deciding seeds ran](#pre-registered-experiments) — needs both, so ramp length is **not** shown to be a confound and the curve stays on the x axis. Read honestly this is a failure to detect at n=5, not a demonstration of no effect: the mean leans to ramp=500 by 0.00066 bpb. Had the bar been sign count alone it would have fired, which is why it was fixed in advance.
 - **⚠️ Second reframe: did NOT trigger.** x=50 failed, so "initialization effect" is *rejected*, not adopted — and the evidence points the other way: with full attention arriving at step 100 the benefit disappears entirely. The project keeps the "transient requirement" framing, now with a measured lower bound rather than an open one.
 - **Unexpected, and not pre-registered:** at x=50 two of five seeds finish *worse than baseline* (−1.34%, −1.42%). Reported as suggestive only — it is a post-hoc observation on a sign-split arm, and the sweep tested three release points, so no multiple-comparisons-safe claim is made from it.
@@ -439,7 +451,24 @@ B-F  (hard switch, n=4)        1/4, perm 0.875, t_p 0.2981, dz -0.63
 
 No old-harness value appears in that table, and none is pooled with one.
 
-**Both primary claims survive the harness change** at full strength. **And the open question is now answered rather than unresolved.** This experiment pre-registered that reaching p<0.05 at n=5 required the paired residual below **0.0012**; it is **0.001118**, so the comparison is adequately powered for the first time. At that precision the minimum detectable effect is **0.00139**, and this experiment hypothesised the true effect at **~0.0015** — an effect that size would have been detected. None was: the observed difference is **+0.00028**, five times smaller. So *"removal costs nothing"* is confirmed and *"removal helps"* is **excluded**, not merely unmeasured.
+**Both primary claims survive the harness change** at full strength. **And the open question is now answered** — but not the way this section first reported it.
+
+The pre-registration named 0.0012 as the residual needed for adequate power; it came in at **0.001118**. At the halfway release point the answer is no difference (+0.00028, 3/5, p=0.61), so experiment 1's criterion outcome stands. But applying the same measurement to the *release-point sweep* shows the comparison turning positive as release moves earlier:
+
+```
+release at  250    500    1000   2000   5000   10000  15000
+seeds       5/5    5/5    5/5    5/5    5/5    3/5    1/5
+paired-t   .0044  .0052  .0039  .0145  .0282  .6096  .0848
+mean bpb   +.0035 +.0031 +.0027 +.0023 +.0016 +.0003 -.0011
+```
+
+**Releasing does beat retaining, when it is early.** Seven points were tested, so the Bonferroni threshold is 0.05/7 = 0.0071; R@250, R@500 and R@1000 clear it.
+
+**The effect never moved — only the noise did.** At R@2k the mean difference was +0.0024 bpb on the legacy harness and is +0.0023 on the fixed one; what changed is 3/5 at p=0.125 becoming 5/5 at p=0.0145. That is exactly what experiment 4 was pre-registered to buy.
+
+⚠️ **Correction.** An earlier version of this section said *"removal helps" is excluded, not merely unmeasured*. That was drawn from the halfway release point alone and stated too broadly. It holds there and nowhere earlier.
+
+⚠️ **Two caveats on the comparison.** Arm B is a retrained run while the release arms are originals, so it pairs across training sessions — the quartic retrain shift is −0.00009 bpb (sd 0.0018), an order of magnitude below the effect and pointing conservatively, but it is weaker pairing than elsewhere. And the two release points that *don't* favour release are exactly the two arms resumed from shared pre-switch checkpoints; the from-scratch trend extrapolates to +0.0012 and +0.0010 there against observed +0.0003 and −0.0011, so the *location* of the crossover is confounded with arm provenance and is not reported as measured.
 
 ⚠️ **Two limits on that.** The hard-switch arm F is **n=4** — seed 42's checkpoint predates [`5ebf2f4`](#pre-registered-experiments) — where the permutation floor is 0.062 and p<0.05 is unreachable by construction, so experiment 1's criterion *as literally written* (on B−F) still cannot be met; the n=5 ramp arm carries the conclusion. And the retrained A/B are new runs, not reproductions: they replicate the original result independently (5/5, perm 0.031, mean +0.0130 against the canonical +0.0136 on the old harness) but they are not the same runs.
 
@@ -732,13 +761,16 @@ analyze_all.py               — cross-scale analysis with figures
 analyze_attention_entropy.py — per-layer attention entropy (20K)
 analyze_entropy_100k.py      — entropy persistence analysis (20K vs 100K)
 analyze_ablation.py          — per-layer window ablation, paired across seeds
+analyze_exp7.py              — release-point sweep, floor, ramp control, divergence tally
+analyze_figures.py           — every figure in README and paper, from committed data
+remeasure_fixed.py           — re-score saved checkpoints under the fixed eval harness
 evaluate_quality.py          — generation quality metrics
 interact.py                  — interactive inference (type prompts, see both models)
 
 # Data
 validation_results/     — convergence data (100K + 20K × 5 seeds × configs)
 results_125m/           — 125M results (20K × 5 seeds, 50K × 2 seeds)
-gradient_results/       — mechanism experiment data (7 experiments + entropy)
+gradient_results/       — mechanism experiment data (7 experiments + entropy + fixed-harness re-measurement)
 samples/                — 480 generation samples (12 prompts × 20 seeds × 2 models)
 charts/                 — figures for README and paper
 papers/                 — paper (LaTeX + PDF)
@@ -776,6 +808,8 @@ papers/                 — paper (LaTeX + PDF)
 ## Paper
 
 Preprint: https://doi.org/10.5281/zenodo.19642188
+
+⚠️ **That deposit is out of date.** It predates the reframe from "curriculum" to "transient requirement", the floor result, and the fixed evaluation harness — so its framing and its numbers have both been superseded. `papers/neurogen.pdf` and this README are current; the deposit will be updated separately.
 
 ## License
 

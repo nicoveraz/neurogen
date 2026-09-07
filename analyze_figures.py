@@ -288,9 +288,69 @@ def fig_entropy():
     save(fig, "attention_entropy_persistence")
 
 
+# ------------------------------------------------- 3.4M validation curves
+def fig_curves():
+    """Validation curves for the 20k window variants (legacy harness)."""
+    variants = [("baseline", "baseline", C["A"]),
+                ("window_power_4.0", "quartic ($\\gamma=4$)", C["B"]),
+                ("window_quadratic", "quadratic", C["R"]),
+                ("window_quad_induction", "quadratic + induction", C["accent"])]
+    fig, ax = plt.subplots(figsize=(7.0, 4.0))
+    plotted = 0
+    for arch, lab, col in variants:
+        curves = []
+        for sd in SEEDS:
+            f = VALID / f"{arch}_s{sd}.json"
+            if f.exists():
+                curves.append(json.load(open(f))["curve"])
+        if not curves:
+            continue
+        steps = [pt["step"] for pt in curves[0]]
+        mean = [st.mean(c[i]["val_bpb"] for c in curves) for i in range(len(steps))]
+        for c in curves:
+            ax.plot([pt["step"] for pt in c], [pt["val_bpb"] for pt in c],
+                    color=col, alpha=0.13, lw=0.7)
+        ax.plot(steps, mean, color=col, lw=1.9, label=f"{lab} (n={len(curves)})")
+        plotted += 1
+    if not plotted:
+        print("  curves: no data, skipped"); return
+    ax.set_xlabel("training step"); ax.set_ylabel("validation bpb")
+    ax.set_ylim(0.85, 1.25)
+    ax.set_title("3.4M window variants, 20k steps, five matched seeds\n"
+                 "legacy harness (training-time curves); thin lines are seeds")
+    ax.legend()
+    fig.tight_layout()
+    save(fig, "learning_curves")
+
+
+# --------------------------------------------------------- 100k extension
+def fig_100k():
+    """The single-seed 100k trace (legacy harness)."""
+    pairs = [("baseline", "baseline", C["A"]), ("window_power_4.0", "quartic", C["B"])]
+    fig, ax = plt.subplots(figsize=(7.0, 4.0))
+    got = 0
+    for arch, lab, col in pairs:
+        f = VALID / f"{arch}_s42_100k.json"
+        if not f.exists():
+            f = next(iter(sorted(VALID.glob(f"{arch}_s42*100k*.json"))), None)
+        if not f or not Path(f).exists():
+            continue
+        c = json.load(open(f))["curve"]
+        ax.plot([p["step"] for p in c], [p["val_bpb"] for p in c],
+                color=col, lw=1.6, label=lab)
+        got += 1
+    if got < 2:
+        print("  100k: curve data not committed, skipped"); return
+    ax.set_xlabel("training step"); ax.set_ylabel("validation bpb")
+    ax.set_title("Extended training to 100k steps, seed 42\nlegacy harness, single seed")
+    ax.legend(); fig.tight_layout()
+    save(fig, "100k_training_curve")
+
+
 FIGURES = {"schedule": fig_schedule, "removal": fig_removal, "shock": fig_shock,
            "entropy": fig_entropy, "ablation": fig_ablation,
-           "gradrank": fig_gradrank, "125m": fig_125m}
+           "gradrank": fig_gradrank, "125m": fig_125m,
+           "curves": fig_curves, "100k": fig_100k}
 
 
 def main():
