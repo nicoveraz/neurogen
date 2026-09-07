@@ -494,7 +494,8 @@ def plot_release_curve(out_dir="charts"):
 
     fig.tight_layout()
     d = Path(out_dir); d.mkdir(exist_ok=True)
-    for ext in ("svg", "png"):
+    # PDF as well: \includegraphics cannot take SVG.
+    for ext in ("svg", "png", "pdf"):
         fig.savefig(d / f"release_curve_and_floor.{ext}", dpi=150)
     plt.close(fig)
     print(f"Saved: {out_dir}/release_curve_and_floor.svg/.png")

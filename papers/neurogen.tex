@@ -4,6 +4,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\graphicspath{{../charts/}}
 \usepackage{hyperref}
 \usepackage[margin=1in]{geometry}
 \usepackage{natbib}
@@ -85,9 +86,16 @@ Each layer $l$ (of $L$) has a maximum attention window
     w(l) = \min\!\Big(T,\; b + \Big(\frac{l+1}{L}\Big)^{\!\gamma} (T - b)\Big),
     \label{eq:window}
 \end{equation}
-where $T$ is the sequence length, $b$ is a base floor (8 for the 3.4M model, 16 for 125M), and $\gamma$ is the growth exponent. Position $i$ attends to $[\max(0, i - w(l) + 1),\, i]$. For $\gamma = 4$ at depth 4 this gives windows $[8, 23, 86, 256]$. We searched exponents 0.5--12.0 plus sigmoid, logarithmic, exponential, and Fibonacci schedules; $\gamma \in [3,4]$ performed best at depth 4.
+where $T$ is the sequence length, $b$ is a base floor (8 for the 3.4M model, 16 for 125M), and $\gamma$ is the growth exponent. Position $i$ attends to $[\max(0, i - w(l) + 1),\, i]$. For $\gamma = 4$ at depth 4 this gives windows $[8, 23, 86, 256]$ (Figure~\ref{fig:schedule}). We searched exponents 0.5--12.0 plus sigmoid, logarithmic, exponential, and Fibonacci schedules; $\gamma \in [3,4]$ performed best at depth 4.
 
 For the per-layer ablation we also support explicit window lists (e.g.\ \texttt{list:8,23,256,256}), which bypass Eq.~\ref{eq:window} and take the listed widths verbatim. All callers at both scales share one schedule implementation, so the 3.4M and 125M operators differ only in the base floor $b$ and the mask dtype.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\linewidth]{window_schedule.pdf}
+\caption{The depth-wise window schedule, Eq.~\ref{eq:window} at $\gamma=4$ and depth~4. Each layer attends only to the preceding $w(l)$ tokens; the last layer is unrestricted. A concept figure---no measurements. Reproduce: \texttt{uv run python analyze\_figures.py --only schedule}.}
+\label{fig:schedule}
+\end{figure}
 
 \subsection{Mid-training removal protocol}
 \label{sec:protocol}
@@ -140,7 +148,14 @@ Mean & 0.8950 & 0.8828 & --- & \textbf{0.8825} & $+1.36$\% & --- & $\mathbf{+1.4
 \end{tabular}
 \end{table}
 
-\paragraph{What the data support.} Arm~F beats arm~A on \emph{all five} seeds. The exact one-sided sign-flip permutation test therefore reaches its floor, $p = 1/32 = 0.031$, with paired $t$-test $p = 0.0064$ and $d_z = 2.34$. The benefit of the locality constraint survives its removal: the windows are not doing ongoing work in the second half of training. This is the claim the paper rests on, and the criterion was fixed before the runs (\S\ref{sec:limitations}). Arm~R, which widens the windows gradually instead, is indistinguishable from arm~F and also beats arm~A on all five seeds ($+1.48$\%, $p = 0.031$, paired $t$-test $p = 0.0070$, $d_z = 2.28$). How the constraint is released does not matter for the result; that it is released is what the paper claims.
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{removal_experiment.pdf}
+\caption{\textbf{Left:} validation curves for one seed, all four arms, with the release point marked (legacy harness---these are training-time evaluations). Arms B and R are nearly superimposed after the release. \textbf{Right:} final endpoints for all five seeds under the fixed harness (\S\ref{sec:harness}); the vertical line joins each seed's full-attention baseline to its released arm. Reproduce: \texttt{uv run python analyze\_figures.py --only removal}.}
+\label{fig:removal}
+\end{figure}
+
+\paragraph{What the data support.} Arm~F beats arm~A on \emph{all five} seeds (Figure~\ref{fig:removal}). The exact one-sided sign-flip permutation test therefore reaches its floor, $p = 1/32 = 0.031$, with paired $t$-test $p = 0.0064$ and $d_z = 2.34$. The benefit of the locality constraint survives its removal: the windows are not doing ongoing work in the second half of training. This is the claim the paper rests on, and the criterion was fixed before the runs (\S\ref{sec:limitations}). Arm~R, which widens the windows gradually instead, is indistinguishable from arm~F and also beats arm~A on all five seeds ($+1.48$\%, $p = 0.031$, paired $t$-test $p = 0.0070$, $d_z = 2.28$). How the constraint is released does not matter for the result; that it is released is what the paper claims.
 
 \paragraph{What the data do not support, at this release point.} Whether the released arm is \emph{better} than B is not resolved here. Under the fixed harness the ramp arm gives $3/5$ paired differences favouring release, permutation $p=0.344$, paired-$t$ $p = 0.6096$, $d_z = 0.25$, and a mean of $+0.0003$ bpb; the hard-switch arm, at $n=4$ for want of a seed-42 checkpoint, gives $1/4$ and paired-$t$ $0.2981$. At the halfway release point, releasing and retaining are indistinguishable, and the pre-registered criterion for claiming otherwise (\S\ref{sec:limitations}, item 1) is not met. This is not a statement about release in general: \S\ref{sec:releasepoint} shows the comparison turning decisively positive as the release point moves earlier. An earlier draft of this work reported means of $+1.50$\% for F against $+1.33$\% for B, taken over the two seeds that completed in a three-seed run, and read them as evidence that windows eventually become a ceiling. Those two seeds disagreed in sign, and the reading did not survive replication.
 
@@ -148,7 +163,7 @@ Mean & 0.8950 & 0.8828 & --- & \textbf{0.8825} & $+1.36$\% & --- & $\mathbf{+1.4
 
 \paragraph{The switch is a shock, and the divergence is stochastic.} An earlier three-seed run of this experiment lost one arm-F run to NaN after the switch, at seed 256. It would be natural to read that as a property of that initialization. It is not: in the five-seed replication of Table~\ref{tab:curriculum} the \emph{same} seed completed normally at 0.8865, and no seed diverged. Across both runs the observed rate is one divergence in eight completed hard-switch arm-F runs, attached to no particular seed.
 
-What every run does take is a large transient shock. Per-step instrumentation around the switch (Table~\ref{tab:shock}) shows a pattern almost invariant across seeds: loss jumps ${\approx}3.4\times$, pre-clip gradient norm jumps $16$--$20\times$, and recovery to pre-switch values completes within about 400 steps.
+What every run does take is a large transient shock (Figure~\ref{fig:shock}). Per-step instrumentation around the switch (Table~\ref{tab:shock}) shows a pattern almost invariant across seeds: loss jumps ${\approx}3.4\times$, pre-clip gradient norm jumps $16$--$20\times$, and recovery to pre-switch values completes within about 400 steps.
 
 \begin{table}[H]
 \centering
@@ -166,6 +181,13 @@ Max Adam update & $3.5\times10^{-3}$ & $3.6\times10^{-3}$ & $7.5$--$7.6\times10^
 \end{table}
 
 The peak Adam update is $2.13$--$2.16\times$ its pre-switch value on every one of the five seeds---a spread of 1.4\% across seeds, which is what makes it a usable diagnostic where the divergence itself, at one occurrence in eight runs, is not.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{switch_shock.pdf}
+\caption{Per-step instrumentation around the release, seed~256. The hard switch spikes the loss $3.3\times$ and the pre-clip gradient norm above the clip threshold; the 500-step ramp removes both. The peak Adam update (log scale, right) is barely reduced by the ramp---the ramp fixes the source, not the amplifier. Reproduce: \texttt{uv run python analyze\_figures.py --only shock}.}
+\label{fig:shock}
+\end{figure}
 
 \paragraph{Which part of the switch causes which part of the shock.} We ran four treatments from a single shared pre-switch state at seed 256, so they differ only in the intervention (Table~\ref{tab:shock_treatments}).
 
@@ -234,13 +256,14 @@ vs A & --- & $+1.62$\% & $+1.54$\% & $+1.40$\% & $+1.24$\% & $+1.36$\% & \\
 \paragraph{Releasing \emph{does} beat retaining, but only when it is early.} This reverses what we reported before the fixed harness existed, and the reversal is instructive about why the harness was built. Against arm~B---quartic windows kept for the whole run---the release arms give:
 
 \begin{center}
+\small
 \begin{tabular}{lccccccc}
 \toprule
 Release at & 250 & 500 & 1000 & 2000 & 5000 & 10000 & 15000 \\
 \midrule
 Seeds favouring release & 5/5 & 5/5 & 5/5 & 5/5 & 5/5 & 3/5 & 1/5 \\
-paired-$t$ & 0.0044 & 0.0052 & 0.0039 & 0.0145 & 0.0282 & 0.6096 & 0.0848 \\
-mean (bpb) & $+0.0035$ & $+0.0031$ & $+0.0027$ & $+0.0023$ & $+0.0016$ & $+0.0003$ & $-0.0011$ \\
+paired-$t$ & .0044 & .0052 & .0039 & .0145 & .0282 & .6096 & .0848 \\
+mean (bpb) & $+.0035$ & $+.0031$ & $+.0027$ & $+.0023$ & $+.0016$ & $+.0003$ & $-.0011$ \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -274,6 +297,13 @@ $d_z$ & 3.10 & 3.12 & 3.26 & 2.99 & 2.99 & 2.72 & 2.42 \\
 \paragraph{This is why the paper is titled as it is.} We pre-registered, before running the sweep, that if a release point as early as 250 steps still delivered the full effect then ``curriculum'' would be the wrong word and the framing would have to change rather than be defended. It did, and it has. A curriculum implies a staged learning process occupying a meaningful share of training; what we observe is a constraint applied to roughly one percent of the optimizer steps, fully released before the model has seen 4\% of its data, whose benefit is still present at convergence. We describe it as a \emph{transient requirement}: needed briefly and early, then not at all. We stop short of calling it an initialization effect, because 250 steps at batch 32 is still two million tokens of training. When this was written the floor was unknown and the curve was flat-to-improving to the smallest point tested; \S\ref{sec:floor} reports the search, which found the floor just below this point and settles the question against the initialization reading.
 
 \paragraph{A result we previously declined to claim, and now do.} Under the legacy harness $R@250$ beat never-releasing on 4 of 5 seeds at paired-$t$ $p=0.041$. We declined it then on multiple-comparisons grounds: seven release points were tested, and with seven comparisons the appropriate threshold is nearer $p<0.007$. Under the fixed harness the same comparison is 5/5 at $p=0.0044$, which clears that corrected threshold, as do $R@500$ and $R@1000$. The reason for declining has been removed by a better measurement rather than argued away, and the multiple-comparisons correction is still applied---we report the corrected threshold and which points clear it, not the uncorrected number.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{release_curve_and_floor.pdf}
+\caption{The release curve and its floor, fixed harness (\S\ref{sec:harness}). \textbf{Left:} gain over the paired baseline against release point, log axis, thin lines per seed; the shaded region fails the $5/5$ criterion. \textbf{Right:} the three floor arms per seed, where the sign split at $x=50$ is visible in a way the mean hides. The two series are different experiments---the ramp is fixed at 500 steps in one and scaled to the release point in the other---and are never averaged together. Reproduce: \texttt{uv run python analyze\_exp7.py --plot}.}
+\label{fig:floor}
+\end{figure}
 
 \subsection{The floor: a minimum duration}
 \label{sec:floor}
@@ -341,6 +371,13 @@ Windowing layer~0 alone recovers 78\% of the quartic gain; windowing the first t
 
 \textbf{Caveat.} This is a single seed. The large effects---early-local recovers most of the gain, the reversed control hurts---are robust to the noise floor. The modest margin by which Only~$L_0,L_1$ beats Quartic (0.0047 bpb) is not, and should be replicated before being asserted; \S\ref{sec:limitations} pre-registers the criterion.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.78\linewidth]{layer_ablation.pdf}
+\caption{Per-layer window ablation at seed~42 (legacy harness, \S\ref{sec:harness}). Windowing layer~0 alone recovers most of the gain; windowing the first two layers exceeds the full quartic schedule; the reversed control, local only in the last layer, is worse than no windows at all. Single seed---the large effects are robust to the noise floor, the Only~$L_0,L_1$ margin is not. Reproduce: \texttt{uv run python analyze\_figures.py --only ablation}.}
+\label{fig:ablation}
+\end{figure}
+
 \section{What the constraint leaves behind}
 \label{sec:mechanism}
 
@@ -370,6 +407,13 @@ Layer & Baseline & Quartic & Change & Baseline & Quartic & Change \\
 
 At 100k steps the quartic model still shows 52\% lower entropy at layer~0 and 35\% lower at layer~1; the gap narrows only slightly from 20k. The final layer consistently shows \emph{higher} entropy, using its full span to integrate globally over the local features built below. Effective attention spans at 100k confirm the locality is learned rather than merely masked: quartic layer~0 attends to ${\sim}2$ of its 8 permitted tokens, while baseline layer~0 attends to ${\sim}8$ of 256. The structure is a property of the weights, not of the mask---which is what \S\ref{sec:removal} predicts.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.72\linewidth]{attention_entropy_persistence.pdf}
+\caption{Mean attention entropy per layer at 20k and 100k steps. The early-layer reduction the constraint induces is still present after $5\times$ more training, which is what the removal result predicts: the specialization is a property of the weights, not of the mask. Reproduce: \texttt{uv run python analyze\_figures.py --only entropy}.}
+\label{fig:entropy}
+\end{figure}
+
 \subsection{Gradient covariance rank: the constraint makes early updates coherent}
 
 On a frozen baseline checkpoint we collected 50 gradient samples for the layer-0 Q/K weights at five window sizes and computed the SVD of the gradient matrix (Table~\ref{tab:coupling}).
@@ -394,6 +438,13 @@ Window & Effective rank & Var.\ top-1 & Var.\ top-5 \\
 Effective rank drops from 48.6 at full attention to 17.2 at window~8---a $2.8\times$ reduction---and 96.7\% of gradient variance concentrates in the top singular component versus 6.1\% at window~256. Under the constraint, each gradient step updates a coherent low-dimensional subspace rather than a diffuse high-dimensional one. This is a plausible route by which an early constraint fixes a hierarchy that then persists, though we have not shown the causal link directly.
 
 A complementary measurement points the same way. On a frozen trained checkpoint, gradient noise norm is approximately constant across window sizes (0.0052--0.0058), while signal norm rises $18\times$ from window~256 (0.0017) to window~8 (0.0323). Windows increase gradient \emph{coherence}; they do not reduce noise.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.66\linewidth]{gradient_rank.pdf}
+\caption{Effective rank of the layer-0 Q/K gradient covariance against window size, with the share of variance in the top component. Under a tight window each step updates a coherent low-dimensional subspace. Frozen baseline checkpoint, 50 gradient samples; this measures gradients, not val\_bpb, so it is harness-independent. Reproduce: \texttt{uv run python analyze\_figures.py --only gradrank}.}
+\label{fig:gradrank}
+\end{figure}
 
 \subsection{Hypotheses eliminated, and one that is not}
 
@@ -451,6 +502,13 @@ Four of five seeds are positive; seed 256 is negative. The exact one-sided sign-
 \paragraph{Convergence.} Neither 50k-step arm is converged. Over the final 10k steps the baselines are still descending at 0.0098 (seed 42) and 0.0084 (seed 137) bpb per 1k steps, and the quartic arms are descending \emph{faster} still (0.0208 and 0.0166). A larger gap at 50k is therefore what an unconverged pair of curves produces regardless of whether the asymptotic gap is larger, so we do not read the 50k numbers as a scaling result. They are reported in Appendix~\ref{app:125m50k} with that label. Determining whether the gap is real requires a single fully-annealed horizon; the protocol is in \S\ref{sec:limitations}.
 
 \paragraph{Throughput.} Windowed 125M runs are slightly faster than baseline (2.83--2.84 vs 2.73--2.78 steps/sec), because FlashAttention's sliding window computes fewer attention scores. Under this recipe the advantage applies only to the brief windowed phase, and inference runs at standard full-attention cost.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.66\linewidth]{125m_per_seed_gap.pdf}
+\caption{Per-seed quartic gain over baseline at 125M, read at a matched 20k steps (legacy harness---no 125M checkpoint has been re-measured, \S\ref{sec:harness}). Four of five seeds positive, one negative, neither arm converged. Reproduce: \texttt{uv run python analyze\_figures.py --only 125m}.}
+\label{fig:125m}
+\end{figure}
 
 \section{Limitations and pre-registered experiments}
 \label{sec:limitations}
